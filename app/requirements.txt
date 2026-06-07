@@ -1,0 +1,12 @@
+spaces
+gradio
+transformers==5.6.1
+accelerate
+albumentations
+timm
+open_clip_torch
+einops
+beautifulsoup4
+lxml
+pymupdf
+pillow
