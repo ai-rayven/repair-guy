@@ -1,97 +1,71 @@
-"""Client for a MiniCPM-V OpenAI-compatible vision endpoint: answers a question
-grounded in the retrieved repair-manual pages."""
+"""MiniCPM-V on ZeroGPU: answers a question grounded in the retrieved
+repair-manual pages.
+
+The model and tokenizer are module-level globals: ZeroGPU packs module-level
+CUDA tensors at startup and shares them with the GPU worker, whereas function
+arguments are pickled — and trust_remote_code model classes are not picklable.
+"""
 
 from __future__ import annotations
 
-import base64
-import io
-import json
-import os
-import time
-import urllib.error
-import urllib.request
-
+import spaces
+import torch
 from PIL import Image
+from transformers import AutoModel, AutoTokenizer
 
-BASE_URL = os.environ.get("MINICPM_BASE_URL", "http://35.203.155.71:8003").rstrip("/")
-MODEL = os.environ.get("MINICPM_MODEL", "MiniCPM-V-4.6")
-API_KEY = os.environ.get("MINICPM_API_KEY", "")
-MAX_EDGE = 1024  # downscale images; endpoint max_model_len is only 8192 and load-sensitive
-RETRIES = 3
+from core.constants import ANSWER_GPU_DURATION, ANSWER_MAX_NEW_TOKENS, MINICPM_MODEL_ID
 
 PROMPT = (
     "You are a repair-manual assistant. The images are the manual pages most "
     "relevant to the user's question, each preceded by its label (manual name "
     "and page number).\n\n"
-    "Answer the question using ONLY these pages. Quote exact values (torques, "
-    "clearances, part numbers, capacities) as printed, and cite the page label "
-    "for each fact. If the pages do not contain the answer, say so instead of "
-    "guessing.\n\nQuestion: {question}"
+    "Answer the question using ONLY what is printed on these pages, following "
+    "these rules:\n"
+    "1. If the answer is a procedure, reproduce EVERY step in order, numbered "
+    "exactly as in the manual. Never skip, merge, or summarize steps. Keep each "
+    "step's notes, model exceptions, and specifications (e.g. torque values) "
+    "with that step, exactly as printed.\n"
+    "2. Quote exact values (torques, clearances, part numbers, capacities) as "
+    "printed, including units.\n"
+    "3. End with the page label(s) you used, e.g. (Manual — p.238). If a "
+    "procedure clearly continues on a page you were not given, say so.\n"
+    "4. If the pages do not contain the answer, say so instead of guessing.\n"
+    "5. Start directly with the answer — no preamble like 'Based on the "
+    "provided pages'.\n\n"
+    "Question: {question}"
 )
+
+_MODEL = (
+    AutoModel.from_pretrained(
+        MINICPM_MODEL_ID,
+        trust_remote_code=True,
+        dtype=torch.bfloat16,
+        attn_implementation="sdpa",
+    )
+    .to("cuda")
+    .eval()
+)
+_TOKENIZER = AutoTokenizer.from_pretrained(MINICPM_MODEL_ID, trust_remote_code=True)
+
+
+@spaces.GPU(duration=ANSWER_GPU_DURATION)
+def _answer_on_gpu(question: str, pages: list[tuple[str, Image.Image]]) -> str:
+    content = []
+    for label, img in pages:  # chat() accepts interleaved strings and PIL images
+        content.append(f"[{label}]")
+        content.append(img.convert("RGB"))
+    content.append(PROMPT.format(question=question))
+    with torch.no_grad():
+        answer = _MODEL.chat(
+            msgs=[{"role": "user", "content": content}],
+            tokenizer=_TOKENIZER,
+            enable_thinking=False,
+            max_new_tokens=ANSWER_MAX_NEW_TOKENS,
+        )
+    return str(answer).strip()
 
 
 class MiniCPM:
-    def __init__(
-        self,
-        base_url: str = BASE_URL,
-        model: str = MODEL,
-        api_key: str = API_KEY,
-        max_edge: int = MAX_EDGE,
-        retries: int = RETRIES,
-    ):
-        self.base_url = base_url.rstrip("/")
-        self.model = model
-        self.api_key = api_key
-        self.max_edge = max_edge
-        self.retries = retries
-
     def answer(self, question: str, pages: list[tuple[str, Image.Image]]) -> str:
         """pages: [(label, page image)] in retrieval order."""
-        if not self.api_key:
-            raise ValueError(
-                "MINICPM_API_KEY is not set — add it as a secret on the Space."
-            )
-        content = [{"type": "text", "text": PROMPT.format(question=question)}]
-        for label, img in pages:
-            content.append({"type": "text", "text": f"\n[{label}]"})
-            content.append(
-                {"type": "image_url", "image_url": {"url": self._data_uri(img)}}
-            )
-        return self._chat(content, max_tokens=900).strip()
-
-    def _data_uri(self, img: Image.Image) -> str:
-        im = img.convert("RGB")
-        w, h = im.size
-        if max(w, h) > self.max_edge:
-            s = self.max_edge / max(w, h)
-            im = im.resize((int(w * s), int(h * s)))
-        buf = io.BytesIO()
-        im.save(buf, format="JPEG", quality=88)
-        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
-
-    def _chat(self, content: list[dict], max_tokens: int = 512) -> str:
-        body = json.dumps(
-            {
-                "model": self.model,
-                "temperature": 0,
-                "max_tokens": max_tokens,
-                "messages": [{"role": "user", "content": content}],
-            }
-        ).encode()
-        req = urllib.request.Request(
-            f"{self.base_url}/v1/chat/completions",
-            data=body,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-        )
-        last = None
-        for attempt in range(self.retries):
-            try:
-                with urllib.request.urlopen(req, timeout=120) as r:
-                    return json.loads(r.read())["choices"][0]["message"]["content"]
-            except (urllib.error.URLError, TimeoutError, OSError) as ex:
-                last = ex
-                time.sleep(2 * (attempt + 1))  # 2s, 4s backoff between retries
-        raise last
+        return _answer_on_gpu(question, pages)

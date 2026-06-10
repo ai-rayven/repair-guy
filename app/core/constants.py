@@ -25,6 +25,11 @@ SEARCH_GPU_DURATION = 60
 DEFAULT_TOP_K = 3
 MAX_TOP_K = 5
 
+# Answering model (runs locally on ZeroGPU).
+MINICPM_MODEL_ID = os.environ.get("MINICPM_MODEL_ID", "openbmb/MiniCPM-V-4_5")
+ANSWER_GPU_DURATION = 120
+ANSWER_MAX_NEW_TOKENS = 2048
+
 # Embedding store. HF Spaces persistent storage mounts at /data; fall back to a
 # local directory for development.
 STORE_DIR = os.environ.get("STORE_DIR") or (
