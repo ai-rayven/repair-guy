@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+
+# local dev embedding store (on the Space this lives under /data)
+app/library/

@@ -1,12 +1,8 @@
 spaces
 gradio
-transformers==5.6.1
+transformers>=4.57.2,<5
 accelerate
-albumentations
-timm
-open_clip_torch
-einops
-beautifulsoup4
-lxml
+torchvision
 pymupdf
 pillow
+numpy

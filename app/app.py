@@ -1,180 +1,95 @@
-"""Gradio + ZeroGPU Space for NVIDIA Nemotron Parse v1.2.
+"""Gradio + ZeroGPU Space: upload a repair manual, ask questions.
 
-Upload a PDF, pick a page, and get back the parsed markdown, a structured JSON of
-elements, and the page image annotated with bounding boxes.
+Visual RAG with no parsing/chunking: every PDF page is embedded as an image
+with Nemotron ColEmbed v2 (multi-vector, late interaction) when the manual is
+uploaded. A question is answered by embedding the query, running MaxSim over
+the page embeddings streamed from disk, and handing the top pages to MiniCPM-V.
 
-Runs on ZeroGPU: the model is loaded onto cuda at module level (ZeroGPU emulates
-CUDA at startup) and inference runs inside an @spaces.GPU-decorated function.
-
-This file targets the Space (cuda/bfloat16). For local CPU testing use
-parse_page.py in the repo root instead.
+Module layout:
+  models/colembed.py   ColEmbed     — embedding model + GPU embed/search
+  models/minicpm.py    MiniCPM      — remote VLM that answers over page images
+  core/store.py        Store        — on-disk per-page token embeddings
+  core/pdf.py          render_pages — PDF -> RGB page images (CPU)
+  pipelines/ingest.py  IngestPipeline — PDF -> embeddings -> store
+  pipelines/ask.py     AskPipeline    — question -> retrieve -> answer
+  app.py               this file: builds the objects + Gradio UI
 """
 
-import json
-import sys
+import os
 
-import fitz  # pymupdf
 import gradio as gr
-import spaces
-import torch
-from huggingface_hub import snapshot_download
-from PIL import Image, ImageDraw
-from transformers import AutoModel, AutoProcessor, GenerationConfig
 
-MODEL_ID = "nvidia/NVIDIA-Nemotron-Parse-v1.2"
-DEVICE = "cuda"
-DTYPE = torch.bfloat16
-MAX_PROMPT_DURATION = 120  # seconds of GPU time per page
+from core.constants import DEFAULT_TOP_K
+from core.store import Store, slugify
+from models.colembed import ColEmbed
+from models.minicpm import MiniCPM
+from pipelines.ask import AskPipeline
+from pipelines.ingest import IngestPipeline
 
-# ---------------------------------------------------------------------------
-# Load helpers + model once at module level (ZeroGPU loads cuda weights here).
-# ---------------------------------------------------------------------------
-
-
-def load_postprocessing():
-    """Download the repo's .py helpers and import postprocessing.
-
-    postprocessing.py imports sibling modules (latex2html, ...), so we pull all
-    top-level .py files into one dir and put it on sys.path before importing.
-    """
-    repo_dir = snapshot_download(repo_id=MODEL_ID, allow_patterns=["*.py"])
-    if repo_dir not in sys.path:
-        sys.path.insert(0, repo_dir)
-    import postprocessing  # noqa: E402  (resolved via sys.path above)
-
-    return postprocessing
+# Construct once at startup (the model loads onto cuda here, in the main process).
+store = Store()
+embedder = ColEmbed()
+ingest_pipeline = IngestPipeline(embedder, store)
+ask_pipeline = AskPipeline(embedder, store, MiniCPM())
 
 
-pp = load_postprocessing()
-
-# Every load passes trust_remote_code=True so the nested C-RADIO encoder code is
-# accepted non-interactively (no [y/N] prompt to hang the Space build).
-model = (
-    AutoModel.from_pretrained(MODEL_ID, trust_remote_code=True, dtype=DTYPE)
-    .to(DEVICE)
-    .eval()
-)
-processor = AutoProcessor.from_pretrained(MODEL_ID, trust_remote_code=True)
-generation_config = GenerationConfig.from_pretrained(MODEL_ID, trust_remote_code=True)
-
-
-@spaces.GPU(duration=MAX_PROMPT_DURATION)
-def run_model(image: Image.Image, task_prompt: str) -> str:
-    """GPU-only step: preprocess + generate + decode. Returns raw model text."""
-    inputs = processor(
-        images=[image], text=task_prompt, return_tensors="pt", add_special_tokens=False
-    )
-    # Move to GPU; cast float tensors (pixel_values) to the model dtype.
-    inputs = {
-        k: (v.to(DEVICE, DTYPE) if torch.is_floating_point(v) else v.to(DEVICE))
-        for k, v in inputs.items()
-    }
-    with torch.no_grad():
-        outputs = model.generate(**inputs, generation_config=generation_config)
-    return processor.batch_decode(outputs, skip_special_tokens=True)[0]
-
-
-# ---------------------------------------------------------------------------
-# CPU-side orchestration: render page, call GPU, postprocess, annotate.
-# ---------------------------------------------------------------------------
-
-
-def render_page(pdf_path: str, page_num: int, dpi: int) -> Image.Image:
-    doc = fitz.open(pdf_path)
+def index_manual(pdf_file, progress=gr.Progress()):
+    """Runs on upload: embed the manual's pages (or reuse a previous index)."""
+    if not pdf_file:
+        return None, ""
+    name = os.path.splitext(os.path.basename(pdf_file))[0].replace("_", " ")
+    doc_id = slugify(name)
+    if store.exists(doc_id):
+        pages = len(store.meta(doc_id)["pages"])
+        return doc_id, f"**{name}** is already indexed ({pages} pages) — ask away."
     try:
-        if page_num < 1 or page_num > doc.page_count:
-            raise gr.Error(
-                f"Page {page_num} out of range — this PDF has {doc.page_count} pages."
-            )
-        pix = doc.load_page(page_num - 1).get_pixmap(dpi=dpi)
-        return Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-    finally:
-        doc.close()
+        doc = ingest_pipeline.run(
+            pdf_file, name, lambda frac, desc: progress(frac, desc=desc)
+        )
+    except ValueError as e:
+        raise gr.Error(str(e)) from e
+    return doc_id, f"Indexed **{doc['name']}** ({doc['pages']} pages) — ask away."
 
 
-def load_input(file_path: str, page_num: int, dpi: int) -> Image.Image:
-    """Return an RGB image from either a PDF page or an image file."""
-    if file_path.lower().endswith(".pdf"):
-        return render_page(file_path, page_num, dpi)
-    return Image.open(file_path).convert("RGB")
+def answer_question(question, doc_id):
+    if not doc_id:
+        raise gr.Error("Upload a repair manual first.")
+    try:
+        return ask_pipeline.run(question, [doc_id], DEFAULT_TOP_K)
+    except ValueError as e:
+        raise gr.Error(str(e)) from e
 
 
-def parse(input_file, page_num, dpi, text_in_pic, table_format):
-    if input_file is None:
-        raise gr.Error("Please upload a PDF or image first.")
-
-    image = load_input(input_file, int(page_num), int(dpi))
-
-    fourth = "<predict_text_in_pic>" if text_in_pic else "<predict_no_text_in_pic>"
-    task_prompt = f"</s><s><predict_bbox><predict_classes><output_markdown>{fourth}"
-
-    generated_text = run_model(image, task_prompt)
-
-    classes, bboxes, texts = pp.extract_classes_bboxes(generated_text)
-    bboxes = [pp.transform_bbox_to_original(b, image.width, image.height) for b in bboxes]
-    texts = [
-        pp.postprocess_text(t, cls=c, table_format=table_format, text_format="markdown")
-        for t, c in zip(texts, classes)
-    ]
-
-    markdown = "\n\n".join(texts)
-    elements = [
-        {"class": c, "bbox": b, "text": t} for c, b, t in zip(classes, bboxes, texts)
-    ]
-
-    annotated = image.copy()
-    draw = ImageDraw.Draw(annotated)
-    for b in bboxes:
-        draw.rectangle((b[0], b[1], b[2], b[3]), outline="red", width=2)
-
-    return annotated, markdown, json.dumps(elements, indent=2)
-
-
-# ---------------------------------------------------------------------------
-# UI
-# ---------------------------------------------------------------------------
-
-with gr.Blocks(title="Nemotron Parse — Repair Manuals") as demo:
+with gr.Blocks(title="Repair Guy") as demo:
     gr.Markdown(
-        "# 🔧 Nemotron Parse v1.2 — Repair Manual Explorer\n"
-        "Upload a PDF (choose a page) or an image, and parse it with "
-        "[NVIDIA Nemotron Parse v1.2](https://huggingface.co/nvidia/NVIDIA-Nemotron-Parse-v1.2) "
-        "on ZeroGPU. Returns structured markdown, a JSON of elements, and an "
-        "annotated page image."
+        "# 🔧 Repair Guy\n"
+        "Upload a repair manual (PDF) and ask it questions. Pages are embedded "
+        "with [Nemotron ColEmbed v2](https://huggingface.co/nvidia/nemotron-colembed-vl-4b-v2) "
+        "on upload; answers come from MiniCPM-V reading the most relevant pages."
     )
+    doc_state = gr.State(None)
     with gr.Row():
         with gr.Column(scale=1):
             pdf_in = gr.File(
-                label="PDF or image",
-                file_types=[".pdf", ".png", ".jpg", ".jpeg", ".webp"],
-                type="filepath",
+                label="Repair manual (PDF)", file_types=[".pdf"], type="filepath"
             )
-            page_in = gr.Number(
-                label="Page (PDF only)", value=1, precision=0, minimum=1
+            status_out = gr.Markdown()
+            question_in = gr.Textbox(
+                label="Question",
+                lines=2,
+                placeholder="e.g. What is the tightening torque for the universal joint flange bolts?",
             )
-            dpi_in = gr.Slider(
-                label="Render DPI (PDF only)", minimum=72, maximum=300, value=150, step=10
-            )
-            text_in_pic_in = gr.Checkbox(
-                label="Extract text inside pictures/diagrams", value=False
-            )
-            table_format_in = gr.Dropdown(
-                label="Table format",
-                choices=["markdown", "latex", "HTML", "json", "csv"],
-                value="markdown",
-            )
-            run_btn = gr.Button("Parse page", variant="primary")
+            ask_btn = gr.Button("Ask", variant="primary")
         with gr.Column(scale=2):
-            img_out = gr.Image(label="Annotated page", type="pil")
-            with gr.Tab("Rendered markdown"):
-                md_out = gr.Markdown()
-            with gr.Tab("Structured JSON"):
-                json_out = gr.Code(language="json")
+            answer_out = gr.Markdown(label="Answer")
+            pages_out = gr.Gallery(label="Pages used", columns=3, height=420)
 
-    run_btn.click(
-        parse,
-        inputs=[pdf_in, page_in, dpi_in, text_in_pic_in, table_format_in],
-        outputs=[img_out, md_out, json_out],
+    pdf_in.upload(index_manual, inputs=[pdf_in], outputs=[doc_state, status_out])
+    ask_btn.click(
+        answer_question, inputs=[question_in, doc_state], outputs=[answer_out, pages_out]
+    )
+    question_in.submit(
+        answer_question, inputs=[question_in, doc_state], outputs=[answer_out, pages_out]
     )
 
 

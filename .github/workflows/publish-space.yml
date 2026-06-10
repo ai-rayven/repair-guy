@@ -1,0 +1,37 @@
+name: Publish to Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/publish-space.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: publish-space
+  cancel-in-progress: true
+
+env:
+  SPACE_ID: build-small-hackathon/repair-guy
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install huggingface_hub
+        run: pip install --upgrade huggingface_hub
+
+      - name: Mirror app/ to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        # --delete "*" removes Space files that no longer exist in app/,
+        # so the Space is an exact mirror of that folder.
+        run: |
+          hf upload "$SPACE_ID" app . \
+            --repo-type space \
+            --space_sdk gradio \
+            --delete "*" \
+            --commit-message "Sync from GitHub ${GITHUB_SHA::7}"
