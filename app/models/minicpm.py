@@ -1,19 +1,20 @@
-"""MiniCPM-V on ZeroGPU: answers a question grounded in the retrieved
-repair-manual pages.
+"""MiniCPM-V: answers a question grounded in the retrieved repair-manual pages.
 
 The model and tokenizer are module-level globals: ZeroGPU packs module-level
 CUDA tensors at startup and shares them with the GPU worker, whereas function
 arguments are pickled — and trust_remote_code model classes are not picklable.
+
+generate_answer is a plain function: the ask pipeline calls it inside its own
+single @spaces.GPU call, right after retrieval.
 """
 
 from __future__ import annotations
 
-import spaces
 import torch
 from PIL import Image
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoProcessor, AutoTokenizer
 
-from core.constants import ANSWER_GPU_DURATION, ANSWER_MAX_NEW_TOKENS, MINICPM_MODEL_ID
+from core.constants import ANSWER_MAX_NEW_TOKENS, MINICPM_MODEL_ID, MINICPM_REVISION
 
 PROMPT = (
     "You are a repair-manual assistant. The images are the manual pages most "
@@ -38,6 +39,7 @@ PROMPT = (
 _MODEL = (
     AutoModel.from_pretrained(
         MINICPM_MODEL_ID,
+        revision=MINICPM_REVISION,
         trust_remote_code=True,
         dtype=torch.bfloat16,
         attn_implementation="sdpa",
@@ -45,11 +47,19 @@ _MODEL = (
     .to("cuda")
     .eval()
 )
-_TOKENIZER = AutoTokenizer.from_pretrained(MINICPM_MODEL_ID, trust_remote_code=True)
+_TOKENIZER = AutoTokenizer.from_pretrained(
+    MINICPM_MODEL_ID, revision=MINICPM_REVISION, trust_remote_code=True
+)
+# Pre-build the processor chat() would otherwise lazily create per GPU worker
+# (it caches on this exact attribute, see modeling_minicpmv.chat).
+_MODEL.processor = AutoProcessor.from_pretrained(
+    MINICPM_MODEL_ID, revision=MINICPM_REVISION, trust_remote_code=True
+)
 
 
-@spaces.GPU(duration=ANSWER_GPU_DURATION)
-def _answer_on_gpu(question: str, pages: list[tuple[str, Image.Image]]) -> str:
+def generate_answer(question: str, pages: list[tuple[str, Image.Image]]) -> str:
+    """pages: [(label, page image)] in retrieval order. Must run on GPU
+    (called from within a @spaces.GPU context)."""
     content = []
     for label, img in pages:  # chat() accepts interleaved strings and PIL images
         content.append(f"[{label}]")
@@ -63,9 +73,3 @@ def _answer_on_gpu(question: str, pages: list[tuple[str, Image.Image]]) -> str:
             max_new_tokens=ANSWER_MAX_NEW_TOKENS,
         )
     return str(answer).strip()
-
-
-class MiniCPM:
-    def answer(self, question: str, pages: list[tuple[str, Image.Image]]) -> str:
-        """pages: [(label, page image)] in retrieval order."""
-        return _answer_on_gpu(question, pages)

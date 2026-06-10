@@ -1,6 +1,6 @@
 """On-disk store of per-page ColEmbed token embeddings.
 
-Layout: STORE_DIR/<doc_id>/
+Layout: <store root>/<doc_id>/
     doc.pdf          original PDF, kept to re-render retrieved pages at answer time
     embeddings.bin   raw float16 [total_tokens, dim], pages stored back to back
     index.json       manual name, dim, dpi, model id, per-page (offset, count)
@@ -19,8 +19,6 @@ import re
 import shutil
 
 import numpy as np
-
-from core.constants import STORE_DIR
 
 EMB_DTYPE = np.float16
 
@@ -69,7 +67,7 @@ class DocWriter:
 
 
 class Store:
-    def __init__(self, root: str = STORE_DIR):
+    def __init__(self, root: str):
         self.root = os.path.abspath(root)
         os.makedirs(self.root, exist_ok=True)
 

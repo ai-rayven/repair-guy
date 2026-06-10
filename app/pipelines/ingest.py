@@ -1,12 +1,13 @@
 """Ingest pipeline: PDF -> page images -> ColEmbed embeddings -> on-disk store.
 
 Pages are embedded in chunks of EMBED_PAGES_PER_CALL so each ZeroGPU call stays
-short; progress is reported between chunks.
+short; progress events are yielded between chunks so the UI can stream them.
 """
 
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 
 from core.constants import EMBED_PAGES_PER_CALL, RENDER_DPI
 from core.pdf import page_count, render_pages
@@ -19,9 +20,12 @@ class IngestPipeline:
         self.embedder = embedder
         self.store = store
 
-    def run(self, pdf_path: str | None, doc_name: str = "", progress=None) -> dict:
-        """Index one PDF; returns the stored doc's summary. Re-indexing a manual
-        with the same name overwrites it."""
+    def run(
+        self, pdf_path: str | None, doc_name: str = "", max_pages: int | None = None
+    ) -> Iterator[tuple]:
+        """Index one PDF. Generator yielding ("progress", pages_done, total)
+        after each embedded chunk, then ("done", doc summary dict) last.
+        Re-indexing a manual with the same name overwrites it."""
         if not pdf_path:
             raise ValueError("Please upload a PDF first.")
         if not pdf_path.lower().endswith(".pdf"):
@@ -32,6 +36,12 @@ class IngestPipeline:
         )
         doc_id = slugify(name)
         total = page_count(pdf_path)
+        if max_pages and total > max_pages:
+            raise ValueError(
+                f"This PDF has {total} pages — uploads are capped at {max_pages} "
+                "pages to conserve the Space's GPU quota. Large manuals belong "
+                "in the pre-indexed library."
+            )
 
         writer = self.store.create(doc_id, name, pdf_path, RENDER_DPI, self.embedder.MODEL_ID)
         try:
@@ -40,10 +50,9 @@ class IngestPipeline:
                 images = render_pages(pdf_path, nums)
                 for num, emb in zip(nums, self.embedder.embed_pages(images)):
                     writer.add_page(num, emb)
-                if progress:
-                    progress(nums[-1] / total, f"Embedded {nums[-1]}/{total} pages")
+                yield ("progress", nums[-1], total)
             writer.finalize()
         except BaseException:
             writer.abort()
             raise
-        return {"doc_id": doc_id, "name": name, "pages": total}
+        yield ("done", {"doc_id": doc_id, "name": name, "pages": total})

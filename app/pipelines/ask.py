@@ -1,35 +1,51 @@
 """Ask pipeline: question -> MaxSim retrieval over the store -> top-K page
-images -> MiniCPM answer grounded in those pages."""
+images -> MiniCPM answer grounded in those pages.
+
+The whole question runs in ONE @spaces.GPU call (query embedding + MaxSim +
+page rendering + answer generation), so each question pays the ZeroGPU
+allocation wait once. Indexing has its own separate GPU entry point.
+"""
 
 from __future__ import annotations
 
+import spaces
+
+from core.constants import ASK_GPU_DURATION
 from core.pdf import render_page
 from core.store import Store
-from models.colembed import ColEmbed
-from models.minicpm import MiniCPM
+from models.colembed import maxsim_search
+from models.minicpm import generate_answer
+
+
+@spaces.GPU(duration=ASK_GPU_DURATION)
+def _ask_on_gpu(
+    question: str,
+    store: Store,
+    doc_ids: list[str] | None,
+    top_k: int,
+    names: dict[str, str],
+):
+    hits = maxsim_search(question, store, doc_ids, top_k)
+    pages = [
+        (f"{names[doc_id]} — p.{page}", render_page(store.pdf_path(doc_id), page), score)
+        for doc_id, page, score in hits
+    ]
+    answer = generate_answer(question, [(label, img) for label, img, _ in pages])
+    gallery = [(img, f"{label} (score {score:.1f})") for label, img, score in pages]
+    return answer, gallery
 
 
 class AskPipeline:
-    def __init__(self, embedder: ColEmbed, store: Store, llm: MiniCPM):
-        self.embedder = embedder
-        self.store = store
-        self.llm = llm
+    """Stateless: the store is passed per call, so the same pipeline serves
+    both the pre-indexed library and user uploads."""
 
-    def run(self, question: str, doc_ids: list[str] | None, top_k: int):
+    def run(self, store: Store, question: str, doc_ids: list[str] | None, top_k: int):
         """Return (answer markdown, gallery items [(image, caption)])."""
         question = (question or "").strip()
         if not question:
             raise ValueError("Please enter a question.")
-        docs = self.store.list_docs()
+        docs = store.list_docs()
         if not docs:
-            raise ValueError("No manuals indexed yet — add one in the Library tab.")
-
-        hits = self.embedder.search(question, self.store, doc_ids or None, int(top_k))
+            raise ValueError("No manuals indexed yet — upload one first.")
         names = {d["doc_id"]: d["name"] for d in docs}
-        pages = [
-            (f"{names[doc_id]} — p.{page}", render_page(self.store.pdf_path(doc_id), page), score)
-            for doc_id, page, score in hits
-        ]
-        answer = self.llm.answer(question, [(label, img) for label, img, _ in pages])
-        gallery = [(img, f"{label} (score {score:.1f})") for label, img, score in pages]
-        return answer, gallery
+        return _ask_on_gpu(question, store, doc_ids or None, int(top_k), names)

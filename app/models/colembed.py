@@ -1,13 +1,12 @@
 """Nemotron ColEmbed v2: late-interaction page embeddings + MaxSim retrieval.
 
-Two ZeroGPU entry points:
-  _embed_pages_on_gpu   page images -> per-page token embeddings (index time)
-  _search_on_gpu        question -> top-K (doc, page, score) via MaxSim over
-                        batches of page embeddings streamed from the store
-
 The model is a module-level global: ZeroGPU packs module-level CUDA tensors at
 startup and shares them with the GPU worker, whereas function arguments are
 pickled — and the trust_remote_code model class is not picklable.
+
+_embed_pages_on_gpu is a ZeroGPU entry point (used at index time);
+maxsim_search is a plain function so the ask pipeline can run it inside its
+own single GPU call together with answer generation.
 
 forward_images/forward_queries return zero-padded [batch, tokens, dim] tensors
 with real tokens L2-normalized, so padding rows are exactly zero. We strip them
@@ -22,26 +21,32 @@ import numpy as np
 import spaces
 import torch
 from PIL import Image
-from transformers import AutoModel
+from transformers import AutoModel, AutoProcessor
 
 from core.constants import (
     COLEMBED_ATTN,
     COLEMBED_MODEL_ID,
+    COLEMBED_REVISION,
     EMBED_BATCH_SIZE,
     EMBED_GPU_DURATION,
     SCORE_PAGES_PER_BATCH,
-    SEARCH_GPU_DURATION,
 )
 
 _MODEL = (
     AutoModel.from_pretrained(
         COLEMBED_MODEL_ID,
+        revision=COLEMBED_REVISION,
         trust_remote_code=True,
         dtype=torch.bfloat16,
         attn_implementation=COLEMBED_ATTN,
     )
     .to("cuda")
     .eval()
+)
+# Pre-build the processor the remote code would otherwise lazily create per
+# GPU worker (it caches on this exact attribute, see _get_processor).
+_MODEL._processor = AutoProcessor.from_pretrained(
+    COLEMBED_MODEL_ID, revision=COLEMBED_REVISION, trust_remote_code=True
 )
 
 # The remote code's forward_documents hardcodes DataLoader(num_workers=8), but
@@ -72,8 +77,11 @@ def _embed_pages_on_gpu(images: list[Image.Image]) -> list[np.ndarray]:
     return out
 
 
-@spaces.GPU(duration=SEARCH_GPU_DURATION)
-def _search_on_gpu(question: str, store, doc_ids, top_k: int):
+def maxsim_search(
+    question: str, store, doc_ids: list[str] | None, top_k: int
+) -> list[tuple[str, int, float]]:
+    """Top-K (doc_id, page_num, score) across docs. Must run on GPU (called
+    from within a @spaces.GPU context)."""
     results = []
     with torch.no_grad():
         q = _MODEL.forward_queries([question], batch_size=1)[0].to(torch.float16)
@@ -95,9 +103,3 @@ class ColEmbed:
     def embed_pages(self, images: list[Image.Image]) -> list[np.ndarray]:
         """Embed page images -> list of [n_tokens, dim] float16 arrays."""
         return _embed_pages_on_gpu(images)
-
-    def search(
-        self, question: str, store, doc_ids: list[str] | None, top_k: int
-    ) -> list[tuple[str, int, float]]:
-        """Return the top_k (doc_id, page_num, score) across the given docs."""
-        return _search_on_gpu(question, store, doc_ids, top_k)
