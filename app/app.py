@@ -63,6 +63,13 @@ def _choices(store: Store) -> list[tuple[str, str]]:
     return [(d["name"], d["doc_id"]) for d in store.list_docs()]
 
 
+def refresh_library():
+    """Re-pull the library dataset (incremental) and refresh the dropdown,
+    so manuals indexed after the Space booted show up without a restart."""
+    sync_library()
+    return gr.update(choices=_choices(library))
+
+
 def ask_library(question, doc_id):
     if not doc_id:
         raise gr.Error("Pick a manual first.")
@@ -119,6 +126,7 @@ with gr.Blocks(title="Repair Guy") as demo:
         with gr.Row():
             with gr.Column(scale=1):
                 manual_in = gr.Dropdown(label="Manual", choices=[])
+                lib_refresh_btn = gr.Button("🔄 Sync library", size="sm")
                 lib_question_in = gr.Textbox(
                     label="Question",
                     lines=2,
@@ -146,6 +154,7 @@ with gr.Blocks(title="Repair Guy") as demo:
                 up_answer_out = gr.Markdown(label="Answer")
                 up_pages_out = gr.Gallery(label="Pages used", columns=3, height=420)
 
+    lib_refresh_btn.click(refresh_library, outputs=[manual_in])
     lib_ask_btn.click(
         ask_library, inputs=[lib_question_in, manual_in],
         outputs=[lib_answer_out, lib_pages_out],
