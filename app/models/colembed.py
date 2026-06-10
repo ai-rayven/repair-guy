@@ -5,6 +5,10 @@ Two ZeroGPU entry points:
   _search_on_gpu        question -> top-K (doc, page, score) via MaxSim over
                         batches of page embeddings streamed from the store
 
+The model is a module-level global: ZeroGPU packs module-level CUDA tensors at
+startup and shares them with the GPU worker, whereas function arguments are
+pickled — and the trust_remote_code model class is not picklable.
+
 forward_images/forward_queries return zero-padded [batch, tokens, dim] tensors
 with real tokens L2-normalized, so padding rows are exactly zero. We strip them
 before storing and rely on the same property when scoring zero-padded batches.
@@ -27,11 +31,22 @@ from core.constants import (
     SEARCH_GPU_DURATION,
 )
 
+_MODEL = (
+    AutoModel.from_pretrained(
+        COLEMBED_MODEL_ID,
+        trust_remote_code=True,
+        dtype=torch.bfloat16,
+        attn_implementation=COLEMBED_ATTN,
+    )
+    .to("cuda")
+    .eval()
+)
+
 
 @spaces.GPU(duration=EMBED_GPU_DURATION)
-def _embed_pages_on_gpu(model, images: list[Image.Image]) -> list[np.ndarray]:
+def _embed_pages_on_gpu(images: list[Image.Image]) -> list[np.ndarray]:
     with torch.no_grad():
-        embs = model.forward_images(images, batch_size=EMBED_BATCH_SIZE)
+        embs = _MODEL.forward_images(images, batch_size=EMBED_BATCH_SIZE)
     out = []
     for emb in embs:  # [tokens, dim]; zero rows are padding
         mask = emb.abs().sum(dim=-1) > 0
@@ -40,10 +55,10 @@ def _embed_pages_on_gpu(model, images: list[Image.Image]) -> list[np.ndarray]:
 
 
 @spaces.GPU(duration=SEARCH_GPU_DURATION)
-def _search_on_gpu(model, question: str, store, doc_ids, top_k: int):
+def _search_on_gpu(question: str, store, doc_ids, top_k: int):
     results = []
     with torch.no_grad():
-        q = model.forward_queries([question], batch_size=1)[0].to(torch.float16)
+        q = _MODEL.forward_queries([question], batch_size=1)[0].to(torch.float16)
         for refs, batch in store.iter_page_batches(doc_ids, SCORE_PAGES_PER_BATCH):
             emb = torch.from_numpy(batch).to(q.device)  # [B, T, D] float16
             sim = torch.einsum("qd,btd->bqt", q, emb).float()
@@ -59,24 +74,12 @@ def _search_on_gpu(model, question: str, store, doc_ids, top_k: int):
 class ColEmbed:
     MODEL_ID = COLEMBED_MODEL_ID
 
-    def __init__(self, device: str = "cuda", dtype: torch.dtype = torch.bfloat16):
-        self.model = (
-            AutoModel.from_pretrained(
-                self.MODEL_ID,
-                trust_remote_code=True,
-                torch_dtype=dtype,
-                attn_implementation=COLEMBED_ATTN,
-            )
-            .to(device)
-            .eval()
-        )
-
     def embed_pages(self, images: list[Image.Image]) -> list[np.ndarray]:
         """Embed page images -> list of [n_tokens, dim] float16 arrays."""
-        return _embed_pages_on_gpu(self.model, images)
+        return _embed_pages_on_gpu(images)
 
     def search(
         self, question: str, store, doc_ids: list[str] | None, top_k: int
     ) -> list[tuple[str, int, float]]:
         """Return the top_k (doc_id, page_num, score) across the given docs."""
-        return _search_on_gpu(self.model, question, store, doc_ids, top_k)
+        return _search_on_gpu(question, store, doc_ids, top_k)
