@@ -16,6 +16,8 @@ before storing and rely on the same property when scoring zero-padded batches.
 
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 import spaces
 import torch
@@ -41,6 +43,22 @@ _MODEL = (
     .to("cuda")
     .eval()
 )
+
+# The remote code's forward_documents hardcodes DataLoader(num_workers=8), but
+# the ZeroGPU worker is a daemonic process and may not spawn children
+# ("daemonic processes are not allowed to have children"). Patch the DataLoader
+# name in the model's own module to force in-process loading. A subclass (not a
+# wrapper function) because the remote code also uses the name in isinstance().
+_remote_module = sys.modules[type(_MODEL).__module__]
+
+
+class _SingleProcessDataLoader(_remote_module.DataLoader):
+    def __init__(self, *args, **kwargs):
+        kwargs["num_workers"] = 0
+        super().__init__(*args, **kwargs)
+
+
+_remote_module.DataLoader = _SingleProcessDataLoader
 
 
 @spaces.GPU(duration=EMBED_GPU_DURATION)
