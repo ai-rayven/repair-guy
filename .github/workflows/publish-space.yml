@@ -32,6 +32,5 @@ jobs:
         run: |
           hf upload "$SPACE_ID" app . \
             --repo-type space \
-            --space_sdk gradio \
             --delete "*" \
             --commit-message "Sync from GitHub ${GITHUB_SHA::7}"
