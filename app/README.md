@@ -11,6 +11,7 @@ pinned: false
 preload_from_hub:
   - nvidia/nemotron-colembed-vl-4b-v2
   - openbmb/MiniCPM-V-4_5
+  - nvidia/llama-nemotron-embed-vl-1b-v2
 license: mit
 ---
 

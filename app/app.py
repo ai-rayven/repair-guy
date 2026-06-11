@@ -12,7 +12,8 @@ the pre-indexed library and answers questions):
            retrieval is dense cosine over chunks with parent-page lookup.
 
 Both hand the retrieved page images to MiniCPM-V for the grounded answer,
-in one ZeroGPU call per question.
+in one ZeroGPU call per question. The approach is picked per question in
+the UI; each approach has its own store directory and manual list.
 
 Module layout:
   models/colembed.py        ColEmbed       — visual: page embeddings + MaxSim
@@ -21,7 +22,7 @@ Module layout:
   core/visual_store.py      VisualStore    — on-disk per-page token embeddings
   core/parsed_store.py      ParsedStore    — chunks + dense embedding matrix
   pipelines/visual_ask.py   VisualAskPipeline
-  pipelines/parsed_ask.py   ParsedAskPipeline  (not wired into the UI yet)
+  pipelines/parsed_ask.py   ParsedAskPipeline
 """
 
 import os
@@ -37,12 +38,28 @@ from core.constants import (
     PREINDEXED_DIR,
     VISUAL_SUBDIR,
 )
+from core.parsed_store import ParsedStore
 from core.visual_store import VisualStore
+from pipelines.parsed_ask import ParsedAskPipeline
 from pipelines.visual_ask import VisualAskPipeline
 
-# Construct once at startup (the models load onto cuda here, in the main process).
-library = VisualStore(os.path.join(PREINDEXED_DIR, VISUAL_SUBDIR))
-ask_pipeline = VisualAskPipeline()
+# Construct once at startup (the models load onto cuda here, in the main
+# process). Both pipelines expose the same run(store, question, doc_ids, top_k).
+LIBRARIES = {
+    "visual": (
+        VisualStore(os.path.join(PREINDEXED_DIR, VISUAL_SUBDIR)),
+        VisualAskPipeline(),
+    ),
+    "parsed": (
+        ParsedStore(os.path.join(PREINDEXED_DIR, PARSED_SUBDIR)),
+        ParsedAskPipeline(),
+    ),
+}
+
+METHOD_CHOICES = [
+    ("Visual — ColEmbed page embeddings + MaxSim", "visual"),
+    ("Parsed — Nemotron Parse chunks + dense retrieval", "parsed"),
+]
 
 
 def sync_library() -> None:
@@ -70,22 +87,32 @@ def sync_library() -> None:
 sync_library()
 
 
-def _choices(store) -> list[tuple[str, str]]:
-    return [(d["name"], d["doc_id"]) for d in store.list_docs()]
+def _manuals_update(method: str, current: str | None = None):
+    """Dropdown update for the chosen approach's library; keeps the current
+    selection when the same manual is indexed under both approaches."""
+    store, _ = LIBRARIES[method]
+    choices = [(d["name"], d["doc_id"]) for d in store.list_docs()]
+    ids = [doc_id for _, doc_id in choices]
+    return gr.update(choices=choices, value=current if current in ids else None)
 
 
-def refresh_library():
+def switch_method(method, doc_id):
+    return _manuals_update(method, doc_id)
+
+
+def refresh_library(method, doc_id):
     """Re-pull the library dataset (incremental) and refresh the dropdown,
     so manuals indexed after the Space booted show up without a restart."""
     sync_library()
-    return gr.update(choices=_choices(library))
+    return _manuals_update(method, doc_id)
 
 
-def ask_library(question, doc_id):
+def ask_library(question, doc_id, method):
     if not doc_id:
         raise gr.Error("Pick a manual first.")
+    store, pipeline = LIBRARIES[method]
     try:
-        return ask_pipeline.run(library, question, [doc_id], DEFAULT_TOP_K)
+        return pipeline.run(store, question, [doc_id], DEFAULT_TOP_K)
     except ValueError as e:
         raise gr.Error(str(e)) from e
 
@@ -93,13 +120,23 @@ def ask_library(question, doc_id):
 with gr.Blocks(title="Repair Guy") as demo:
     gr.Markdown(
         "# 🔧 Repair Guy\n"
-        "Ask questions over repair manuals. Pages are retrieved visually with "
+        "Ask questions over repair manuals, comparing two local-only retrieval "
+        "approaches over the same library:\n"
+        "- **Visual** — pages retrieved as images with "
         "[Nemotron ColEmbed v2](https://huggingface.co/nvidia/nemotron-colembed-vl-4b-v2) "
-        "(late interaction, no parsing) and answered by MiniCPM-V reading the "
-        "most relevant pages."
+        "(late interaction, no parsing).\n"
+        "- **Parsed** — pages parsed with "
+        "[Nemotron Parse](https://huggingface.co/nvidia/NVIDIA-Nemotron-Parse-v1.2), "
+        "figures/tables described by MiniCPM-V, section chunks retrieved with "
+        "[Llama Nemotron Embed](https://huggingface.co/nvidia/llama-nemotron-embed-vl-1b-v2) "
+        "and mapped back to their pages.\n\n"
+        "Either way, MiniCPM-V reads the retrieved pages and answers."
     )
     with gr.Row():
         with gr.Column(scale=1):
+            method_in = gr.Radio(
+                METHOD_CHOICES, value="visual", label="Retrieval approach"
+            )
             manual_in = gr.Dropdown(label="Manual", choices=[])
             lib_refresh_btn = gr.Button("🔄 Sync library", size="sm")
             lib_question_in = gr.Textbox(
@@ -112,16 +149,19 @@ with gr.Blocks(title="Repair Guy") as demo:
             lib_answer_out = gr.Markdown(label="Answer")
             lib_pages_out = gr.Gallery(label="Pages used", columns=3, height=420)
 
-    lib_refresh_btn.click(refresh_library, outputs=[manual_in])
+    method_in.change(switch_method, inputs=[method_in, manual_in], outputs=[manual_in])
+    lib_refresh_btn.click(
+        refresh_library, inputs=[method_in, manual_in], outputs=[manual_in]
+    )
     lib_ask_btn.click(
-        ask_library, inputs=[lib_question_in, manual_in],
+        ask_library, inputs=[lib_question_in, manual_in, method_in],
         outputs=[lib_answer_out, lib_pages_out],
     )
     lib_question_in.submit(
-        ask_library, inputs=[lib_question_in, manual_in],
+        ask_library, inputs=[lib_question_in, manual_in, method_in],
         outputs=[lib_answer_out, lib_pages_out],
     )
-    demo.load(lambda: gr.update(choices=_choices(library)), outputs=[manual_in])
+    demo.load(switch_method, inputs=[method_in, manual_in], outputs=[manual_in])
 
 
 if __name__ == "__main__":
