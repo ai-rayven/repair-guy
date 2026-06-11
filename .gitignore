@@ -3,3 +3,4 @@ __pycache__/
 
 # local dev embedding store (on the Space this lives under /data)
 app/library/
+app/data/
