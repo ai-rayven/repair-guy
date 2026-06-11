@@ -14,34 +14,46 @@ preload_from_hub:
 license: mit
 ---
 
-# Repair Guy — visual RAG over repair manuals
+# Repair Guy — two local-only RAG approaches over repair manuals
 
-No parsing, no chunking, no figure descriptions: every PDF page is embedded
-as an image with [Nemotron ColEmbed v2](https://huggingface.co/nvidia/nemotron-colembed-vl-4b-v2)
-(multi-vector, late interaction). At question time the query is embedded and
-scored against every page with MaxSim (batched torch matmuls on ZeroGPU,
-pages streamed from disk via numpy memmap), and the top-K page images are
-read by MiniCPM-V 4.5 — also on ZeroGPU — to produce a grounded answer.
-Everything runs inside the Space; no external endpoints.
+Ask questions over repair manuals, answered entirely by models running inside
+the Space (no external endpoints). The project showcases two indexing
+approaches over the same manuals:
 
-## Two tabs
+- **Visual** — no parsing, no chunking: every page is embedded as an image
+  with [Nemotron ColEmbed v2](https://huggingface.co/nvidia/nemotron-colembed-vl-4b-v2)
+  (multi-vector, late interaction). At question time the query is embedded and
+  scored against every page with MaxSim (batched torch matmuls, pages streamed
+  from disk via numpy memmap).
+- **Parsed** — pages are parsed with
+  [Nemotron Parse v1.2](https://huggingface.co/nvidia/NVIDIA-Nemotron-Parse-v1.2),
+  figures and tables are described by MiniCPM-V, and heading-based section
+  chunks (descriptions spliced inline) are embedded with
+  [Llama Nemotron Embed VL 1B v2](https://huggingface.co/nvidia/llama-nemotron-embed-vl-1b-v2).
+  Retrieval is dense cosine over chunks with parent-document lookup back to
+  the pages they came from.
 
-- **Library** — large manuals indexed offline (`scripts/index_modal.py` in the
-  GitHub repo runs it on a Modal GPU; `index_local.py` if you have a CUDA box)
-  and pushed to the
-  [library dataset](https://huggingface.co/datasets/build-small-hackathon/repair-guy-library);
-  the Space syncs it to `/data/preindexed` at startup.
-- **Upload your own** — indexes on the Space's ZeroGPU, capped at
-  `MAX_UPLOAD_PAGES` (default 50) to protect quota.
+Either way, the top page images are read by MiniCPM-V 4.5 to produce a
+grounded answer — one ZeroGPU call per question.
+
+## Indexing (offline only)
+
+All ingestion runs offline on Modal GPUs — `scripts/index_modal.py` in the
+GitHub repo (`--method visual|parsed`) — and is pushed to the
+[library dataset](https://huggingface.co/datasets/build-small-hackathon/repair-guy-library),
+laid out as `<method>/<doc_id>/`. The Space syncs it to `/data/preindexed`
+at startup (and via the 🔄 button). The parsed method runs as two Modal
+functions because Nemotron Parse requires transformers 5.x while the rest of
+the stack is on 4.x.
 
 ## Space setup
 
-- **Persistent storage** must be enabled (the library sync and uploads live
-  under `/data`). Budget roughly 5–12 MB per page of float16 token
-  embeddings; a 1000-page manual is ~6–12 GB — size the tier to the library.
-- Optional env vars: `LIBRARY_DATASET_ID`, `MAX_UPLOAD_PAGES`,
-  `COLEMBED_MODEL_ID` (defaults to the 4B model), `MINICPM_MODEL_ID`
-  (defaults to `openbmb/MiniCPM-V-4_5`), `COLEMBED_ATTN` (defaults to `sdpa`;
-  set `flash_attention_2` if flash-attn is installed).
+- **Persistent storage** must be enabled (the library sync lives under
+  `/data`). The visual index is the big one: roughly 5–12 MB per page of
+  float16 token embeddings (a 1000-page manual is ~6–12 GB); the parsed index
+  is a few MB per manual.
+- Optional env vars: `LIBRARY_DATASET_ID`, `COLEMBED_MODEL_ID`,
+  `MINICPM_MODEL_ID`, `NEMOTRON_EMBED_MODEL_ID`, `COLEMBED_ATTN` (defaults to
+  `sdpa`; set `flash_attention_2` if flash-attn is installed).
 
 Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference

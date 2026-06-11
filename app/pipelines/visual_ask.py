@@ -1,9 +1,9 @@
-"""Ask pipeline: question -> MaxSim retrieval over the store -> top-K page
-images -> MiniCPM answer grounded in those pages.
+"""Visual ask pipeline: question -> MaxSim retrieval over page embeddings ->
+top-K page images -> MiniCPM answer grounded in those pages.
 
 The whole question runs in ONE @spaces.GPU call (query embedding + MaxSim +
 page rendering + answer generation), so each question pays the ZeroGPU
-allocation wait once. Indexing has its own separate GPU entry point.
+allocation wait once.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import spaces
 
 from core.constants import ASK_GPU_DURATION
 from core.pdf import render_page
-from core.store import Store
+from core.visual_store import VisualStore
 from models.colembed import maxsim_search
 from models.minicpm import generate_answer
 
@@ -20,7 +20,7 @@ from models.minicpm import generate_answer
 @spaces.GPU(duration=ASK_GPU_DURATION)
 def _ask_on_gpu(
     question: str,
-    store: Store,
+    store: VisualStore,
     doc_ids: list[str] | None,
     top_k: int,
     names: dict[str, str],
@@ -35,17 +35,16 @@ def _ask_on_gpu(
     return answer, gallery
 
 
-class AskPipeline:
-    """Stateless: the store is passed per call, so the same pipeline serves
-    both the pre-indexed library and user uploads."""
+class VisualAskPipeline:
+    """Stateless: the store is passed per call."""
 
-    def run(self, store: Store, question: str, doc_ids: list[str] | None, top_k: int):
+    def run(self, store: VisualStore, question: str, doc_ids: list[str] | None, top_k: int):
         """Return (answer markdown, gallery items [(image, caption)])."""
         question = (question or "").strip()
         if not question:
             raise ValueError("Please enter a question.")
         docs = store.list_docs()
         if not docs:
-            raise ValueError("No manuals indexed yet — upload one first.")
+            raise ValueError("No manuals in this library yet.")
         names = {d["doc_id"]: d["name"] for d in docs}
         return _ask_on_gpu(question, store, doc_ids or None, int(top_k), names)

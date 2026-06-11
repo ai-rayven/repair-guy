@@ -1,7 +1,7 @@
-"""Ingest pipeline: PDF -> page images -> ColEmbed embeddings -> on-disk store.
+"""Visual ingest pipeline: PDF -> page images -> ColEmbed embeddings -> store.
 
-Pages are embedded in chunks of EMBED_PAGES_PER_CALL so each ZeroGPU call stays
-short; progress events are yielded between chunks so the UI can stream them.
+Pages are embedded in chunks of EMBED_PAGES_PER_CALL so each GPU call stays
+short; progress events are yielded between chunks so callers can stream them.
 """
 
 from __future__ import annotations
@@ -11,12 +11,13 @@ from collections.abc import Iterator
 
 from core.constants import EMBED_PAGES_PER_CALL, RENDER_DPI
 from core.pdf import page_count, render_pages
-from core.store import Store, slugify
+from core.store import slugify
+from core.visual_store import VisualStore
 from models.colembed import ColEmbed
 
 
-class IngestPipeline:
-    def __init__(self, embedder: ColEmbed, store: Store):
+class VisualIngestPipeline:
+    def __init__(self, embedder: ColEmbed, store: VisualStore):
         self.embedder = embedder
         self.store = store
 
@@ -27,7 +28,7 @@ class IngestPipeline:
         after each embedded chunk, then ("done", doc summary dict) last.
         Re-indexing a manual with the same name overwrites it."""
         if not pdf_path:
-            raise ValueError("Please upload a PDF first.")
+            raise ValueError("Please provide a PDF first.")
         if not pdf_path.lower().endswith(".pdf"):
             raise ValueError("Only PDFs can be indexed.")
 
@@ -38,9 +39,7 @@ class IngestPipeline:
         total = page_count(pdf_path)
         if max_pages and total > max_pages:
             raise ValueError(
-                f"This PDF has {total} pages — uploads are capped at {max_pages} "
-                "pages to conserve the Space's GPU quota. Large manuals belong "
-                "in the pre-indexed library."
+                f"This PDF has {total} pages — over the {max_pages}-page cap."
             )
 
         writer = self.store.create(doc_id, name, pdf_path, RENDER_DPI, self.embedder.MODEL_ID)

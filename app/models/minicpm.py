@@ -1,11 +1,17 @@
-"""MiniCPM-V: answers a question grounded in the retrieved repair-manual pages.
+"""MiniCPM-V: the local VLM shared by both approaches.
+
+- generate_answer: answers a question grounded in retrieved page images
+  (visual AND parsed ask pipelines).
+- describe_figure / describe_table: used only by the parsed ingest pipeline
+  (on Modal) to turn Picture crops and Table markdown into searchable text.
 
 The model and tokenizer are module-level globals: ZeroGPU packs module-level
 CUDA tensors at startup and shares them with the GPU worker, whereas function
 arguments are pickled — and trust_remote_code model classes are not picklable.
 
-generate_answer is a plain function: the ask pipeline calls it inside its own
-single @spaces.GPU call, right after retrieval.
+All functions are plain (not @spaces.GPU): callers run them inside their own
+GPU context — the ask pipelines' single @spaces.GPU call on the Space, or a
+real CUDA process on Modal.
 """
 
 from __future__ import annotations
@@ -14,7 +20,12 @@ import torch
 from PIL import Image
 from transformers import AutoModel, AutoProcessor, AutoTokenizer
 
-from core.constants import ANSWER_MAX_NEW_TOKENS, MINICPM_MODEL_ID, MINICPM_REVISION
+from core.constants import (
+    ANSWER_MAX_NEW_TOKENS,
+    DESCRIBE_MAX_NEW_TOKENS,
+    MINICPM_MODEL_ID,
+    MINICPM_REVISION,
+)
 
 PROMPT = (
     "You are a repair-manual assistant. The images are the manual pages most "
@@ -34,6 +45,36 @@ PROMPT = (
     "5. Start directly with the answer — no preamble like 'Based on the "
     "provided pages'.\n\n"
     "Question: {question}"
+)
+
+FIGURE_PROMPT = (
+    "The image is a figure cropped from a page of a repair manual. Context "
+    "from the page it appears on:\n{context}\n\n"
+    "Using the context's terminology, write a search-index description of the "
+    "figure in 1-3 sentences: name the specific component or assembly shown "
+    "(and which models it applies to, if stated), the kind of view or diagram, "
+    "and what the labeled parts or callouts are. Be definite — never write "
+    "'likely', 'possibly' or 'appears to'. Example of the expected style:\n"
+    "'Dimensional reference drawing of the cross-type universal joint used on "
+    "the Pn35-50 and Cu35-55 propeller shafts: two yokes joined by a spider "
+    "and four bearing cups, shown in side and end views with the overall "
+    "length, width, and height dimensions.'\n"
+    "Start directly with the description — no preamble."
+)
+
+TABLE_PROMPT = (
+    "Below is a table extracted from a repair manual as markdown, followed by "
+    "context from the page it appears on.\n\nTable:\n{markdown}\n\n"
+    "Context:\n{context}\n\n"
+    "Using the context's terminology, write a search-index description of the "
+    "table in 1-3 sentences: what the table is for, which components, models "
+    "or operations it covers, and what values it lists (with units). Example "
+    "of the expected style:\n"
+    "'Propeller shaft specifications by forklift model (Pn35-50, Pn60-80, "
+    "Cu35-55, Cu60/70): the universal joint type, the three shaft length "
+    "dimensions in millimeters and inches, and whether the upper and lower "
+    "propeller shaft covers are fitted.'\n"
+    "Start directly with the description — no preamble."
 )
 
 _MODEL = (
@@ -73,3 +114,27 @@ def generate_answer(question: str, pages: list[tuple[str, Image.Image]]) -> str:
             max_new_tokens=ANSWER_MAX_NEW_TOKENS,
         )
     return str(answer).strip()
+
+
+def _chat(content: list) -> str:
+    with torch.no_grad():
+        out = _MODEL.chat(
+            msgs=[{"role": "user", "content": content}],
+            tokenizer=_TOKENIZER,
+            enable_thinking=False,
+            max_new_tokens=DESCRIBE_MAX_NEW_TOKENS,
+        )
+    return str(out).strip()
+
+
+def describe_figure(image: Image.Image, context: str) -> str:
+    """Searchable description of a Picture crop, conditioned on surrounding
+    document context (manual name, section heading, caption, page text) so it
+    uses the manual's own terminology. Parsed ingest only; must run on GPU."""
+    return _chat([image.convert("RGB"), FIGURE_PROMPT.format(context=context)])
+
+
+def describe_table(markdown: str, context: str) -> str:
+    """Searchable description of a parsed table (text-only call), conditioned
+    on surrounding document context. Parsed ingest only; must run on GPU."""
+    return _chat([TABLE_PROMPT.format(markdown=markdown, context=context)])
