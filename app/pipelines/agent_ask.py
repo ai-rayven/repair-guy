@@ -31,6 +31,8 @@ cannot live in history under chat()'s 16384-token input cap).
 
 from __future__ import annotations
 
+import logging
+
 import spaces
 
 from core.constants import (
@@ -41,6 +43,8 @@ from core.constants import (
 )
 from core.pdf import render_page
 from models import minicpm
+
+log = logging.getLogger("repairguy.agent")
 
 GIVE_UP_ANSWER = (
     "I couldn't put together a grounded answer within my tool budget — try "
@@ -77,8 +81,12 @@ def agent_events(
     summarized = False
     if (
         len(history) > HISTORY_KEEP_MESSAGES
-        and minicpm.history_tokens(history) > HISTORY_TOKEN_BUDGET
+        and (tokens := minicpm.history_tokens(history)) > HISTORY_TOKEN_BUDGET
     ):
+        log.info(
+            "history %d msgs / %d tokens over budget %d — summarizing",
+            len(history), tokens, HISTORY_TOKEN_BUDGET,
+        )
         yield {
             "type": "status",
             "kind": "summarizing",
@@ -86,16 +94,26 @@ def agent_events(
         }
         history = minicpm.summarize_history(history)
         summarized = True
+        log.info(
+            "summarized to %d msgs / %d tokens",
+            len(history), minicpm.history_tokens(history),
+        )
 
     msgs = [{"role": m["role"], "content": [m["content"]]} for m in history]
     msgs.append({"role": "user", "content": [question]})
 
     trace: list[str] = []  # text record of tool calls for the durable history
     answer = None
-    for _ in range(AGENT_MAX_STEPS):
+    for step in range(1, AGENT_MAX_STEPS + 1):
         yield {"type": "status", "text": "Thinking…"}
         reply = minicpm.generate_step(msgs, manual)
         call = minicpm.parse_tool_call(reply)
+        log.info(
+            "step %d/%d: %s | reply=%r",
+            step, AGENT_MAX_STEPS,
+            f"tool_call {call['tool']} {call['args']}" if call else "final answer",
+            reply[:200],
+        )
         if call is None:
             answer = reply
             break
@@ -105,6 +123,10 @@ def agent_events(
             query = str(call["args"].get("query") or "").strip() or question
             yield {"type": "tool_call", "tool": "search_docs", "args": {"query": query}}
             refs = search(query, store, doc_ids, top_k)
+            log.info(
+                "search_docs(%r) → %s",
+                query, [(d, p, round(s, 3)) for d, p, s in refs],
+            )
             pages = [
                 (f"{names[doc_id]} — p.{page}", render_page(store.pdf_path(doc_id), page))
                 for doc_id, page, _ in refs
@@ -157,6 +179,10 @@ def agent_events(
             trace.append(f"[displayed page {page} in the viewer]")
 
     if answer is None:  # tool budget exhausted: force a plain answer
+        log.warning(
+            "tool budget exhausted after %d steps — forcing a plain answer",
+            AGENT_MAX_STEPS,
+        )
         yield {"type": "status", "text": "Wrapping up…"}
         msgs.append(
             {
@@ -169,6 +195,7 @@ def agent_events(
         )
         answer = minicpm.generate_step(msgs, manual)
         if minicpm.parse_tool_call(answer) is not None:
+            log.warning("forced answer was still a tool call — using give-up text")
             answer = GIVE_UP_ANSWER
 
     durable = ("\n".join(trace) + "\n\n" if trace else "") + answer

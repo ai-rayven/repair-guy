@@ -42,9 +42,11 @@ Module layout:
 import base64
 import io
 import json
+import logging
 import os
 import shutil
 import time
+import warnings
 
 import gradio as gr
 from fastapi.responses import FileResponse, HTMLResponse, Response
@@ -60,6 +62,19 @@ from core.constants import (
     PREINDEXED_DIR,
     VISUAL_SUBDIR,
 )
+
+# gradio 6.17.3 (pinned — see README frontmatter) still uses starlette's old
+# 422 constant, so every queue join emits a StarletteDeprecationWarning. Not
+# ours to fix; silence it so the Space logs stay readable.
+warnings.filterwarnings(
+    "ignore", message=r"'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated"
+)
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s | %(message)s"
+)
+logging.getLogger("httpx").setLevel(logging.WARNING)  # logs every hub request
+log = logging.getLogger("repairguy")
 
 
 def _build_libraries() -> dict:
@@ -105,8 +120,9 @@ def sync_library() -> None:
         snapshot_download(
             LIBRARY_DATASET_ID, repo_type="dataset", local_dir=PREINDEXED_DIR
         )
+        log.info("library synced from %s", LIBRARY_DATASET_ID)
     except Exception as e:
-        print(f"Library dataset not synced ({LIBRARY_DATASET_ID}): {e}")
+        log.warning("library dataset not synced (%s): %s", LIBRARY_DATASET_ID, e)
         return
     # PREINDEXED_DIR mirrors the dataset (one dir per method); prune top-level
     # leftovers from the pre-method-prefix layout, which snapshot_download
@@ -243,10 +259,13 @@ def api_ask(
         }
         return
     start = time.monotonic()
+    hist = _clean_history(history)
+    log.info(
+        "ask: manual=%s approach=%s k=%s history=%d q=%r",
+        manual, approach, k, len(hist), question[:200],
+    )
     try:
-        events = pipeline.run_agent(
-            store, question, _clean_history(history), [manual], int(k)
-        )
+        events = pipeline.run_agent(store, question, hist, [manual], int(k))
         for ev in events:
             if ev.get("type") == "tool_result" and "gallery" in ev:
                 pages = [p for _, p in ev["page_refs"]]
@@ -260,16 +279,21 @@ def api_ask(
                     ],
                 }
             elif ev.get("type") == "answer":
-                yield {
-                    **ev,
-                    "elapsed": round(time.monotonic() - start, 1),
-                    "approach": approach,
-                    "k": int(k),
-                }
+                elapsed = round(time.monotonic() - start, 1)
+                log.info(
+                    "ask: answered in %.1fs (%d chars, history=%d, summarized=%s)",
+                    elapsed, len(ev.get("answer") or ""),
+                    len(ev.get("history") or []), ev.get("summarized"),
+                )
+                yield {**ev, "elapsed": elapsed, "approach": approach, "k": int(k)}
             else:
                 yield ev
     except ValueError as e:
+        log.warning("ask: rejected — %s", e)
         yield {"type": "error", "error": f"⚠️ {e}"}
+    except Exception as e:
+        log.exception("ask: failed after %.1fs", time.monotonic() - start)
+        yield {"type": "error", "error": f"⚠️ Something went wrong: {e}"}
 
 
 # --- custom FastAPI routes: serve the SPA and the source PDFs ---------------

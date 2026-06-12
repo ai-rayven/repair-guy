@@ -172,8 +172,11 @@
     <!-- RIGHT: PDF + cited pages -->
     <section class="min-h-0 flex flex-col bg-white rounded-2xl shadow-panel ring-1 ring-navy/10 overflow-hidden">
       <div class="flex-1 min-h-0 relative bg-brand-50/40">
-        <template x-if="pdfDocId">
-          <iframe :src="pdfUrl" class="absolute inset-0 w-full h-full"></iframe>
+        <!-- keyed on the full URL: PDF viewers only honor the #page fragment at
+             load time and ignore hash-only src changes, so the iframe must be
+             recreated to jump pages (same-origin reload, served from cache) -->
+        <template x-for="u in (pdfDocId ? [pdfUrl] : [])" :key="u">
+          <iframe :src="u" class="absolute inset-0 w-full h-full"></iframe>
         </template>
         <div x-show="!pdfDocId" class="chat-grid absolute inset-0 grid place-items-center text-center px-8">
           <div>
