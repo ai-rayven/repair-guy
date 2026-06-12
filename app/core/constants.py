@@ -28,8 +28,10 @@ MAX_TOP_K = 5
 # Agent chat (multi-turn history + tool calls, pipelines/agent_ask.py)
 # ---------------------------------------------------------------------------
 
-# Tool-call iterations MiniCPM gets per question before being forced to answer.
-AGENT_MAX_STEPS = 4
+# Tool-call iterations MiniCPM gets per question before being forced to
+# answer. The expected pattern is search → show_page → answer (3 generations),
+# so 5 leaves room for one retry search.
+AGENT_MAX_STEPS = 5
 # One ZeroGPU call covers a whole chat turn: up to AGENT_MAX_STEPS generations
 # plus retrieval and page rendering between them, and possibly a history
 # summarization pass first.

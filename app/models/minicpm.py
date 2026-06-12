@@ -88,10 +88,15 @@ AGENT_SYSTEM_PROMPT = (
     "5. If the retrieved pages do not contain the answer, you may try ONE "
     "more search_docs call with a different query; if it still is not there, "
     "say so instead of guessing.\n"
-    "6. Use show_page when the user asks to see a page, or to bring up the "
-    "page your answer is grounded in.\n"
+    "6. After a successful search, call show_page with the page your answer "
+    "is grounded in BEFORE giving your final answer, so the user sees it in "
+    "their viewer; also use show_page whenever the user asks to see a page.\n"
     "7. When not calling a tool, reply to the user in plain markdown — never "
-    "output JSON, and start directly with the answer, no preamble."
+    "output JSON, and start directly with the answer, no preamble.\n"
+    "8. Never claim or narrate a search you did not make — writing something "
+    'like [searched the manual for "..."] does NOT search; only the JSON tool '
+    "call does. Cite only page labels of pages you have actually been shown "
+    "in this conversation."
 )
 
 SUMMARY_PROMPT = (
@@ -101,7 +106,8 @@ SUMMARY_PROMPT = (
     "and procedures discussed, every exact value mentioned (torques, "
     "clearances, capacities, part numbers), the page numbers cited, and "
     "anything the user said about their situation or vehicle. Plain text, no "
-    "preamble.\n\nTranscript:\n{transcript}"
+    "preamble; describe any tool use in prose — do not copy bracketed "
+    "[searched the manual ...] lines.\n\nTranscript:\n{transcript}"
 )
 
 _TOOLS = ("search_docs", "show_page")

@@ -52,6 +52,25 @@ GIVE_UP_ANSWER = (
 )
 
 
+def _fmt_msgs(msgs: list[dict]) -> str:
+    """The full conversation as sent to the model, for the logs — text parts
+    verbatim, page images as placeholders."""
+    lines = []
+    for m in msgs:
+        parts = [
+            c if isinstance(c, str) else f"<page image {c.size[0]}x{c.size[1]}>"
+            for c in m["content"]
+        ]
+        lines.append(f"--- {m['role']} ---\n" + "\n".join(parts))
+    return "\n".join(lines)
+
+
+def _step(msgs: list[dict], manual: str, label: str) -> str:
+    """generate_step with the full input payload logged."""
+    log.info("generate_step(%s) input:\n%s", label, _fmt_msgs(msgs))
+    return minicpm.generate_step(msgs, manual)
+
+
 def _searcher(approach: str):
     """Lazy import: parsed_ask/visual_ask import this module's pipeline class,
     and both retriever modules load models at import."""
@@ -77,6 +96,9 @@ def agent_events(
     """Yield the events of one chat turn (see module docstring)."""
     search = _searcher(approach)
     manual = names[doc_ids[0]]
+    log.info(
+        "system prompt:\n%s", minicpm.AGENT_SYSTEM_PROMPT.format(manual=manual)
+    )
 
     summarized = False
     if (
@@ -106,7 +128,7 @@ def agent_events(
     answer = None
     for step in range(1, AGENT_MAX_STEPS + 1):
         yield {"type": "status", "text": "Thinking…"}
-        reply = minicpm.generate_step(msgs, manual)
+        reply = _step(msgs, manual, f"step {step}")
         call = minicpm.parse_tool_call(reply)
         log.info(
             "step %d/%d: %s | reply=%r",
@@ -149,7 +171,9 @@ def agent_events(
                 content.append(img.convert("RGB"))
             content.append(
                 "Answer the user's question using ONLY what is printed on "
-                "these pages, or call another tool."
+                "these pages, or call another tool. Before your final answer, "
+                "call show_page with the page number your answer is grounded "
+                "in, so the user sees that page in their viewer."
             )
             msgs.append({"role": "user", "content": content})
             labels = ", ".join(label for label, _ in pages)
@@ -193,7 +217,7 @@ def agent_events(
                 ],
             }
         )
-        answer = minicpm.generate_step(msgs, manual)
+        answer = _step(msgs, manual, "forced answer")
         if minicpm.parse_tool_call(answer) is not None:
             log.warning("forced answer was still a tool call — using give-up text")
             answer = GIVE_UP_ANSWER
