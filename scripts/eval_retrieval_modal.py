@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Retrieval eval: modal run scripts/eval_retrieval_modal.py
+# Scores both indexing approaches against a question set with gold pages and
+# writes eval/results/<doc_id>-<timestamp>.json (input for eval_answers_modal.py).
 import json
 import os
 import sys
@@ -11,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 from index_modal import GPU, hf_cache, image  # noqa: E402
 
 
-app = modal.App("repair-guy-eval", image=image.add_local_python_source("index_modal"))
+app = modal.App(
+    "repair-guy-eval-retrieval", image=image.add_local_python_source("index_modal")
+)
 
 eval_data = modal.Volume.from_name("repair-guy-eval-data", create_if_missing=True)
 
@@ -63,7 +68,12 @@ def run_eval(doc_id: str, questions: list, top_k: int) -> list:
 
     results = []
     for n, q in enumerate(questions, start=1):
-        row = {k: q[k] for k in ("id", "category", "question", "gold_pages")}
+        # expected_values ride along so the answer eval can score without
+        # needing the question file again.
+        row = {
+            k: q.get(k)
+            for k in ("id", "category", "question", "gold_pages", "expected_values")
+        }
         gold = set(q["gold_pages"])
         marks = []
         for method in METHODS:
@@ -85,7 +95,7 @@ def run_eval(doc_id: str, questions: list, top_k: int) -> list:
 
 
 def _summarize(results: list, top_k: int) -> dict:
-    """Per-category and overall hit@k / MRR / median seconds per method."""
+    """Per-category and overall hit@k / precision / recall / MRR per method."""
     categories = list(dict.fromkeys(r["category"] for r in results))
     summary = {}
     for cat in categories + ["overall"]:
@@ -126,13 +136,13 @@ def _print_table(summary: dict, top_k: int) -> None:
     cols = ["hit@1", "hit@3", f"hit@{top_k}", "precision", "recall", "mrr", "median_s"]
     labels = {"precision": f"prec@{top_k}", "recall": f"rec@{top_k}", "median_s": "med_s"}
     header = f"{'category':<16}{'n':>3}  {'method':<8}" + "".join(
-        f"{labels.get(c, c):>9}" for c in cols
+        f"{labels.get(c, c):>10}" for c in cols
     )
     print("\n" + header)
     print("-" * len(header))
     for cat, entry in summary.items():
         for method in METHODS:
-            cells = "".join(f"{entry[method][c]:>9.2f}" for c in cols)
+            cells = "".join(f"{entry[method][c]:>10.2f}" for c in cols)
             name = f"{cat:<16}{entry['n']:>3}" if method == METHODS[0] else " " * 19
             print(f"{name}  {method:<8}{cells}")
 

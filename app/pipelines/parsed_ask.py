@@ -76,14 +76,16 @@ def _ask_on_gpu(
         (img, f"{label} (cosine {score:.3f})")
         for (label, img), (_, _, score) in zip(pages, refs)
     ]
-    return answer, gallery
+    page_refs = [(doc_id, page) for doc_id, page, _ in refs]
+    return answer, gallery, page_refs
 
 
 class ParsedAskPipeline:
     """Stateless: the store is passed per call."""
 
     def run(self, store: ParsedStore, question: str, doc_ids: list[str] | None, top_k: int):
-        """Return (answer markdown, gallery items [(image, caption)])."""
+        """Return (answer markdown, gallery items [(image, caption)], page_refs
+        [(doc_id, page_num)] for the retrieved pages, in answer order)."""
         question = (question or "").strip()
         if not question:
             raise ValueError("Please enter a question.")

@@ -32,14 +32,16 @@ def _ask_on_gpu(
     ]
     answer = generate_answer(question, [(label, img) for label, img, _ in pages])
     gallery = [(img, f"{label} (score {score:.1f})") for label, img, score in pages]
-    return answer, gallery
+    page_refs = [(doc_id, page) for doc_id, page, _ in hits]
+    return answer, gallery, page_refs
 
 
 class VisualAskPipeline:
     """Stateless: the store is passed per call."""
 
     def run(self, store: VisualStore, question: str, doc_ids: list[str] | None, top_k: int):
-        """Return (answer markdown, gallery items [(image, caption)])."""
+        """Return (answer markdown, gallery items [(image, caption)], page_refs
+        [(doc_id, page_num)] for the retrieved pages, in answer order)."""
         question = (question or "").strip()
         if not question:
             raise ValueError("Please enter a question.")
