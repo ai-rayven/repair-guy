@@ -26,14 +26,14 @@ def _chunk_pages(chunk: dict) -> list[int]:
     return chunk["pages"] if chunk["type"] == "section" else [chunk["page"]]
 
 
-@spaces.GPU(duration=ASK_GPU_DURATION)
-def _ask_on_gpu(
-    question: str,
-    store: ParsedStore,
-    doc_ids: list[str],
-    top_k: int,
-    names: dict[str, str],
-):
+def retrieve_pages(
+    question: str, store: ParsedStore, doc_ids: list[str], top_k: int
+) -> list[tuple[str, int, float]]:
+    """Top-K (doc_id, page_num, score): chunks scored by cosine, then the
+    parent-document step where best chunks vote for pages, budgeted to top_k.
+    Same shape as the visual side's maxsim_search, so the two retrievers are
+    directly comparable (scripts/eval_modal.py relies on this). Must run on
+    GPU (called from within a @spaces.GPU context)."""
     q = embed_query(question)  # [dim] float32, normalized
 
     hits = []  # (score, doc_id, chunk)
@@ -47,7 +47,6 @@ def _ask_on_gpu(
     hits.sort(key=lambda h: h[0], reverse=True)
     hits = hits[:PARSED_TOP_CHUNKS]
 
-    # Parent-document step: best chunks vote for pages, budgeted to top_k.
     page_refs: list[tuple[str, int]] = []
     page_score: dict[tuple[str, int], float] = {}
     for score, doc_id, chunk in hits:
@@ -56,16 +55,26 @@ def _ask_on_gpu(
             if ref not in page_score:
                 page_refs.append(ref)
                 page_score[ref] = score
-    page_refs = page_refs[:top_k]
+    return [(doc_id, page, page_score[(doc_id, page)]) for doc_id, page in page_refs[:top_k]]
 
+
+@spaces.GPU(duration=ASK_GPU_DURATION)
+def _ask_on_gpu(
+    question: str,
+    store: ParsedStore,
+    doc_ids: list[str],
+    top_k: int,
+    names: dict[str, str],
+):
+    refs = retrieve_pages(question, store, doc_ids, top_k)
     pages = [
         (f"{names[doc_id]} — p.{page}", render_page(store.pdf_path(doc_id), page))
-        for doc_id, page in page_refs
+        for doc_id, page, _ in refs
     ]
     answer = generate_answer(question, pages)
     gallery = [
-        (img, f"{label} (cosine {page_score[ref]:.3f})")
-        for ref, (label, img) in zip(page_refs, pages)
+        (img, f"{label} (cosine {score:.3f})")
+        for (label, img), (_, _, score) in zip(pages, refs)
     ]
     return answer, gallery
 
