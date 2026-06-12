@@ -76,12 +76,10 @@
   <!-- Header -->
   <header class="flex items-center justify-between py-4">
     <div class="flex items-center gap-3">
-      <div class="grid place-items-center w-10 h-10 rounded-xl bg-brand-600 text-white shadow-sm">
-        <i data-lucide="wrench" class="w-5 h-5"></i>
-      </div>
+      <img src="/media/repair_guy_logo_sm.png" alt="Repair Guy" class="w-16 h-16 object-contain shrink-0" />
       <div>
         <h1 class="text-lg font-bold tracking-tight text-navy leading-none">Repair Guy</h1>
-        <p class="text-[13px] text-brand-700/70 mt-0.5">AI repair assistant · grounded in the manual</p>
+        <p class="text-[13px] text-brand-700/70 mt-0.5">Offline AI repair manual assistant</p>
       </div>
     </div>
     <button @click="settingsOpen=true" aria-label="Settings" title="Settings"
@@ -99,7 +97,7 @@
       <div class="px-4 pt-4 pb-3 border-b border-brand-100">
         <label class="block text-[11px] font-semibold uppercase tracking-wide text-brand-500/80 mb-1.5">Manual</label>
         <div class="relative">
-          <select x-model="manual"
+          <select x-model="manual" @change="newChat()"
             class="w-full appearance-none rounded-xl border border-brand-200 bg-brand-50/50 px-3.5 py-2.5 pr-9 text-sm font-medium text-navy focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition">
             <option value="">Select a manual…</option>
             <template x-for="m in manuals" :key="m.value">
@@ -122,21 +120,36 @@
         </div>
 
         <template x-for="(m,i) in messages" :key="i">
-          <div :class="m.role==='user' ? 'flex justify-end' : 'flex justify-start'">
-            <div :class="m.role==='user'
-                  ? 'max-w-[82%] rounded-2xl rounded-br-md bg-brand-600 text-white px-4 py-2.5 text-[.925rem] leading-relaxed shadow-sm ring-1 ring-navy/20'
-                  : 'max-w-[88%] rounded-2xl rounded-bl-md bg-brand-50 ring-1 ring-brand-200 px-4 py-3 shadow-sm'">
-              <div x-show="m.role!=='user'" class="prose-chat" x-html="m.html"></div>
-              <span x-show="m.role==='user'" x-text="m.text"></span>
-            </div>
+          <div>
+            <!-- tool-call chip -->
+            <template x-if="m.role==='tool'">
+              <div class="flex justify-start">
+                <div class="flex items-center gap-2 rounded-full bg-white ring-1 ring-brand-200 pl-2.5 pr-3.5 py-1.5 text-[12px] text-brand-600 shadow-sm">
+                  <i :data-lucide="m.icon" class="w-3.5 h-3.5 text-accent-600 shrink-0"></i>
+                  <span class="font-medium" x-text="m.label"></span>
+                  <span class="text-brand-400" x-show="m.detail" x-text="m.detail"></span>
+                </div>
+              </div>
+            </template>
+            <!-- chat bubble -->
+            <template x-if="m.role!=='tool'">
+              <div :class="m.role==='user' ? 'flex justify-end' : 'flex justify-start'">
+                <div :class="m.role==='user'
+                      ? 'max-w-[82%] rounded-2xl rounded-br-md bg-brand-600 text-white px-4 py-2.5 text-[.925rem] leading-relaxed shadow-sm ring-1 ring-navy/20'
+                      : 'max-w-[88%] rounded-2xl rounded-bl-md bg-brand-50 ring-1 ring-brand-200 px-4 py-3 shadow-sm'">
+                  <div x-show="m.role!=='user'" class="prose-chat" x-html="m.html"></div>
+                  <span x-show="m.role==='user'" x-text="m.text"></span>
+                </div>
+              </div>
+            </template>
           </div>
         </template>
 
-        <!-- thinking -->
+        <!-- thinking / live status -->
         <div x-show="loading" class="flex justify-start">
           <div class="rounded-2xl rounded-bl-md bg-brand-50 ring-1 ring-brand-200 px-4 py-3 flex items-center gap-2">
             <i data-lucide="wrench" class="w-4 h-4 animate-wrench text-brand-500"></i>
-            <span class="text-sm text-brand-600">Searching the manual…</span>
+            <span class="text-sm text-brand-600" x-text="status || 'Thinking…'"></span>
           </div>
         </div>
       </div>
@@ -246,9 +259,9 @@ function repairGuy() {
     manuals:[], manual:'',
     approaches: __APPROACHES__,
     approach:'visual', k:__DEFAULT_K__, maxK:__MAX_K__,
-    messages:[], input:'', loading:false,
+    messages:[], history:[], input:'', loading:false, status:'',
     settingsOpen:false,
-    pdfDocId:'', pdfPage:1, thumbs:[],
+    pdfDocId:'', pdfPage:1, thumbs:[], turnFirstSearch:true,
 
     get pdfUrl(){ return this.pdfDocId ? `/pdf/${encodeURIComponent(this.pdfDocId)}#page=${this.pdfPage}&view=FitH&zoom=page-width` : ''; },
 
@@ -274,7 +287,12 @@ function repairGuy() {
       catch(e){ console.error(e); }
     },
 
-    scroll(){ this.$nextTick(()=>{ const el=this.$refs.chat; if(el) el.scrollTop = el.scrollHeight; }); },
+    // re-run lucide for chips appended after the initial createIcons pass
+    scroll(){ this.$nextTick(()=>{ window.lucide?.createIcons(); const el=this.$refs.chat; if(el) el.scrollTop = el.scrollHeight; }); },
+
+    // switching manuals starts a fresh conversation — the history is about
+    // the previous manual's pages
+    newChat(){ this.messages=[]; this.history=[]; this.thumbs=[]; this.pdfDocId=''; this.pdfPage=1; },
 
     async send(){
       const q = this.input.trim();
@@ -282,21 +300,74 @@ function repairGuy() {
       this.messages.push({role:'user', text:q});
       this.input=''; this.scroll();
       if(!this.manual){ this.messages.push({role:'assistant', html:this.md('Pick a manual first ☝️')}); this.scroll(); return; }
-      this.loading=true; this.scroll();
+      this.loading=true; this.status='Thinking…'; this.turnFirstSearch=true; this.scroll();
       try{
-        const r = await this.client.predict('/ask', {question:q, manual:this.manual, approach:this.approach, k:this.k});
-        const res = r.data?.[0] || {};
-        if(res.error){
-          this.messages.push({role:'assistant', html:this.md(res.error)});
-        }else{
-          const meta = `\n\n<span class="meta">⏱ ${res.elapsed}s · ${res.approach} · k=${res.k}</span>`;
-          this.messages.push({role:'assistant', html:this.md(res.answer + meta)});
-          this.thumbs = res.thumbnails || [];
-          this.pdfDocId = this.manual;
-          this.pdfPage = (res.pages && res.pages[0]) || 1;
+        const job = this.client.submit('/ask', {question:q, manual:this.manual, approach:this.approach, k:this.k, history:this.history});
+        // the client re-delivers the generator's last yield in the completion
+        // payload, so stop after the first terminal (answer/error) event
+        let finished = false;
+        for await (const msg of job){
+          if(finished || msg.type!=='data' || !msg.data?.[0]) continue;
+          finished = this.handleEvent(msg.data[0]);
+          this.scroll();
         }
       }catch(e){ this.messages.push({role:'assistant', html:this.md('⚠️ '+e)}); }
-      this.loading=false; this.scroll();
+      this.loading=false; this.status=''; this.scroll();
+    },
+
+    // a pending chip is one whose tool_result hasn't arrived; results upsert
+    // so a coalesced/dropped tool_call event never loses the chip
+    pendingChip(tool){ return [...this.messages].reverse().find(m=>m.role==='tool' && m.tool===tool && m.pending); },
+
+    // returns true on a terminal event (answer or error)
+    handleEvent(ev){
+      if(ev.error){ this.messages.push({role:'assistant', html:this.md(ev.error)}); return true; }
+      switch(ev.type){
+        case 'status':
+          this.status = ev.text || 'Working…';
+          if(ev.kind==='summarizing')
+            this.messages.push({role:'tool', tool:'summarize', icon:'archive', label:'Summarizing earlier conversation', detail:'', pending:false});
+          break;
+
+        case 'tool_call':
+          if(ev.tool==='search_docs'){
+            this.status='Searching the manual…';
+            this.messages.push({role:'tool', tool:'search_docs', icon:'search', label:`Searching: “${ev.args?.query||''}”`, detail:'', pending:true});
+          }else if(ev.tool==='show_page'){
+            this.messages.push({role:'tool', tool:'show_page', icon:'file-text', label:`Showing page ${ev.args?.page}`, detail:'', pending:true});
+          }
+          break;
+
+        case 'tool_result':
+          if(ev.tool==='search_docs'){
+            let chip = this.pendingChip('search_docs');
+            if(!chip){ chip={role:'tool', tool:'search_docs', icon:'search', label:'Searched the manual', detail:'', pending:true}; this.messages.push(chip); }
+            chip.detail = '→ ' + (ev.pages||[]).map(p=>'p.'+p).join(', ');
+            chip.pending = false;
+            if(this.turnFirstSearch){ this.thumbs=[]; this.turnFirstSearch=false; }
+            const seen = new Set(this.thumbs.map(t=>t.page));
+            for(const t of (ev.thumbnails||[])) if(!seen.has(t.page)) this.thumbs.push(t);
+            this.pdfDocId = this.manual;
+            if(ev.pages?.length) this.pdfPage = ev.pages[0];
+            this.status='Reading the retrieved pages…';
+          }else if(ev.tool==='show_page'){
+            let chip = this.pendingChip('show_page');
+            if(chip) chip.pending=false;
+            else this.messages.push({role:'tool', tool:'show_page', icon:'file-text', label:`Showing page ${ev.page}`, detail:'', pending:false});
+            this.pdfDocId = this.manual;
+            if(ev.page>=1) this.pdfPage = ev.page;
+            this.status='Thinking…';
+          }
+          break;
+
+        case 'answer': {
+          const meta = `\n\n<span class="meta">⏱ ${ev.elapsed}s · ${ev.approach} · k=${ev.k}</span>`;
+          this.messages.push({role:'assistant', html:this.md(ev.answer + meta)});
+          this.history = ev.history || this.history;
+          return true;
+        }
+      }
+      return false;
     },
   }
 }

@@ -15,6 +15,7 @@ from core.pdf import render_page
 from core.visual_store import VisualStore
 from models.colembed import maxsim_search
 from models.minicpm import generate_answer
+from pipelines.agent_ask import agent_events
 
 
 @spaces.GPU(duration=ASK_GPU_DURATION)
@@ -50,3 +51,24 @@ class VisualAskPipeline:
             raise ValueError("No manuals in this library yet.")
         names = {d["doc_id"]: d["name"] for d in docs}
         return _ask_on_gpu(question, store, doc_ids or None, int(top_k), names)
+
+    def run_agent(
+        self,
+        store: VisualStore,
+        question: str,
+        history: list[dict],
+        doc_ids: list[str] | None,
+        top_k: int,
+    ):
+        """One streamed chat turn: the event generator of agent_ask.py, with
+        MaxSim as the model's search_docs tool."""
+        question = (question or "").strip()
+        if not question:
+            raise ValueError("Please enter a question.")
+        docs = store.list_docs()
+        if not docs:
+            raise ValueError("No manuals in this library yet.")
+        names = {d["doc_id"]: d["name"] for d in docs}
+        return agent_events(
+            question, store, doc_ids or list(names), int(top_k), names, history, "visual"
+        )

@@ -11,8 +11,12 @@ the pre-indexed library and answers questions):
            MiniCPM-V, section chunks embedded with Llama Nemotron Embed;
            retrieval is dense cosine over chunks with parent-page lookup.
 
-Both hand the retrieved page images to MiniCPM-V for the grounded answer, in
-one ZeroGPU call per question.
+Questions run as a multi-turn agent chat (pipelines/agent_ask.py): MiniCPM-V
+sees the conversation history and calls tools — search_docs (the approach's
+retriever) and show_page (the viewer pane) — before answering grounded in the
+retrieved page images. Each turn is one ZeroGPU call, streamed to the UI as
+events; history is kept client-side and summarized by the model when it
+outgrows its token budget.
 
 UI architecture — this is NOT a gr.Blocks app. It runs in Gradio *Server Mode*
 (`gradio.Server`, a FastAPI server with Gradio's engine: queueing, streaming
@@ -28,6 +32,7 @@ Module layout:
   models/minicpm.py         MiniCPM        — shared: answers over page images
   core/visual_store.py      VisualStore    — on-disk per-page token embeddings
   core/parsed_store.py      ParsedStore    — chunks + dense embedding matrix
+  pipelines/agent_ask.py    agent_events — the shared tool-calling chat loop
   pipelines/visual_ask.py   VisualAskPipeline
   pipelines/parsed_ask.py   ParsedAskPipeline
   pipelines/mock_ask.py     MockAskPipeline — local UI iteration (MOCK_MODELS=1)
@@ -189,51 +194,82 @@ def api_refresh() -> list[dict]:
     return _manual_choices()
 
 
+def _clean_history(history) -> list[dict]:
+    """The model-facing transcript the client sends back with each turn,
+    reduced to what the pipelines expect: alternating {role, content} text
+    messages. Anything malformed is dropped rather than rejected."""
+    cleaned = []
+    for m in history or []:
+        if (
+            isinstance(m, dict)
+            and m.get("role") in ("user", "assistant")
+            and isinstance(m.get("content"), str)
+        ):
+            cleaned.append({"role": m["role"], "content": m["content"]})
+    return cleaned
+
+
 @app.api(name="ask")
 def api_ask(
     question: str,
     manual: str = "",
     approach: str = "visual",
     k: int = DEFAULT_TOP_K,
-) -> dict:
-    """Answer one question with the chosen approach (one ZeroGPU call).
+    history: list | None = None,
+) -> dict:  # the per-yield type: Server.api infers outputs from this annotation
+    """One chat turn with the chosen approach (one ZeroGPU call), streamed as
+    events (see pipelines/agent_ask.py for the protocol).
 
-    Returns either {"error": markdown} or {answer, pages, thumbnails, elapsed,
-    approach, k}. Soft errors (rather than raised exceptions) so the frontend
-    can render them as an assistant message."""
+    Yields {type: status|tool_call|tool_result|answer|error, ...}; tool_result
+    galleries are converted to JSON-able thumbnails here, and the final answer
+    event carries the updated history (possibly summarized) plus elapsed/
+    approach/k. Soft errors so the frontend renders them as messages."""
     question = (question or "").strip()
     if not question:
-        return {"error": "Please enter a question."}
+        yield {"type": "error", "error": "Please enter a question."}
+        return
     if not manual:
-        return {"error": "Pick a manual first ☝️"}
+        yield {"type": "error", "error": "Pick a manual first ☝️"}
+        return
     if approach not in LIBRARIES:
         approach = "visual"
     store, pipeline = LIBRARIES[approach]
     if not store.exists(manual):
         other = "parsed" if approach == "visual" else "visual"
-        return {
+        yield {
+            "type": "error",
             "error": f"This manual isn't indexed with the **{approach}** approach "
-            f"yet — switch to **{other}** in settings, or pick another manual."
+            f"yet — switch to **{other}** in settings, or pick another manual.",
         }
+        return
     start = time.monotonic()
     try:
-        answer, gallery, page_refs = pipeline.run(store, question, [manual], int(k))
+        events = pipeline.run_agent(
+            store, question, _clean_history(history), [manual], int(k)
+        )
+        for ev in events:
+            if ev.get("type") == "tool_result" and "gallery" in ev:
+                pages = [p for _, p in ev["page_refs"]]
+                yield {
+                    "type": "tool_result",
+                    "tool": ev["tool"],
+                    "pages": pages,
+                    "thumbnails": [
+                        {"page": p, "src": _thumb_data_uri(img), "caption": cap}
+                        for (img, cap), p in zip(ev["gallery"], pages)
+                    ],
+                }
+            elif ev.get("type") == "answer":
+                yield {
+                    **ev,
+                    "elapsed": round(time.monotonic() - start, 1),
+                    "approach": approach,
+                    "k": int(k),
+                }
+            else:
+                yield ev
     except ValueError as e:
-        return {"error": f"⚠️ {e}"}
-
-    pages = [p for _, p in page_refs]
-    thumbnails = [
-        {"page": p, "src": _thumb_data_uri(img), "caption": cap}
-        for (img, cap), p in zip(gallery, pages)
-    ]
-    return {
-        "answer": answer,
-        "pages": pages,
-        "thumbnails": thumbnails,
-        "elapsed": round(time.monotonic() - start, 1),
-        "approach": approach,
-        "k": int(k),
-    }
+        yield {"type": "error", "error": f"⚠️ {e}"}
 
 
 # --- custom FastAPI routes: serve the SPA and the source PDFs ---------------
@@ -256,6 +292,15 @@ def index():
         .replace("__MAX_K__", str(MAX_TOP_K))
     )
     return HTMLResponse(html)
+
+
+@app.get("/media/{filename}")
+def serve_media(filename: str):
+    """Static frontend assets (logo etc.) from frontend/assets/."""
+    path = os.path.join(_FRONTEND_DIR, "assets", os.path.basename(filename))
+    if not os.path.isfile(path):
+        return Response(status_code=404)
+    return FileResponse(path)
 
 
 @app.get("/pdf/{doc_id}")

@@ -4,7 +4,10 @@ emoji: 🔧
 colorFrom: purple
 colorTo: red
 sdk: gradio
-sdk_version: 6.18.0
+# 6.17.3 is the newest gradio that allows huggingface-hub<1.0, which
+# transformers 4.57.x (required by the MiniCPM/ColEmbed remote code) pins;
+# 6.18.0 bumped to huggingface-hub>=1.2 and makes the Space build unresolvable.
+sdk_version: 6.17.3
 python_version: '3.12'
 app_file: app.py
 pinned: false
@@ -34,8 +37,15 @@ approaches over the same manuals:
   Retrieval is dense cosine over chunks with parent-document lookup back to
   the pages they came from.
 
-Either way, the top page images are read by MiniCPM-V 4.5 to produce a
-grounded answer — one ZeroGPU call per question.
+Questions run as a multi-turn agent chat: MiniCPM-V 4.5 sees the conversation
+history and drives retrieval itself with two prompted tools — `search_docs`
+(the selected approach's retriever, returning page images it then reads) and
+`show_page` (jumps the PDF viewer pane) — before answering grounded in the
+retrieved pages. Each turn is one ZeroGPU call streamed to the UI as events
+(tool calls show up as chips in the chat, with a live status line). Chat
+history is kept client-side as text; when it outgrows its token budget the
+model summarizes the older turns first (the UI shows "Summarizing earlier
+conversation"). See `app/pipelines/agent_ask.py`.
 
 ## Indexing (offline only)
 

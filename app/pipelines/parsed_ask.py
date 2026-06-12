@@ -20,6 +20,7 @@ from core.parsed_store import ParsedStore
 from core.pdf import render_page
 from models.minicpm import generate_answer
 from models.nemotron_embed import embed_query
+from pipelines.agent_ask import agent_events
 
 
 def _chunk_pages(chunk: dict) -> list[int]:
@@ -95,3 +96,24 @@ class ParsedAskPipeline:
         names = {d["doc_id"]: d["name"] for d in docs}
         doc_ids = doc_ids or list(names)
         return _ask_on_gpu(question, store, doc_ids, int(top_k), names)
+
+    def run_agent(
+        self,
+        store: ParsedStore,
+        question: str,
+        history: list[dict],
+        doc_ids: list[str] | None,
+        top_k: int,
+    ):
+        """One streamed chat turn: the event generator of agent_ask.py, with
+        dense chunk retrieval as the model's search_docs tool."""
+        question = (question or "").strip()
+        if not question:
+            raise ValueError("Please enter a question.")
+        docs = store.list_docs()
+        if not docs:
+            raise ValueError("No manuals in this library yet.")
+        names = {d["doc_id"]: d["name"] for d in docs}
+        return agent_events(
+            question, store, doc_ids or list(names), int(top_k), names, history, "parsed"
+        )

@@ -71,7 +71,7 @@ class MockStore:
 
 
 class MockAskPipeline:
-    """Stateless mock matching AskPipeline.run's return contract: picks a
+    """Stateless mock matching the real ask pipelines' contracts: picks a
     deterministic spread of real pages and returns a canned answer."""
 
     def run(self, store: MockStore, question: str, doc_ids: list[str] | None, top_k: int):
@@ -84,6 +84,97 @@ class MockAskPipeline:
         # loading indicator never shows. MOCK_DELAY (seconds) fakes that latency
         # for local UI work — e.g. MOCK_DELAY=2.
         time.sleep(float(os.environ.get("MOCK_DELAY", "0")))
+        doc_id, info = self._pick_doc(store, doc_ids)
+        pages = self._pick_pages(question, info["pages"], int(top_k))
+        images = render_pages(store.pdf_path(doc_id), pages)
+        labels = [f"{info['name']} — p.{p}" for p in pages]
+        answer = MOCK_ANSWER.format(label=labels[0])
+        gallery = [(img, f"{label} (mock)") for label, img in zip(labels, images)]
+        page_refs = [(doc_id, p) for p in pages]
+        return answer, gallery, page_refs
+
+    def run_agent(
+        self,
+        store: MockStore,
+        question: str,
+        history: list[dict],
+        doc_ids: list[str] | None,
+        top_k: int,
+    ):
+        """Yield the same event sequence as pipelines/agent_ask.py — status,
+        a fake search_docs call grounded in real rendered pages, a show_page
+        call, then the answer with the updated text history. Every third turn
+        the history is "summarized" so the UI's compaction status can be
+        exercised. MOCK_DELAY (seconds) paces the events."""
+        question = (question or "").strip()
+        if not question:
+            raise ValueError("Please enter a question.")
+        doc_id, info = self._pick_doc(store, doc_ids)
+        return self._agent_events(
+            store, question, list(history or []), doc_id, info, int(top_k)
+        )
+
+    def _agent_events(self, store, question, history, doc_id, info, top_k):
+        delay = float(os.environ.get("MOCK_DELAY", "0"))
+
+        summarized = False
+        if len(history) >= 6:  # 3 stored turns: mimic the token-budget trigger
+            yield {
+                "type": "status",
+                "kind": "summarizing",
+                "text": "Summarizing earlier conversation…",
+            }
+            time.sleep(delay)
+            history = [
+                {
+                    "role": "user",
+                    "content": "Summary of our conversation so far (for your "
+                    f"reference):\n(mock summary of {len(history) - 4} earlier messages)",
+                },
+                {"role": "assistant", "content": "Got it — I'll keep that context in mind."},
+            ] + history[-4:]
+            summarized = True
+
+        yield {"type": "status", "text": "Thinking…"}
+        time.sleep(delay)
+
+        query = " ".join(question.split()[:6])
+        yield {"type": "tool_call", "tool": "search_docs", "args": {"query": query}}
+        time.sleep(delay)
+        pages = self._pick_pages(question, info["pages"], top_k)
+        images = render_pages(store.pdf_path(doc_id), pages)
+        labels = [f"{info['name']} — p.{p}" for p in pages]
+        yield {
+            "type": "tool_result",
+            "tool": "search_docs",
+            "gallery": [(img, f"{label} (mock)") for label, img in zip(labels, images)],
+            "page_refs": [(doc_id, p) for p in pages],
+        }
+
+        yield {"type": "status", "text": "Thinking…"}
+        time.sleep(delay)
+        yield {"type": "tool_call", "tool": "show_page", "args": {"page": pages[0]}}
+        yield {"type": "tool_result", "tool": "show_page", "page": pages[0], "doc_id": doc_id}
+        time.sleep(delay)
+
+        answer = MOCK_ANSWER.format(label=labels[0])
+        trace = (
+            f'[searched the manual for "{query}" → {", ".join(labels)}]\n'
+            f"[displayed page {pages[0]} in the viewer]"
+        )
+        yield {
+            "type": "answer",
+            "answer": answer,
+            "history": history
+            + [
+                {"role": "user", "content": question},
+                {"role": "assistant", "content": trace + "\n\n" + answer},
+            ],
+            "summarized": summarized,
+        }
+
+    @staticmethod
+    def _pick_doc(store: MockStore, doc_ids: list[str] | None):
         docs = {d["doc_id"]: d for d in store.list_docs()}
         if not docs:
             raise ValueError(
@@ -92,15 +183,7 @@ class MockAskPipeline:
         doc_id = (doc_ids or list(docs))[0]
         if doc_id not in docs:
             raise ValueError("That manual isn't in the mock library.")
-        info = docs[doc_id]
-
-        pages = self._pick_pages(question, info["pages"], int(top_k))
-        images = render_pages(store.pdf_path(doc_id), pages)
-        labels = [f"{info['name']} — p.{p}" for p in pages]
-        answer = MOCK_ANSWER.format(label=labels[0])
-        gallery = [(img, f"{label} (mock)") for label, img in zip(labels, images)]
-        page_refs = [(doc_id, p) for p in pages]
-        return answer, gallery, page_refs
+        return doc_id, docs[doc_id]
 
     @staticmethod
     def _pick_pages(question: str, n_pages: int, top_k: int) -> list[int]:

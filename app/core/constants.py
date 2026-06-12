@@ -25,6 +25,25 @@ DEFAULT_TOP_K = 3
 MAX_TOP_K = 5
 
 # ---------------------------------------------------------------------------
+# Agent chat (multi-turn history + tool calls, pipelines/agent_ask.py)
+# ---------------------------------------------------------------------------
+
+# Tool-call iterations MiniCPM gets per question before being forced to answer.
+AGENT_MAX_STEPS = 4
+# One ZeroGPU call covers a whole chat turn: up to AGENT_MAX_STEPS generations
+# plus retrieval and page rendering between them, and possibly a history
+# summarization pass first.
+AGENT_GPU_DURATION = 240
+
+# chat()'s max_inp_length is 16384 tokens and each retrieved page image costs
+# roughly 600-1000 of them, so past turns are kept as text only and summarized
+# once they grow past this budget (counted with the MiniCPM tokenizer).
+HISTORY_TOKEN_BUDGET = 6000
+# Most recent messages kept verbatim when the older history is summarized.
+HISTORY_KEEP_MESSAGES = 4
+SUMMARY_MAX_NEW_TOKENS = 512
+
+# ---------------------------------------------------------------------------
 # Visual approach: ColEmbed late-interaction page embeddings + MaxSim
 # ---------------------------------------------------------------------------
 
