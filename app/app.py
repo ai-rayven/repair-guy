@@ -233,7 +233,7 @@ CSS = """
 :root { --rg-radius: 16px; }
 /* Center the app: the real container class is version-suffixed
    (.gradio-container-6-18-0), so match it by substring and add auto margins. */
-[class*="gradio-container"] { max-width: 1500px !important; margin: 0 auto !important; }
+[class*="gradio-container"] { max-width: 1760px !important; margin: 0 auto !important; }
 .fillable:not(.fill_width) { max-width: 100% !important; }
 
 /* Header ----------------------------------------------------------------- */
@@ -276,6 +276,9 @@ CSS = """
     background: rgba(15, 23, 42, 0.55);
     display: flex; align-items: center; justify-content: center;
 }
+/* Gradio hides Blocks with `.hidden { display: none }` — no !important, so it
+   loses to the id selector above and the overlay lingers when closed. Force it. */
+#rg-settings.hidden { display: none !important; }
 #rg-settings .rg-settings-card {
     width: min(440px, 92vw); background: var(--background-fill-primary);
     border-radius: var(--rg-radius); padding: 22px 24px;
