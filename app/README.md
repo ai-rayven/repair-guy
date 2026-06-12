@@ -4,7 +4,7 @@ emoji: 🔧
 colorFrom: purple
 colorTo: red
 sdk: gradio
-sdk_version: 6.16.0
+sdk_version: 6.18.0
 python_version: '3.12'
 app_file: app.py
 pinned: false
@@ -46,6 +46,24 @@ laid out as `<method>/<doc_id>/`. The Space syncs it to `/data/preindexed`
 at startup (and via the 🔄 button). The parsed method runs as two Modal
 functions because Nemotron Parse requires transformers 5.x while the rest of
 the stack is on 4.x.
+
+## Local UI development (mock mode)
+
+To iterate on the Gradio UI without GPUs, model downloads or the HF library
+sync, run with `MOCK_MODELS=1`. Drop any PDF into `app/data/mock_pdfs/` (or set
+`MOCK_PDF_DIR`) and the app serves a canned answer grounded in real, rendered
+pages of that PDF; both approaches are backed by the same mock, and the PDF
+viewer, cited-pages gallery and jump-to-page all work. Only the answer text and
+which pages it "cites" are faked.
+
+```bash
+cd app
+uv pip install gradio pymupdf pillow numpy huggingface_hub   # light deps only
+MOCK_MODELS=1 python app.py
+```
+
+The 🔄 Sync library button just re-scans the folder, so PDFs added while the app
+is running show up without a restart. See `pipelines/mock_ask.py`.
 
 ## Space setup
 

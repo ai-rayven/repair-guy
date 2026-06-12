@@ -2,8 +2,9 @@
 
 - generate_answer: answers a question grounded in retrieved page images
   (visual AND parsed ask pipelines).
-- describe_figure / describe_table: used only by the parsed ingest pipeline
-  (on Modal) to turn Picture crops and Table markdown into searchable text.
+- describe_batch (+ describe_figure / describe_table wrappers): used only by
+  the parsed ingest pipeline (on Modal) to turn Picture crops and Table
+  markdown into searchable text, batched through chat()'s batched mode.
 
 The model and tokenizer are module-level globals: ZeroGPU packs module-level
 CUDA tensors at startup and shares them with the GPU worker, whereas function
@@ -116,25 +117,35 @@ def generate_answer(question: str, pages: list[tuple[str, Image.Image]]) -> str:
     return str(answer).strip()
 
 
-def _chat(content: list) -> str:
+def describe_batch(jobs: list[tuple[str, object, str]]) -> list[str]:
+    """Searchable descriptions for a batch of parsed elements in ONE chat()
+    call (its batched mode: msgs = list of conversations). Each job is
+    ("figure", crop image, context) or ("table", markdown, context); the
+    context (manual name, section heading, caption, page text) is what lets
+    MiniCPM use the manual's own terminology. Returns descriptions in job
+    order. Parsed ingest only; must run on GPU."""
+    msgs = []
+    for kind, payload, context in jobs:
+        if kind == "figure":
+            content = [payload.convert("RGB"), FIGURE_PROMPT.format(context=context)]
+        else:
+            content = [TABLE_PROMPT.format(markdown=payload, context=context)]
+        msgs.append([{"role": "user", "content": content}])
     with torch.no_grad():
         out = _MODEL.chat(
-            msgs=[{"role": "user", "content": content}],
+            msgs=msgs,
             tokenizer=_TOKENIZER,
             enable_thinking=False,
             max_new_tokens=DESCRIBE_MAX_NEW_TOKENS,
         )
-    return str(out).strip()
+    return [str(answer).strip() for answer in out]
 
 
 def describe_figure(image: Image.Image, context: str) -> str:
-    """Searchable description of a Picture crop, conditioned on surrounding
-    document context (manual name, section heading, caption, page text) so it
-    uses the manual's own terminology. Parsed ingest only; must run on GPU."""
-    return _chat([image.convert("RGB"), FIGURE_PROMPT.format(context=context)])
+    """Single-element convenience wrapper around describe_batch."""
+    return describe_batch([("figure", image, context)])[0]
 
 
 def describe_table(markdown: str, context: str) -> str:
-    """Searchable description of a parsed table (text-only call), conditioned
-    on surrounding document context. Parsed ingest only; must run on GPU."""
-    return _chat([TABLE_PROMPT.format(markdown=markdown, context=context)])
+    """Single-element convenience wrapper around describe_batch."""
+    return describe_batch([("table", markdown, context)])[0]

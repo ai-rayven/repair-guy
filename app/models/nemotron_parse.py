@@ -68,12 +68,13 @@ class NemotronParse:
             trust_remote_code=True,
         )
 
-    def parse_page(self, image: Image.Image) -> list[dict]:
-        """Parse one rendered page -> [{"class", "bbox", "text"}] in reading
-        order. bbox is [x1, y1, x2, y2] in the image's pixel coordinates."""
+    def parse_pages(self, images: list[Image.Image]) -> list[list[dict]]:
+        """Parse a batch of rendered pages in ONE generate call (every page
+        uses the same task prompt, so the batch needs no padding). Returns one
+        element list per page, in input order."""
         inputs = self._processor(
-            images=[image],
-            text=_TASK_PROMPT,
+            images=list(images),
+            text=[_TASK_PROMPT] * len(images),
             return_tensors="pt",
             add_special_tokens=False,
         )
@@ -87,8 +88,15 @@ class NemotronParse:
         }
         with torch.no_grad():
             outputs = self._model.generate(**inputs, generation_config=self._gen_config)
-        raw = self._processor.batch_decode(outputs, skip_special_tokens=True)[0]
+        raws = self._processor.batch_decode(outputs, skip_special_tokens=True)
+        return [self._elements(raw, image) for raw, image in zip(raws, images)]
 
+    def parse_page(self, image: Image.Image) -> list[dict]:
+        """Parse one rendered page -> [{"class", "bbox", "text"}] in reading
+        order. bbox is [x1, y1, x2, y2] in the image's pixel coordinates."""
+        return self.parse_pages([image])[0]
+
+    def _elements(self, raw: str, image: Image.Image) -> list[dict]:
         classes, bboxes, texts = self._pp.extract_classes_bboxes(raw)
         bboxes = [
             self._pp.transform_bbox_to_original(b, image.width, image.height)

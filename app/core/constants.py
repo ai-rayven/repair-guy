@@ -61,6 +61,9 @@ NEMOTRON_PARSE_MODEL_ID = os.environ.get(
 NEMOTRON_PARSE_REVISION = os.environ.get(
     "NEMOTRON_PARSE_REVISION", "2bd0189bffd6cdded6280d9f22a4077b25a504e3"
 )
+# Pages parsed per generate call at index time (identical task prompt per
+# page, so the batch needs no padding).
+PARSE_BATCH_SIZE = 16
 
 # Dense bi-encoder for chunk/query embeddings (2048-dim, mean-pooled).
 # Its remote code supports transformers 4.56+ — same env as the Space.
@@ -79,6 +82,8 @@ EMBED_TEXT_BATCH_SIZE = 8
 # the page-text part of that context is capped at this many characters.
 DESCRIBE_MAX_NEW_TOKENS = 256
 DESCRIBE_CONTEXT_MAX_CHARS = 1200
+# Figure/table descriptions generated per batched MiniCPM chat() call.
+DESCRIBE_BATCH_SIZE = 16
 # Picture bboxes with either side smaller than this (pixels at RENDER_DPI)
 # are skipped — icons, bullets, print artifacts.
 FIGURE_MIN_SIDE_PX = 40
@@ -112,3 +117,14 @@ PARSED_SUBDIR = "parsed"
 LIBRARY_DATASET_ID = os.environ.get(
     "LIBRARY_DATASET_ID", "build-small-hackathon/repair-guy-library"
 )
+
+# ---------------------------------------------------------------------------
+# Local mock mode (UI iteration with no GPU / model downloads / HF sync)
+# ---------------------------------------------------------------------------
+
+# With MOCK_MODELS set, app.py serves canned answers grounded in real, rendered
+# pages of any PDF dropped into MOCK_PDF_DIR. Nothing on the mock path imports
+# torch / spaces / the model modules (which load CUDA at import), so the Gradio
+# UI boots instantly on a laptop. See pipelines/mock_ask.py.
+MOCK_MODELS = os.environ.get("MOCK_MODELS", "").lower() in ("1", "true", "yes")
+MOCK_PDF_DIR = os.environ.get("MOCK_PDF_DIR") or os.path.join(_DATA_ROOT, "mock_pdfs")

@@ -25,18 +25,20 @@ from core.chunking import (
     build_chunks,
 )
 from core.constants import (
+    DESCRIBE_BATCH_SIZE,
     DESCRIBE_CONTEXT_MAX_CHARS,
     FIGURE_MIN_SIDE_PX,
+    PARSE_BATCH_SIZE,
     RENDER_DPI,
 )
 from core.parsed_store import ParsedStore
-from core.pdf import page_count, render_page
+from core.pdf import page_count, render_page, render_pages
 from core.store import slugify
 
 
 class ParseStage:
     """Stage 1 (transformers 5.x env): render pages and parse them into
-    classified elements."""
+    classified elements, PARSE_BATCH_SIZE pages per generate call."""
 
     def __init__(self):
         from models.nemotron_parse import NemotronParse
@@ -44,14 +46,17 @@ class ParseStage:
         self.parser = NemotronParse()
 
     def run(self, pdf_path: str) -> Iterator[tuple]:
-        """Generator yielding ("progress", page, total) per parsed page, then
-        ("done", pages) where pages = [{"page", "elements"}] in order."""
+        """Generator yielding ("progress", pages_done, total) per parsed
+        batch, then ("done", pages) where pages = [{"page", "elements"}] in
+        order."""
         total = page_count(pdf_path)
         pages = []
-        for num in range(1, total + 1):
-            image = render_page(pdf_path, num, RENDER_DPI)
-            pages.append({"page": num, "elements": self.parser.parse_page(image)})
-            yield ("progress", num, total)
+        for start in range(1, total + 1, PARSE_BATCH_SIZE):
+            nums = list(range(start, min(start + PARSE_BATCH_SIZE, total + 1)))
+            images = render_pages(pdf_path, nums, RENDER_DPI)
+            for num, elements in zip(nums, self.parser.parse_pages(images)):
+                pages.append({"page": num, "elements": elements})
+            yield ("progress", nums[-1], total)
         yield ("done", pages)
 
 
@@ -94,11 +99,14 @@ class BuildStage:
             lines.append(f"Text on the page: {page_text[:DESCRIBE_CONTEXT_MAX_CHARS]}")
         return "\n".join(lines)
 
-    def _describe_page(self, pdf_path: str, pg: dict, doc_name: str, heading: str) -> str:
-        """Attach MiniCPM descriptions to this page's Picture/Table elements
-        (in place). Tracks and returns the section heading in force so the
-        next page's context carries it (sections span pages)."""
+    def _page_jobs(
+        self, pdf_path: str, pg: dict, doc_name: str, heading: str
+    ) -> tuple[str, list[tuple]]:
+        """Collect (element, kind, payload, context) describe jobs for this
+        page's Picture/Table elements. Tracks and returns the section heading
+        in force so the next page's context carries it (sections span pages)."""
         image = None
+        jobs = []
         elements = pg["elements"]
         prev_was_heading = False
         for i, el in enumerate(elements):
@@ -119,14 +127,23 @@ class BuildStage:
                 crop = image.crop(
                     (max(x1, 0), max(y1, 0), min(x2, image.width), min(y2, image.height))
                 )
-                el["description"] = self.describer.describe_figure(
-                    crop, self._element_context(doc_name, heading, elements, i)
+                jobs.append(
+                    (el, "figure", crop, self._element_context(doc_name, heading, elements, i))
                 )
             elif el["class"] == TABLE_CLASS and el.get("text", "").strip():
-                el["description"] = self.describer.describe_table(
-                    el["text"], self._element_context(doc_name, heading, elements, i)
+                jobs.append(
+                    (el, "table", el["text"], self._element_context(doc_name, heading, elements, i))
                 )
-        return heading
+        return heading, jobs
+
+    def _describe(self, batch: list[tuple]) -> None:
+        """Run one batched MiniCPM call and attach the descriptions to the
+        batch's elements (in place)."""
+        descriptions = self.describer.describe_batch(
+            [(kind, payload, context) for _, kind, payload, context in batch]
+        )
+        for (el, _, _, _), description in zip(batch, descriptions):
+            el["description"] = description
 
     def run(self, pdf_path: str, parsed_pages: list[dict], doc_name: str = "") -> Iterator[tuple]:
         """Generator yielding ("progress", pages_done, total) through the
@@ -137,10 +154,20 @@ class BuildStage:
         doc_id = slugify(name)
         total = len(parsed_pages)
 
+        # Jobs are collected page by page (headings carry across pages) and
+        # flushed through MiniCPM in batches; pending never grows past one
+        # batch plus one page's worth of elements.
         heading = ""
+        pending = []
         for done, pg in enumerate(parsed_pages, start=1):
-            heading = self._describe_page(pdf_path, pg, name, heading)
+            heading, jobs = self._page_jobs(pdf_path, pg, name, heading)
+            pending.extend(jobs)
+            while len(pending) >= DESCRIBE_BATCH_SIZE:
+                self._describe(pending[:DESCRIBE_BATCH_SIZE])
+                del pending[:DESCRIBE_BATCH_SIZE]
             yield ("progress", done, total)
+        if pending:
+            self._describe(pending)
 
         chunks = build_chunks(parsed_pages)
         if not chunks:
