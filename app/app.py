@@ -287,7 +287,6 @@ with gr.Blocks(title="Repair Guy") as demo:
                 label="Manual", choices=[], filterable=True, container=True
             )
             chatbot = gr.Chatbot(
-                type="messages",
                 height=540,
                 show_label=False,
                 elem_id="rg-chat",
