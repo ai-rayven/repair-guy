@@ -111,6 +111,10 @@ def agent_events(
     for step in range(AGENT_MAX_STEPS):
         tool, raw = minicpm_agent.decide(messages)
         log.info("step %d: tool=%s | raw=%r", step, tool, raw[:200])
+        # Diagnostic event: the raw 1B reply and the parsed tool for this step,
+        # so the UI's trace view shows exactly what the brain decided (and why a
+        # reply was rejected). Not used by the normal chip flow.
+        yield {"type": "trace", "step": step, "tool": tool, "raw": raw}
         if tool is None:
             # Unusable reply (bad JSON, or an echoed placeholder target). Correct
             # it and let the agent try again rather than abandon the turn.
@@ -197,6 +201,9 @@ def agent_events(
                 "target": target,
                 "page": current_page,
                 "bbox": [round(v) for v in box] if box is not None else None,
+                # the VLM's raw grounding reply — diagnostic only (helps explain
+                # where/why a box landed); shown in the trace view.
+                "ground_raw": braw[:300],
             }
             return
 

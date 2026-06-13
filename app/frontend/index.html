@@ -94,12 +94,33 @@
         </div>
       </div>
 
-      <!-- table of contents (the manual's clean bookmark chapters) -->
-      <div class="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between">
-        <span class="text-[11px] font-semibold uppercase tracking-wide text-brand-500/80">Contents</span>
-        <span x-show="sections.length" class="text-[11px] text-brand-400" x-text="sections.length + ' sections'"></span>
+      <!-- tabs: the manual's contents · the agent's diagnostic trace -->
+      <div class="px-3 pt-3 pb-2 shrink-0 flex items-center gap-2 border-b border-brand-100">
+        <div class="flex items-center gap-0.5 rounded-lg bg-brand-50 p-0.5 ring-1 ring-brand-100">
+          <button @click="tab='toc'" type="button"
+            :class="tab==='toc' ? 'bg-white text-navy shadow-sm ring-1 ring-brand-200' : 'text-brand-500 hover:text-navy'"
+            class="rounded-md px-2.5 py-1 text-[12px] font-semibold transition">Contents</button>
+          <button @click="tab='trace'; traceSeen=trace.length" type="button"
+            :class="tab==='trace' ? 'bg-white text-navy shadow-sm ring-1 ring-brand-200' : 'text-brand-500 hover:text-navy'"
+            class="relative rounded-md px-2.5 py-1 text-[12px] font-semibold transition">
+            Diagnostics
+            <span x-show="tab!=='trace' && trace.length>traceSeen"
+                  class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent-500"></span>
+          </button>
+        </div>
+        <span x-show="tab==='toc' && sections.length" class="ml-auto text-[11px] text-brand-400" x-text="sections.length + ' sections'"></span>
+        <div x-show="tab==='trace' && trace.length" class="ml-auto flex items-center gap-2">
+          <button @click="copyTrace()" type="button"
+            class="text-[11px] font-semibold text-brand-400 hover:text-navy transition"
+            x-text="traceCopied ? 'Copied ✓' : 'Copy'"></button>
+          <span class="text-brand-200">·</span>
+          <button @click="clearTrace()" type="button"
+            class="text-[11px] text-brand-400 hover:text-navy transition">Clear</button>
+        </div>
       </div>
-      <div x-ref="toc" class="flex-1 min-h-0 overflow-y-auto scroll-thin px-2 pb-2">
+
+      <!-- CONTENTS: the manual's clean bookmark chapters -->
+      <div x-show="tab==='toc'" x-ref="toc" class="flex-1 min-h-0 overflow-y-auto scroll-thin px-2 pb-2">
         <!-- no manual yet -->
         <div x-show="!viewDoc" class="h-full grid place-items-center text-center px-4">
           <p class="text-sm text-brand-400/90">Pick a manual to see its contents.</p>
@@ -121,6 +142,37 @@
             <span class="flex-1 min-w-0 text-[13px] leading-snug font-medium" x-text="s.title"></span>
             <span class="text-[11px] tabular-nums text-brand-400 shrink-0 mt-px" x-text="'p.'+s.page_start"></span>
           </button>
+        </template>
+      </div>
+
+      <!-- DIAGNOSTICS: the agent's full trace — every decision (raw 1B reply +
+           parsed tool), search hits, page shown, and terminal result -->
+      <div x-show="tab==='trace'" x-ref="trace" class="flex-1 min-h-0 overflow-y-auto scroll-thin px-2 pb-3 font-mono text-[11px] leading-relaxed">
+        <div x-show="!trace.length" class="h-full grid place-items-center text-center px-4">
+          <p class="text-brand-400/90 font-sans text-sm">No activity yet. Send a request and the agent's full trace — every decision, search and result — shows up here.</p>
+        </div>
+        <template x-for="(e,i) in trace" :key="i">
+          <div class="px-1.5 py-0.5">
+            <!-- a turn header: what the mechanic asked -->
+            <template x-if="e.kind==='turn'">
+              <div class="flex items-center gap-1.5 border-t border-brand-100 pt-2 mt-1.5 first:border-0 first:pt-0 first:mt-0">
+                <span class="text-accent-600 font-sans font-bold shrink-0">▶</span>
+                <span class="font-sans font-semibold text-navy truncate" x-text="e.label"></span>
+              </div>
+            </template>
+            <!-- an event row: time · badge · label, with optional detail / raw -->
+            <template x-if="e.kind!=='turn'">
+              <div class="py-px">
+                <div class="flex items-baseline gap-1.5">
+                  <span class="text-brand-300 tabular-nums shrink-0" x-text="e.t"></span>
+                  <span class="shrink-0 font-semibold uppercase tracking-wide px-1 rounded text-[10px]" :class="e.cls" x-text="e.badge"></span>
+                  <span class="text-slate-700 break-words min-w-0" x-text="e.label"></span>
+                </div>
+                <div x-show="e.detail" class="pl-[5.4rem] text-brand-500 break-words" x-text="e.detail"></div>
+                <pre x-show="e.mono" class="pl-[5.4rem] mt-0.5 whitespace-pre-wrap break-words text-slate-500" x-text="e.mono"></pre>
+              </div>
+            </template>
+          </div>
         </template>
       </div>
 
@@ -193,11 +245,15 @@
       </div>
 
       <!-- the page -->
-      <div class="flex-1 min-h-0 overflow-auto scroll-thin bg-brand-50/40">
+      <div class="flex-1 min-h-0 overflow-auto scroll-thin bg-brand-50/40 flex justify-center items-start p-4">
         <template x-if="viewDoc">
-          <div class="relative">
+          <!-- fit the whole page to the available HEIGHT so it isn't blown up
+               past the viewport (the pane width is fine; portrait pages were
+               overflowing vertically). aspect-ratio keeps this box exactly the
+               image's shape, so the SVG circle overlay stays aligned 1:1 -->
+          <div class="relative h-full max-w-full shrink-0" :style="`aspect-ratio:${imgW}/${imgH}`">
             <img :src="pageUrl" @load="imgW=$event.target.naturalWidth; imgH=$event.target.naturalHeight"
-                 class="block w-full h-auto select-none" draggable="false" alt="manual page">
+                 class="block h-full w-full select-none rounded-lg shadow-sm ring-1 ring-navy/10" draggable="false" alt="manual page">
             <!-- circle overlay: bbox coordinates are in the rendered page's
                  pixel space, identical to the image's natural size. NB: no
                  <template x-if> in here — HTML templates aren't valid SVG
@@ -221,22 +277,6 @@
         </div>
       </div>
 
-      <!-- pages-checked strip (search candidates) -->
-      <template x-if="thumbs.length">
-        <div class="border-t border-brand-100 px-4 py-3">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-brand-500/80 mb-2">Pages checked</p>
-          <div class="flex gap-2.5 overflow-x-auto scroll-thin px-0.5 py-1">
-            <template x-for="t in thumbs" :key="t.page">
-              <button @click="jumpTo(t.page)" type="button"
-                :class="viewPage===t.page ? 'border-accent-500' : 'border-brand-100 hover:border-brand-300'"
-                class="shrink-0 rounded-lg overflow-hidden bg-white border-2 transition relative focus:outline-none">
-                <img :src="t.src" class="h-28 w-auto block" :alt="'page '+t.page">
-                <span class="absolute bottom-0 inset-x-0 bg-navy/80 text-white text-[10px] font-medium text-center py-0.5" x-text="'p.'+t.page"></span>
-              </button>
-            </template>
-          </div>
-        </div>
-      </template>
     </section>
   </main>
 
@@ -307,11 +347,14 @@ function repairGuy() {
     // compact memory of past turns ([{request, action}]) sent with each turn so
     // the agent can resolve references ("circle the other one", "go back").
     lastRequest:'', activity:null, history:[],
+    // left-rail tabs: 'toc' (the manual's contents) | 'trace' (the agent's full
+    // diagnostic trace for the session). `trace` accumulates structured entries;
+    // `traceSeen` drives the unseen-activity dot on the Diagnostics tab.
+    tab:'toc', trace:[], traceSeen:0, traceCopied:false,
     // viewer state machine: which page is open, the manual's chapter index,
     // a jump history for "back", and the active circle overlay.
     viewDoc:'', viewPage:1, docPages:1, sections:[], navStack:[], circle:null,
     imgW:1240, imgH:1754,  // replaced by the real natural size on image load
-    thumbs:[], turnFirstSearch:true,
 
     get pageUrl(){ return this.viewDoc ? `/page/${encodeURIComponent(this.viewDoc)}/${this.viewPage}` : ''; },
 
@@ -342,7 +385,8 @@ function repairGuy() {
 
     // switching manuals starts fresh and opens the manual on page 1
     async newChat(){
-      this.lastRequest=''; this.activity=null; this.thumbs=[]; this.history=[];
+      this.lastRequest=''; this.activity=null; this.history=[];
+      this.trace=[]; this.traceSeen=0; this.tab='toc';
       this.viewDoc=''; this.viewPage=1; this.navStack=[]; this.circle=null; this.sections=[];
       const m = this.manuals.find(x=>x.value===this.manual);
       if(!m) return;
@@ -382,6 +426,88 @@ function repairGuy() {
       if(this.history.length>8) this.history.shift();
     },
 
+    // --- diagnostic trace ---------------------------------------------
+    // The Diagnostics tab is a session-long log of what the agent actually did:
+    // each turn's request, every step's raw 1B reply + parsed tool, the search
+    // hits, the page shown, and the terminal result. Distinct from `history`
+    // (which is the compact memory SENT to the model) and from `activity` (the
+    // single user-facing chip) — this is the developer's-eye view.
+    now(){ const d=new Date(); return d.toTimeString().slice(0,8)+'.'+String(d.getMilliseconds()).padStart(3,'0'); },
+    pushTrace(e){
+      e.t = this.now();
+      this.trace.push(e);
+      if(this.trace.length>500) this.trace.splice(0, this.trace.length-500);
+      if(this.tab==='trace'){ this.traceSeen=this.trace.length; this.$nextTick(()=>{ const el=this.$refs.trace; if(el) el.scrollTop=el.scrollHeight; }); }
+    },
+    clearTrace(){ this.trace=[]; this.traceSeen=0; },
+
+    // flatten the trace to plain text for pasting back into a bug report
+    traceText(){
+      const body = this.trace.map(e=>{
+        if(e.kind==='turn') return `\n▶ ${e.label}`;
+        let s = `  ${e.t}  ${String(e.badge||'').toUpperCase().padEnd(7)} ${e.label||''}`;
+        if(e.detail) s += `\n            ${e.detail}`;
+        if(e.mono)   s += `\n            ${String(e.mono).replace(/\n/g,'\n            ')}`;
+        return s;
+      }).join('\n');
+      return `Repair Guy trace — ${this.manual||'(no manual)'}\n${body}`.trim()+'\n';
+    },
+    copyTrace(){
+      const text = this.traceText();
+      const done = ()=>{ this.traceCopied=true; setTimeout(()=>{ this.traceCopied=false; }, 1500); };
+      const fallback = ()=>{ const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(_){} document.body.removeChild(ta); done(); };
+      if(navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback);
+      else fallback();
+    },
+    traceTurn(q){ this.pushTrace({kind:'turn', label:q}); },
+    traceLocal(){ this.pushTrace({kind:'local', badge:'nav', cls:'bg-slate-100 text-slate-600', label:(this.activity?.label||'navigated'), detail:this.activity?.detail||''}); },
+
+    // map one wire event → a trace row (or none). Mirrors handleFindEvent but
+    // keeps the raw detail the chip throws away.
+    recordTrace(ev){
+      if(ev.error){ this.pushTrace({kind:'error', badge:'error', cls:'bg-red-100 text-red-700', label:ev.error}); return; }
+      switch(ev.type){
+        case 'trace':{  // a decision: raw 1B reply + parsed tool
+          const tool = ev.tool ? JSON.stringify(ev.tool) : '(unparseable — retrying)';
+          this.pushTrace({kind:'decision', badge:`step ${ev.step}`, cls:'bg-brand-100 text-brand-700', label:`decided ${tool}`, mono:ev.raw||''});
+          break;
+        }
+        case 'step':{  // the chosen tool, with its args
+          let label='';
+          if(ev.tool==='search') label=`search · “${ev.query}”`;
+          else if(ev.tool==='circle') label=`circle · “${ev.target}”`;
+          else if(ev.tool==='go_to_section') label=`go_to_section · ${ev.title} (p.${ev.page})`;
+          this.pushTrace({kind:'step', badge:'tool', cls:'bg-brand-600 text-white', label});
+          break;
+        }
+        case 'tool_result':
+          if(ev.tool==='search_docs'){
+            const lines = (ev.thumbnails||[]).map(t=>{ const m=(t.caption||'').match(/score\s*([\d.]+)/i); return `p.${t.page}${m?'  '+m[1]:''}`; });
+            this.pushTrace({kind:'search', badge:'hits', cls:'bg-indigo-100 text-indigo-700', label:`${lines.length} candidate${lines.length===1?'':'s'}`, detail:lines.join('   ')});
+          }
+          break;
+        case 'found':
+          this.pushTrace({kind:'found', badge:'page', cls:'bg-emerald-100 text-emerald-700', label:`show p.${ev.page}`});
+          break;
+        case 'status':
+          this.pushTrace({kind:'status', badge:'··', cls:'bg-slate-100 text-slate-500', label:ev.text||''});
+          break;
+        case 'done':{
+          const meta = ev.elapsed!=null ? `${ev.elapsed}s` : '';
+          let label='', detail='';
+          if(ev.kind==='navigate'){ label=`navigate → ${ev.title} (p.${ev.page})`; }
+          else if(ev.kind==='reply'){ label=`reply · ${ev.message||''}`; }
+          else {  // point
+            label = ev.found ? `point · “${ev.target}” p.${ev.page}` : `not found · “${ev.target}”`;
+            detail = ev.bbox ? `bbox [${ev.bbox.join(', ')}]` : (ev.found ? 'no bbox (page shown, not pinpointed)' : '');
+            if(ev.ground_raw) detail += (detail?'   ':'')+`vlm: ${ev.ground_raw}`;
+          }
+          this.pushTrace({kind:'done', badge:'done', cls:'bg-accent-500 text-white', label, detail:[detail, meta].filter(Boolean).join('   ')});
+          break;
+        }
+      }
+    },
+
     // --- obvious navigation (handled locally, no server call) ----------
     routeLocal(q){
       const s = q.toLowerCase().replace(/[.!?]+\s*$/,'').replace(/\s+/g,' ').trim();
@@ -410,10 +536,11 @@ function repairGuy() {
       if(!q || this.loading || !this.ready) return;
       this.lastRequest = q; this.input='';
       if(!this.manual){ this.say('Pick a manual first ☝️'); return; }
-      if(this.routeLocal(q)) return;  // obvious nav — done client-side
+      this.traceTurn(q);
+      if(this.routeLocal(q)){ this.traceLocal(); return; }  // obvious nav — done client-side
 
       // everything else is a find-and-point turn on the GPU
-      this.loading=true; this.status='Working…'; this.turnFirstSearch=true;
+      this.loading=true; this.status='Working…';
       const find = this.startFindChip();
       try{
         const job = this.client.submit('/find', {
@@ -426,9 +553,10 @@ function repairGuy() {
         let finished = false;
         for await (const msg of job){
           if(finished || msg.type!=='data' || !msg.data?.[0]) continue;
+          this.recordTrace(msg.data[0]);
           finished = this.handleFindEvent(msg.data[0], find);
         }
-      }catch(e){ find.icon='circle-slash'; find.label='Something went wrong'; find.detail=String(e); find.pending=false; }
+      }catch(e){ this.pushTrace({kind:'error', badge:'error', cls:'bg-red-100 text-red-700', label:String(e)}); find.icon='circle-slash'; find.label='Something went wrong'; find.detail=String(e); find.pending=false; }
       this.loading=false; this.status='';
     },
 
@@ -454,12 +582,10 @@ function repairGuy() {
           else if(ev.tool==='search'){ find.icon='search'; find.label=`Searching: “${ev.query}”`; find.detail=''; this.status=`Searching the manual for “${ev.query}”…`; }
           break;
 
-        case 'tool_result':  // search candidates → the page strip
+        case 'tool_result':  // search candidates (no longer shown — keep status only)
           if(ev.tool==='search_docs'){
-            if(this.turnFirstSearch){ this.thumbs=[]; this.turnFirstSearch=false; }
-            const seen = new Set(this.thumbs.map(t=>t.page));
-            for(const t of (ev.thumbnails||[])) if(!seen.has(t.page)) this.thumbs.push(t);
-            this.status = `Reading ${this.thumbs.length} candidate page${this.thumbs.length===1?'':'s'}…`;
+            const n = (ev.thumbnails||[]).length;
+            this.status = `Reading ${n||''} candidate page${n===1?'':'s'}…`.replace(/\s+/g,' ');
           }
           break;
 

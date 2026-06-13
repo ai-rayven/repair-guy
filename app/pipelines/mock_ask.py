@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import glob
 import hashlib
+import json
 import os
 import re
 import time
@@ -163,18 +164,21 @@ class MockAskPipeline:
         kind, a, b = self._mock_route(request, sections)
 
         if kind == "go_to_section":
+            yield self._trace(0, {"tool": "go_to_section", "section": b})
             yield {"type": "step", "tool": "go_to_section", "title": b, "page": a}
             yield {"type": "done", "kind": "navigate", "page": a, "title": b}
             return
 
         if kind == "point_here":
             target = a
+            yield self._trace(0, {"tool": "circle", "target": target})
             yield from self._circle(store, doc_id, cur, target, delay)
             return
 
         # search → show the best page → circle the target on it (mirrors the
         # agent's search-then-circle), unless a magic target hits the give-up path
         target, query = a, b
+        yield self._trace(0, {"tool": "search", "query": query})
         yield {"type": "step", "tool": "search", "query": query}
         pages = self._pick_pages(request, info["pages"], top_k)
         images = render_pages(store.pdf_path(doc_id), pages)
@@ -191,11 +195,13 @@ class MockAskPipeline:
         time.sleep(delay)
 
         if any(w in target.lower() for w in ("xyzzy", "flux capacitor", "nonexistent")):
-            yield {"type": "done", "kind": "reply",
-                   "message": f"Couldn't find “{target}” in this manual."}
+            msg = f"Couldn't find “{target}” in this manual."
+            yield self._trace(1, {"tool": "done", "message": msg})
+            yield {"type": "done", "kind": "reply", "message": msg}
             return
         best = pages[0]
         yield {"type": "found", "page": best}
+        yield self._trace(1, {"tool": "circle", "target": target})
         yield from self._circle(store, doc_id, best, target, delay)
 
     def _circle(self, store, doc_id, page, target, delay):
@@ -205,7 +211,15 @@ class MockAskPipeline:
         time.sleep(delay)
         box = self._mock_box(store, doc_id, page, target)
         yield {"type": "done", "kind": "point", "found": True,
-               "target": target, "page": page, "bbox": box}
+               "target": target, "page": page, "bbox": box,
+               "ground_raw": f"(mock) grounding for {target!r} → {box}"}
+
+    @staticmethod
+    def _trace(step: int, tool: dict) -> dict:
+        """A mock diagnostic 'trace' event mirroring agent_ask's: the raw model
+        reply (here just the tool JSON) + the parsed tool, for the UI trace view."""
+        return {"type": "trace", "step": step, "tool": tool,
+                "raw": json.dumps(tool, separators=(",", ":"))}
 
     @staticmethod
     def _mock_route(request: str, sections: list[dict]):
