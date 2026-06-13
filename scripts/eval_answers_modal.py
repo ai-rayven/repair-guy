@@ -6,6 +6,8 @@
 # (its own image — different model family than MiniCPM, no self-judging bias).
 #   modal run scripts/eval_answers_modal.py                          # latest results file
 #   modal run scripts/eval_answers_modal.py --results eval/results/<file>.json --limit 4
+#   modal run scripts/eval_answers_modal.py --results eval/results/<doc>-answers-<ts>.json
+#     ^ rows that already have answers skip generation and go straight to the judge
 import json
 import os
 import re
@@ -26,7 +28,15 @@ app = modal.App(
 eval_data = modal.Volume.from_name("repair-guy-eval-data", create_if_missing=True)
 
 METHODS = ("visual", "parsed")
-GOLD_PAGES_FOR_JUDGE = 5
+# Covers the longest procedure span in the eval set (15 pages); beyond that
+# gold lists duplicate locations of one fact, so truncation loses nothing.
+GOLD_PAGES_FOR_JUDGE = 15
+# Total pixel budget across a row's gold pages, split evenly between them.
+# The judge weighs ~66GB in bf16 on an 80GB card; 5 full-res pages (~2.1MP
+# each at 150 DPI) fit the remaining activation/KV headroom, 15 OOM it.
+# Short rows stay at full resolution (the per-page share exceeds the render),
+# long rows downscale to ~0.8MP/page — still legible to the judge.
+JUDGE_PIXEL_BUDGET = 12_000_000
 
 JUDGE_MODEL_ID = os.environ.get("JUDGE_MODEL_ID", "Qwen/Qwen3-VL-32B-Instruct")
 JUDGE_GPU = os.environ.get("MODAL_JUDGE_GPU", "A100-80GB")  # ~66GB in bf16
@@ -36,6 +46,9 @@ JUDGE_PROMPT = (
     "You are grading an assistant's answer about a repair manual. The images "
     "are the manual pages that contain the correct information (the ground "
     "truth).\n\nQuestion: {question}\n\nAssistant's answer:\n{answer}\n\n"
+    "The answer is expected to cite source pages like (Manual — p.123); the "
+    "numbers refer to the source PDF, not the page numbers printed on the "
+    "pages, so do not treat citations as fabrications or grade them.\n\n"
     "Grade strictly against the pages:\n"
     "- correct: the key values and steps match the pages, nothing important "
     "is missing or made up\n"
@@ -60,6 +73,9 @@ judge_image = (
         "numpy",
         "huggingface_hub",
     )
+    # Variable-size image batches fragment the allocator (the judge sees a
+    # different page count per row); expandable segments reclaim that slack.
+    .env({"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"})
     .add_local_dir(str(APP_DIR), remote_path="/root/app")
     .add_local_python_source("index_modal")
 )
@@ -150,9 +166,15 @@ def judge_answers(doc_id: str, rows: list) -> list:
     processor = AutoProcessor.from_pretrained(JUDGE_MODEL_ID)
 
     def grade(question: str, answer: str, gold_pages: list) -> dict:
+        pages = gold_pages[:GOLD_PAGES_FOR_JUDGE]
+        max_pixels = JUDGE_PIXEL_BUDGET // max(len(pages), 1)
         content = [
-            {"type": "image", "image": render_page(pdf_path, p)}
-            for p in gold_pages[:GOLD_PAGES_FOR_JUDGE]
+            {
+                "type": "image",
+                "image": render_page(pdf_path, p),
+                "max_pixels": max_pixels,  # qwen_vl_utils resizes per image
+            }
+            for p in pages
         ]
         content.append(
             {
@@ -270,26 +292,34 @@ def main(
         for r in rows:
             r.setdefault("expected_values", qmap.get(r["id"]))
 
-    rows = generate_answers.remote(data["doc_id"], rows)
-    if judge:
-        rows = judge_answers.remote(data["doc_id"], rows)
-
-    summary = _summarize(rows)
-    _print_table(summary)
-
     out = Path("eval/results") / (
         f"{data['doc_id']}-answers-{time.strftime('%Y%m%d-%H%M%S')}.json"
     )
-    out.write_text(
-        json.dumps(
-            {
-                "doc_id": data["doc_id"],
-                "retrieval_results": str(path),
-                "judge_model": JUDGE_MODEL_ID if judge else None,
-                "summary": summary,
-                "questions": rows,
-            },
-            indent=2,
+
+    def save(judged: bool) -> None:
+        out.write_text(
+            json.dumps(
+                {
+                    "doc_id": data["doc_id"],
+                    # carried through when resuming from an -answers- file
+                    "retrieval_results": data.get("retrieval_results", str(path)),
+                    "judge_model": JUDGE_MODEL_ID if judged else None,
+                    "summary": _summarize(rows),
+                    "questions": rows,
+                },
+                indent=2,
+            )
         )
-    )
+
+    if any("answer" not in r[m] for r in rows for m in METHODS):
+        rows = generate_answers.remote(data["doc_id"], rows)
+        save(judged=False)  # a judge crash must not cost the generation pass
+        print(f"Answers checkpointed to {out}")
+    else:
+        print("All rows already have answers — skipping generation.")
+    if judge:
+        rows = judge_answers.remote(data["doc_id"], rows)
+
+    _print_table(_summarize(rows))
+    save(judged=judge)
     print(f"\nFull results written to {out}")

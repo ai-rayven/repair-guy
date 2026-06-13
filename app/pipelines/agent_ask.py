@@ -116,6 +116,7 @@ def agent_events(
     circleable = set(shown_pages)  # pages the agent may circle on right now
     seen_pages = set(shown_pages)  # pages already put on screen this turn
     tried_queries = set()  # normalized search queries already issued this turn
+    ground_failed = set()  # (page, normalized target) the VLM already missed
     yield {"type": "status", "text": "Thinking…"}
 
     for step in range(AGENT_MAX_STEPS):
@@ -239,6 +240,21 @@ def agent_events(
             box, braw = minicpm.ground_box(img, target)
             log.info("ground_box(%r) on p.%d → %s | raw=%r",
                      target, page, box, braw[:200])
+            # The VLM couldn't find the target on this page — almost always
+            # because it's on a DIFFERENT page (the agent circled too early).
+            # Don't end the turn with an empty pin: push it to relocate and try
+            # again. Only fall through to showing the page un-pinned once we've
+            # already missed this exact (page, target) — a repeat means retrying
+            # here won't help, same guard as the no-op search.
+            tkey = (page, " ".join(target.lower().split()))
+            if box is None and tkey not in ground_failed:
+                ground_failed.add(tkey)
+                messages.append(
+                    minicpm_agent.tool_result_message(
+                        minicpm_agent.ground_failed_message(request, target, page)
+                    )
+                )
+                continue
             yield {
                 "type": "done",
                 "kind": "point",

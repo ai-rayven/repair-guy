@@ -1,0 +1,3206 @@
+{
+  "doc_id": "hyundai-genesis-2-0t-bk2",
+  "retrieval_results": "eval/results/hyundai-genesis-2-0t-bk2-20260611-214817.json",
+  "judge_model": "Qwen/Qwen3-VL-32B-Instruct",
+  "summary": {
+    "repair": {
+      "n": 27,
+      "visual": {
+        "value": 0.7777777777777778,
+        "judge": 0.5925925925925926,
+        "ans_median_s": 7.5
+      },
+      "parsed": {
+        "value": 0.8148148148148148,
+        "judge": 0.7407407407407407,
+        "ans_median_s": 7.2
+      }
+    },
+    "fluids": {
+      "n": 6,
+      "visual": {
+        "value": 0.8333333333333334,
+        "judge": 0.5833333333333334,
+        "ans_median_s": 9.0
+      },
+      "parsed": {
+        "value": 0.8333333333333334,
+        "judge": 0.4166666666666667,
+        "ans_median_s": 13.8
+      }
+    },
+    "inspect-adjust": {
+      "n": 4,
+      "visual": {
+        "value": 1.0,
+        "judge": 0.875,
+        "ans_median_s": 14.4
+      },
+      "parsed": {
+        "value": 1.0,
+        "judge": 1.0,
+        "ans_median_s": 11.1
+      }
+    },
+    "torque": {
+      "n": 5,
+      "visual": {
+        "value": 1.0,
+        "judge": 0.8,
+        "ans_median_s": 3.9
+      },
+      "parsed": {
+        "value": 0.8,
+        "judge": 0.6,
+        "ans_median_s": 3.9
+      }
+    },
+    "paraphrase": {
+      "n": 8,
+      "visual": {
+        "value": 0.875,
+        "judge": 0.75,
+        "ans_median_s": 11.3
+      },
+      "parsed": {
+        "value": 0.875,
+        "judge": 0.75,
+        "ans_median_s": 12.5
+      }
+    },
+    "overall": {
+      "n": 50,
+      "visual": {
+        "value": 0.84,
+        "judge": 0.66,
+        "ans_median_s": 7.9
+      },
+      "parsed": {
+        "value": 0.84,
+        "judge": 0.71,
+        "ans_median_s": 7.9
+      }
+    }
+  },
+  "questions": [
+    {
+      "id": "rep-01",
+      "category": "repair",
+      "question": "How do I remove and install the brake master cylinder?",
+      "gold_pages": [
+        541,
+        542,
+        543,
+        544
+      ],
+      "expected_values": [
+        "reservoir"
+      ],
+      "visual": {
+        "pages": [
+          543,
+          544,
+          536,
+          541,
+          619
+        ],
+        "scores": [
+          21.8833,
+          21.8394,
+          21.8174,
+          21.793,
+          21.6641
+        ],
+        "seconds": 10.67,
+        "answer_seconds": 8.0,
+        "answer": "7. Remove the master cylinder (B) from the brake booster after loosening the mounting nuts (C).\n\n1. Apply genuine brake fluid to the rubber parts of the cylinder kit and grommets.\n2. Carefully insert the springs and pistons in the proper direction.\n3. Press the secondary piston (C) with a screwdriver and install the cylinder pin (D).\n4. Install the retainer ring (A) after installing primary piston assembly (B).\n5. Mount two grommets.\n6. Install the reservoir (C) on the cylinder (B), and then install the mounting screw (A).\n\n1. Installation is the reverse of removal.\n2. After installation, bleed the brake system.\n(Refer to Brake system bleeding)\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.543, p.544)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer includes correct reassembly and installation steps but omits the full removal procedure (steps 1-6 on pages 16-17) and incorrectly lists step 7 as the first step, which is not the beginning of the removal process."
+        }
+      },
+      "parsed": {
+        "pages": [
+          541,
+          542,
+          544,
+          543,
+          619
+        ],
+        "scores": [
+          0.5476,
+          0.5476,
+          0.5132,
+          0.4729,
+          0.4483
+        ],
+        "seconds": 2.92,
+        "answer_seconds": 6.7,
+        "answer": "1. Turn ignition switch OFF and disconnect the negative (-) battery cable.\n2. Remove the strut bar (A).\n3. Disconnect the ECM connector (B). And then take the protector of control harness off.\n4. Disconnect the brake fluid level switch connector (A) from the reservoir.\n5. Remove the brake fluid from the master cylinder reservoir with a syringe.\n6. Disconnect the brake tube (B) from the master cylinder by loosening the tube flare nut.\n7. Remove the master cylinder (B) from the brake booster after loosening the mounting nuts (C).\n\nInstallation:\n1. Installation is the reverse of removal.\n2. After installation, bleed the brake system.\n\n(Manual \u2014 p.542 to p.544)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the removal steps from pages 16 and 17, and correctly states that installation is the reverse of removal with the requirement to bleed the brake system, as specified on page 18."
+        }
+      }
+    },
+    {
+      "id": "rep-02",
+      "category": "repair",
+      "question": "How do I replace the front brake pads?",
+      "gold_pages": [
+        552,
+        553,
+        554,
+        555,
+        556,
+        557
+      ],
+      "expected_values": [
+        "caliper"
+      ],
+      "visual": {
+        "pages": [
+          554,
+          555,
+          562,
+          556,
+          557
+        ],
+        "scores": [
+          20.248,
+          20.208,
+          20.0317,
+          19.9971,
+          19.9873
+        ],
+        "seconds": 7.0,
+        "answer_seconds": 15.3,
+        "answer": "Front Brake Pads (General caliper type)\n1. Remove the brake hose mounting bracket (knuckle mounting part : D).\n\nFront Brake Pads (Brembo caliper type)\n2. Loosen the guide rod bolt (B) and remove the caliper body (A).\nTightening torque:\n21.6 ~ 31.4 N.m (2.2 ~ 3.2 kgf.m, 15.9 ~ 23.1 lb-ft)\n3. Replace pad shim (B), pad retainers (C) and brake pads (B) in the caliper bracket (A).\n\nFront Brake Disc Thickness Check\n1. Check the brake pads for wear and fade.\n2. Check the brake disc for damage and cracks.\n3. Remove all rust and contamination from the surface, and measure the disc thickness at 8 points, at least, of same distance (5mm) from the brake disc outer circle.\n\nPad thickness\nGeneral caliper type\nStandard value: 11mm (0.43in)\nService limit: 2.0mm (0.0787in)\nBrembo caliper type\nStandard value: 8.5mm (0.33in)\nService limit: 2.0mm (0.0787in)\n\nFront Brake Pad Runout Check\n1. Place a dial gauge about 5mm (0.2 in.) from the outer circumference of the brake disc, and measure the runout of the disc.\nLimit: 0.035mm (0.00137in.) or less (new one)\n2. If the run out of the brake disc exceeds the limit specification, replace the disc, and then measure the run out again.\n3. If the run out does not exceed the limit specification, install the brake disc after turning it and then check the run out of the brake disc again.\n4. If the run out cannot be corrected by changing the position of the brake disc, replace the brake disc.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.554, Manual \u2014 p.555, Manual \u2014 p.562, Manual \u2014 p.556, Manual \u2014 p.557)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer incorrectly combines steps for different caliper types, misattributes steps (e.g., step 2 for Brembo is listed under General caliper), and includes entirely fabricated information such as \"Pad thickness\" and \"Front Brake Pad Runout Check\" which are not present in the provided manual pages."
+        }
+      },
+      "parsed": {
+        "pages": [
+          555,
+          556,
+          557,
+          550,
+          553
+        ],
+        "scores": [
+          0.4546,
+          0.4546,
+          0.4391,
+          0.426,
+          0.421
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 17.1,
+        "answer": "2. Loosen the guide rod bolt (B) and remove the caliper body (A).\nTightening torque:\n21.6 ~ 31.4 N.m (2.2 ~ 3.2 kgf.m, 15.9 ~ 23.1 lb-ft)\n3. Replace pad shim (B), pad retainers (C) and brake pads (B) in the caliper bracket (A).\n\nFront Brake Pads (Brembo caliper type)\n1. Remove the guide pin (B) of the lower part with the pin punch (A).\n\n2. Remove the guide pin (C) of the upper part and retraction spring (D).\n\n3. Replace brake pads (E) at the caliper body.\n\n4. If wear exceeds the limit, replace the discs and pad assembly left and right of the vehicle.\n\nFront Brake Pad Check\n1. Check the pad wear. Measure the pad thickness and replace it, if it is less than the specified value.\n\nPad thickness\nGeneral caliper type\nStandard value: 11mm (0.43in)\nService limit: 2.0mm (0.0787in)\nBrembo caliper type\nStandard value: 8.5mm (0.33in)\nService limit: 2.0mm (0.0787in)\n\n2. Check that grease is applied, to sliding contact points and the pad and backing metal for damage.\n\nFront Brake Disc Runout Check\n1. Place a dial gauge about 5mm (0.2 in.) from the outer circumference of the brake disc, and measure the runout of the disc.\n\nBrake disc runout\nLimit: 0.035mm (0.00137in.) or less (new one)\n\n2. If the run out of the brake disc exceeds the limit specification, replace the disc, and then measure the run out again.\n3. If the run out does not exceed the limit specification, install the brake disc after turning it and then check the run out of the brake disc again.\n4. If the run out cannot be corrected by changing the position of the brake disc, replace the brake disc.\n\nInstallation\n1. Installation is the reverse of removal.\nCAUTION\n\u2022 Before installing the pin, apply the grease to the clevis pin.\n\u2022 Use a new snap pin whenever installing.\n2. Check the brake pedal operation.\n\n(Manual \u2014 p.555)\n(Manual \u2014 p.556)\n(Manual \u2014 p.557)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant correctly describes the steps for replacing front brake pads for both general and Brembo caliper types, but incorrectly includes unsupported information about pad thickness standards, brake disc runout, and installation cautions not present in the provided pages, and misrepresents the inspection steps."
+        }
+      }
+    },
+    {
+      "id": "rep-03",
+      "category": "repair",
+      "question": "How do I replace the rear brake disc?",
+      "gold_pages": [
+        559,
+        560,
+        561,
+        562,
+        563
+      ],
+      "expected_values": [
+        "caliper"
+      ],
+      "visual": {
+        "pages": [
+          561,
+          639,
+          560,
+          563,
+          562
+        ],
+        "scores": [
+          20.1147,
+          20.1016,
+          20.0249,
+          19.9946,
+          19.9707
+        ],
+        "seconds": 6.91,
+        "answer_seconds": 3.9,
+        "answer": "2. Loosen the hose eye-bolt (B) and caliper mounting bolts (C), then remove the rear caliper assembly (A).\n3. Remove the rear brake disc by loosening the screws (A).\n\n(Manual \u2014 p.561, Manual \u2014 p.560)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reflects the steps for removing the rear brake disc as shown on pages 34 and 35, which are steps 2 and 3 of the removal procedure."
+        }
+      },
+      "parsed": {
+        "pages": [
+          559,
+          560,
+          640,
+          645,
+          550
+        ],
+        "scores": [
+          0.5277,
+          0.5277,
+          0.4608,
+          0.4601,
+          0.4544
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 4.6,
+        "answer": "1. Remove the rear wheel & tire.\n2. Loosen the hose eye-bolt (B) and caliper mounting bolts (C), then remove the rear caliper assembly (A).\n3. Remove the rear brake disc by loosening the screws (A).\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.560, Hyundai Genesis 2.0T BK2 \u2014 p.640)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists the three steps for replacing the rear brake disc as shown on pages 34 and 35, matching the procedures and component labels (A, B, C) from the diagrams."
+        }
+      }
+    },
+    {
+      "id": "rep-04",
+      "category": "repair",
+      "question": "How do I remove and install the parking brake assembly?",
+      "gold_pages": [
+        566,
+        567,
+        568,
+        569
+      ],
+      "expected_values": [
+        "cable"
+      ],
+      "visual": {
+        "pages": [
+          567,
+          566,
+          569,
+          564,
+          568
+        ],
+        "scores": [
+          21.9604,
+          21.9458,
+          21.9248,
+          21.7861,
+          21.7744
+        ],
+        "seconds": 7.45,
+        "answer_seconds": 8.6,
+        "answer": "1. Remove the floor console.\n(Refer to Body group - \"Floor console\")\n2. Loosen the adjusting nut (A) and the parking brake cables.\n3. Disconnect the connector (A) of parking brake switch.\n4. Remove the parking brake lever assembly (A) with loosening the bolts.\n\nParking Brake Shoe\n1. Raise the vehicle, and make sure it is securely supported.\n2. Remove the rear tire and wheel.\n3. Remove the brake caliper and Rear disc brake.\n(Refer to \"Rear disc brake removal\")\n\n8. Remove the operating lever assembly (E).\n\nInstallation\nParking Brake Shoe\n1. Install the operating lever assembly (E).\n2. Install the upper return spring (C) and the brake shoes (D).\n3. Install the adjuster assembly (B) and the lower return spring (A).\n4. While pressing the spring, install the brake shoe hold down pin (A) and spring (B).\n\n[Hyundai Genesis 2.0T BK2 \u2014 p.567]\n[Hyundai Genesis 2.0T BK2 \u2014 p.569]",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the removal and installation steps for the parking brake assembly as shown in the provided manual pages, including the correct sequence and component references."
+        }
+      },
+      "parsed": {
+        "pages": [
+          566,
+          567,
+          568,
+          570,
+          571
+        ],
+        "scores": [
+          0.5527,
+          0.5527,
+          0.5527,
+          0.5206,
+          0.5206
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 21.0,
+        "answer": "Brake System > Parking Brake System > Parking Brake Assembly > Repair procedures\n\n**Removal**\n\n**Parking Brake Lever**\n1. Remove the floor console.\n(Refer to Body group - \"Floor console\")\n2. Loosen the adjusting nut (A) and the parking brake cables.\n3. Disconnect the connector (A) of parking brake switch.\n4. Remove the parking brake lever assembly (A) with loosening the bolts.\n\n**Parking Brake Shoe**\n1. Raise the vehicle, and make sure it is securely supported.\n2. Remove the rear tire and wheel.\n3. Remove the brake caliper and Rear disc brake.\n(Refer to \"Rear disc brake removal\")\n4. Remove the parking brake cable (B), after removing the bolt (A).\nTightening torque :\n53.9 ~ 63.7 N.m (5.5 ~ 6.5 kgf.m, 39.8 ~ 47.0 lb-ft)\n5. Remove the shoe hold down pin (A) and the spring (B) by pushing the retainer spring and turning the pin.\n6. Remove the adjuster assembly (B) and the lower return spring (A).\n7. Remove the upper return spring (C) and the brake shoes (D).\n\n(Manual \u2014 p.566, p.567, p.568)\n\n**Installation**\n\n**Parking Brake Lever**\n1. Install the parking brake lever assembly, then tighten the mounting bolts in alphabetic order.\nTightening torque :\n8.8 ~ 13.7 N.m (0.9 ~ 1.4 kgf.m, 6.5 ~ 10.1 lb-ft)\n2. Apply a coating of the specified grease to each sliding parts (A) of the ratchet plate or the ratchet pawl.\nSpecified grease :\nMulti purpose grease RheoGel 429 (MS511-54, LT2)\n3. Install the parking brake cable adjuster, then adjust the parking brake lever stroke by turning adjusting nut (A).\n\n**Parking Brake Shoe**\n5. Install the parking brake cable (B), then install the bolt (A).\n6. Install the rear brake disc, then adjust the rear brake shoe clearance.\n(1) Remove the plug from the disc.\n(2) Rotate the toothed wheel of adjuster by a screw driver until the disc is not moving, and then return it by 5 notches in the opposite direction.\n(3) Install the plug.\n7. Install the brake caliper assembly. (Refer to \"Rear brake installation\")\n8. Install the tire and wheel.\n9. If the parking brake shoe or the brake disc are replaced a newly one, perform the brake shoe bed-in procedure.\n(1) While operating the parking brake pedal for 69N (7kgf, 15lbf) effort, drive the vehicle 500 meters (0.31 miles) at the speed of 60kph (37.3 mph).\n(2) Repeat the above procedure more than two times.\n(3) Must be held on at 30% uphill.\n\n(Manual \u2014 p.568, p.570, p.571)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant correctly lists the removal steps for both the parking brake lever and shoe, but invents installation steps not present in the provided pages, including tightening torques, grease application, and a detailed bed-in procedure, which are not mentioned in the manual excerpts."
+        }
+      }
+    },
+    {
+      "id": "rep-05",
+      "category": "repair",
+      "question": "How do I replace the clutch cover and clutch disc?",
+      "gold_pages": [
+        616,
+        617
+      ],
+      "expected_values": [
+        "flywheel"
+      ],
+      "visual": {
+        "pages": [
+          616,
+          618,
+          617,
+          615,
+          614
+        ],
+        "scores": [
+          21.895,
+          21.8389,
+          21.7578,
+          21.7476,
+          21.5752
+        ],
+        "seconds": 7.41,
+        "answer_seconds": 10.0,
+        "answer": "1. Remove the transmission assembly. (Refer to Manual transmission removal in MT group)\n2. Insert the special tool (09411-1P000) in the clutch disc to prevent the disc from shifting.\n3. Loosen the bolts(6ea) which attach the clutch cover to the flywheel in a star pattern. Loosen the bolts in succession, one or two turns at a time, to avoid bending the cover.\n4. Install the clutch cover assembly to the flywheel and temporarily tighten the bolts one or two steps at a time in a star pattern.\n5. Check for wear on the diaphragm spring end, pressure plate surface, rivets of the clutch cover assembly if necessary, replace them as needed.\n6. Apply multipurpose grease to the spline of the disc.\n7. Install the clutch disc assembly to the flywheel using the special tool (09411-1P000).\n8. Remove the clutch disc guide (09411-1P000).\n9. Install the transmission assembly to the engine. (Refer to Manual transmission installation in MT group)\n\nClutch System > Clutch System > Clutch Cover And Disc > Repair procedures\nClutch System > Clutch System > Clutch Master Cylinder > Components and Components Location\nClutch System > Clutch System > Clutch Master Cylinder > Repair procedures",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer includes steps for both removal and installation, but incorrectly adds a step to \"remove the clutch disc guide (09411-1P000)\" which is not mentioned in the manual, and omits the critical inspection steps for the clutch disc and release bearing as detailed on pages 4 and 5."
+        }
+      },
+      "parsed": {
+        "pages": [
+          616,
+          617,
+          618,
+          967,
+          968
+        ],
+        "scores": [
+          0.5389,
+          0.4253,
+          0.4253,
+          0.408,
+          0.408
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 13.4,
+        "answer": "Clutch System > Clutch System > Clutch Cover And Disc > Repair procedures\nRemoval\n1. Remove the transmission assembly.\n(Refer to Manual transmission removal in MT group)\n2. Insert the special tool (09411-1P000) in the clutch disc to prevent the disc from shifting.\n3. Loosen the bolts(6ea) which attach the clutch cover to the flywheel in a star pattern.\nLoosen the bolts in succession, one or two turns at a time, to avoid bending the cover.\nNOTE\nDo not clean the clutch disc or the release bearing with cleaning solvent.\nInstallation\n1. Apply multipurpose grease to the spline of the disc.\nGrease : CASMOLY L 9508\nCAUTION\nWhen installing the clutch, apply grease to each part, but be careful not to apply excessive grease.\nIt can cause clutch slippage and vibration (judder).\n2. Install the clutch disc assembly to the flywheel using the special tool (09411-1P000).\n3. Install the clutch cover assembly to the flywheel and temporarily tighten the bolts one or two steps at a time in a star pattern.\nTightening torque :\nClutch disc cover bolt :\n25 ~ 36Nm (2.5 ~ 3.6kgf.m, 18.1 ~ 26.0lb-ft)\n4. Remove the clutch disc guide (09411-1P000).\n5. Install the transmission assembly to the engine. (Refer to Manual transmission installation in MT group)\nClutch System > Clutch System > Clutch Master Cylinder > Components and Components Location\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.616, Hyundai Genesis 2.0T BK2 \u2014 p.617, Hyundai Genesis 2.0T BK2 \u2014 p.618)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant correctly lists the removal and installation steps from pages 4 and 5, but adds unsupported details such as tightening torque values and a step to remove the clutch disc guide, which are not mentioned in the provided manual pages."
+        }
+      }
+    },
+    {
+      "id": "rep-06",
+      "category": "repair",
+      "question": "How do I remove and install the clutch master cylinder?",
+      "gold_pages": [
+        618,
+        619,
+        620,
+        621
+      ],
+      "expected_values": [
+        "clutch tube"
+      ],
+      "visual": {
+        "pages": [
+          623,
+          619,
+          620,
+          618,
+          622
+        ],
+        "scores": [
+          21.9385,
+          21.9229,
+          21.896,
+          21.8604,
+          21.7871
+        ],
+        "seconds": 7.43,
+        "answer_seconds": 9.0,
+        "answer": "**Removal**\n1. Remove the flexible hose (A) from the brake reserve tank.\n2. After pulling out a clip, disconnect the clutch tube (B) from the master cylinder.\n3. Disconnect the ignition lock switch connector (A).\n4. Remove the push rod from the clutch pedal by removing the snap pin (A) and washer (B).\n5. Remove the clutch pedal mounting nut (C-3ea).\n6. Remove the clutch pedal bracket mounting nut (A-2ea).\n7. Remove the clutch master cylinder from the clutch pedal assembly by rotating the clutch master cylinder 45 degree counter clockwise.\n\n**Installation**\n1. Install the clutch master cylinder to the clutch pedal assembly by rotating the clutch master cylinder 45 degree clockwise.\n2. Install the clutch pedal bracket mounting nut (A-2ea).\n3. Install the clutch pedal mounting nut (C-3ea).\n4. Install the push rod to the clutch pedal by installing the snap pin (A) and washer (B).\n\nPage label(s): [Hyundai Genesis 2.0T BK2 \u2014 p.622], [Hyundai Genesis 2.0T BK2 \u2014 p.623]",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all removal and installation steps as described on pages 7 and 8, including correct torque values and component references, with no omissions or contradictions."
+        }
+      },
+      "parsed": {
+        "pages": [
+          620,
+          621,
+          541,
+          542,
+          619
+        ],
+        "scores": [
+          0.4821,
+          0.4821,
+          0.4719,
+          0.4719,
+          0.4708
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 7.9,
+        "answer": "**Removal**\n1. Remove the flexible hose (A) from the brake reserve tank.\n2. After pulling out a clip, disconnect the clutch tube (B) from the master cylinder.\n3. Disconnect the ignition lock switch connector (A).\n4. Remove the push rod from the clutch pedal by removing the snap pin (A) and washer (B).\n5. Remove the clutch pedal mounting nut (C-3ea).\n6. Remove the clutch pedal bracket mounting nut (A-2ea).\n7. Remove the clutch master cylinder from the clutch pedal assembly by rotating the clutch master cylinder 45 degree counter clockwise.\n\n**Installation**\n1. Install the clutch master cylinder to the clutch pedal assembly by rotating the clutch master cylinder 45 degree clockwise.\n2. Install the clutch pedal bracket mounting nut (A-2ea).\n3. Install the clutch pedal mounting nut (C-3ea).\n\n(Manual \u2014 p.619, p.620, p.621)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all removal and installation steps as described on pages 7 and 8, including correct torque values and component references, with no omissions or contradictions."
+        }
+      }
+    },
+    {
+      "id": "rep-07",
+      "category": "repair",
+      "question": "How do I replace the front hub and knuckle assembly?",
+      "gold_pages": [
+        632,
+        633,
+        634,
+        635,
+        636,
+        637,
+        638
+      ],
+      "expected_values": [
+        "knuckle"
+      ],
+      "visual": {
+        "pages": [
+          632,
+          637,
+          636,
+          639,
+          630
+        ],
+        "scores": [
+          22.8315,
+          22.6523,
+          22.5249,
+          22.4819,
+          22.48
+        ],
+        "seconds": 7.71,
+        "answer_seconds": 6.3,
+        "answer": "Driveshaft and axle > Front Axle Assembly > Front Hub / Knuckle / Tone Wheel > Repair procedures\nReplacement\n1. Loosen the wheel nuts slightly. Raise the vehicle, and make sure it is securely supported.\n9. Remove the hub assembly(A) from knuckle assembly.\nTightening torque :\n80 ~ 100 N.m (8.0 ~ 10.0 kgf.m, 57.8 ~ 72.3 lb-ft)\n10. Loosen the dust cover mount bolts and then remove the dust cover(B).\n11. Installation is the reverse order of removal.\n(Manual \u2014 p.632, Manual \u2014 p.637)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer includes steps (9, 10, 11) and a tightening torque that do not exist in the provided manual pages, and incorrectly references page numbers (p.632, p.637) that are not present in the document."
+        }
+      },
+      "parsed": {
+        "pages": [
+          632,
+          633,
+          631,
+          637,
+          1110
+        ],
+        "scores": [
+          0.4575,
+          0.4575,
+          0.4477,
+          0.4297,
+          0.4186
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 5.9,
+        "answer": "1. Loosen the wheel nuts slightly. Raise the vehicle, and make sure it is securely supported.\n2. Remove the front wheel and tire(A) from front hub.\n3. Remove the brake caliper mounting bolts (A), and then place the brake caliper assembly (B) with wire.\n9. Remove the hub assembly(A) from knuckle assembly.\n10. Loosen the dust cover mount bolts and then remove the dust cover(B).\n11. Installation is the reverse order of removal.\n\nPage 6 of 40, Page 7 of 40, Page 5 of 40, Page 11 of 40",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant included steps 1, 2, and 3 correctly, but skipped steps 4 through 8 (removing tie rod end, tension arm, lateral arm, strut mounting bolt, and brake disc) and incorrectly added steps 9 and 10 which are not in the manual, and referenced non-existent pages (Page 5 and Page 11)."
+        }
+      }
+    },
+    {
+      "id": "rep-08",
+      "category": "repair",
+      "question": "How do I replace the rear driveshaft?",
+      "gold_pages": [
+        644,
+        645,
+        646,
+        647,
+        648,
+        649,
+        650
+      ],
+      "expected_values": [
+        "castle nut"
+      ],
+      "visual": {
+        "pages": [
+          644,
+          655,
+          649,
+          639,
+          638
+        ],
+        "scores": [
+          20.2173,
+          20.0142,
+          19.9385,
+          19.9141,
+          19.8042
+        ],
+        "seconds": 6.97,
+        "answer_seconds": 5.3,
+        "answer": "1. Loosen the wheel nuts slightly. Raise the vehicle, and make sure it is securely supported.\n2. Remove the rear driveshaft(Refer to DS group-Rear driveshaft)\n3. Remove the propellshaft assembly(Refer to DS group-Propellshaft)\n4. Loosen the differential carrier assembly mount bolts and than remove the differential assembly(A)\n5. Installation is the reverse order of removal.\n\nDriveshaft and axle > Rear Driveshaft Assembly > Rear Driveshaft > Repair procedures\n(Manual \u2014 p.655)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer includes steps that are not in the provided manual pages, such as \"Remove the rear driveshaft(Refer to DS group-Rear driveshaft)\" and \"Remove the propellshaft assembly(Refer to DS group-Propellshaft)\", and incorrectly references a page number (p.655) not present in the images, while the actual steps shown in the manual start with removing the rear wheel and tire, not the driveshaft itself."
+        }
+      },
+      "parsed": {
+        "pages": [
+          644,
+          645,
+          649,
+          1127,
+          1128
+        ],
+        "scores": [
+          0.5069,
+          0.5069,
+          0.4947,
+          0.4494,
+          0.4494
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 15.5,
+        "answer": "1. Loosen the wheel nuts slightly. Raise the vehicle, and make sure it is securely supported.\n2. Remove the rear wheel and tire (A) from rear hub.\nTightening torque:\n88.3 ~ 107.9 N.m (9.0 ~ 11.0 kgf.m, 65.1 ~ 79.6 lb-ft)\nCAUTION\nBe careful not to damage to the hub bolts when removing the rear wheel and tire.\n3. Remove the brake caliper mounting bolts (A), and then place the brake caliper assembly (B) with wire as shown in the illustration.\nTightening torque:\n49.0 ~ 58.8 N.m (5.0 ~ 6.0 kgf.m, 36.1 ~ 43.3 lb-ft)\n12. Push the rear axle carrier (A) outward and separate the driveshaft (B) from the axle hub.\n13. Remove driveshaft (A) from differential after loosen bolt (6ea).\nTightening torque:\n8.8 ~ 9.8 N.m (0.9 ~ 1.0 kgf.m, 6.5 ~ 7.2 lb-ft)\nCAUTION\n\u2022 Use a pry bar (A) being careful not to damage the differential and joint.\n\u2022 Do not insert the pry bar (A) too deep, as this may cause damage to the oil seal.\n\u2022 Do not pull the driveshaft by excessive force it may cause components inside the joint kit to dislodge resulting in a torn boot or a damaged bearing.\n\u2022 Plug the hole of the differential case with the oil seal cap to prevent contamination.\n\u2022 Support the driveshaft properly.\n\u2022 Replace the retainer ring whenever the driveshaft is removed from the differential case.\n\u2022 Do not take the drive shaft a part. Please, replace drive shaft with assembly.\n14. Installation is the reverse order of removal.\nInspection\n1. Check the driveshaft boots for damage and deterioration.\n2. Check the ball joint for wear and damage.\n3. Check the splines for wear and damage.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.644, Manual \u2014 p.645, Manual \u2014 p.23 of 40)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer includes steps 12-14 and inspection details that are not present in the provided manual pages, which only cover steps 1-11 for removal and do not mention installation or inspection procedures."
+        }
+      }
+    },
+    {
+      "id": "rep-09",
+      "category": "repair",
+      "question": "How do I replace the propeller shaft?",
+      "gold_pages": [
+        651,
+        652,
+        653
+      ],
+      "expected_values": [
+        "flange"
+      ],
+      "visual": {
+        "pages": [
+          652,
+          653,
+          651,
+          1022,
+          37
+        ],
+        "scores": [
+          20.2202,
+          20.1372,
+          20.0898,
+          20.0449,
+          20.0244
+        ],
+        "seconds": 7.0,
+        "answer_seconds": 5.4,
+        "answer": "1. Loosen the mount bolt and then remove the bracket(A).\n2. Remove the rear muffler(Refer to FL group-Muffler)\n3. Loosen the mount bolts and then heating bracket.\n4. Remove the center bearing bracket(A) mounting bolts(B).\n5. After making a match mark(C) on the rubber coupling(A) and rear differential companion(B), remove the propeller shaft mounting bolts(D).\n6. Installation is the reverse order of removal.\n\nPage 26 of 40, Page 27 of 40",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the replacement steps from pages 26 and 27, including the match mark and installation reversal, with no omissions or additions."
+        }
+      },
+      "parsed": {
+        "pages": [
+          651,
+          652,
+          650,
+          653
+        ],
+        "scores": [
+          0.4513,
+          0.4513,
+          0.4021,
+          0.3827
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 5.1,
+        "answer": "Replacement\n1. Loosen the mount bolt and then remove the bracket(A).\n2. Remove the rear muffler(Refer to FL group-Muffler)\n3. Loosen the mount bolts and then heating bracket.\n4. Remove the center bearing bracket(A) mounting bolts(B).\n\n5. After making a match mark(C) on the rubber coupling(A) and rear differential companion(B), remove the propeller shaft mounting bolts(D).\n\n6. Installation is the reverse order of removal.\n\n(Manual \u2014 p.26 of 40, Manual \u2014 p.27 of 40)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the replacement steps from pages 26 and 27, including the match mark and bolt removal, and correctly states that installation is the reverse of removal, matching the manual exactly."
+        }
+      }
+    },
+    {
+      "id": "rep-10",
+      "category": "repair",
+      "question": "How do I replace the spark plugs?",
+      "gold_pages": [
+        700,
+        701,
+        702
+      ],
+      "expected_values": [
+        "socket"
+      ],
+      "visual": {
+        "pages": [
+          744,
+          700,
+          702,
+          687,
+          745
+        ],
+        "scores": [
+          19.1216,
+          19.1191,
+          19.0942,
+          18.9575,
+          18.9316
+        ],
+        "seconds": 6.71,
+        "answer_seconds": 5.9,
+        "answer": "1. Remove the ignition coil connector(A) and ignition coil.\n2. Using a spark plug socket, remove the spark plug.\n3. Install the spark plug to the ignition coil.\n4. Ground the spark plug to the engine.\n5. Check if spark occurs while engine is being cranked.\n6. Inspect all the spark plugs.\n7. Using a spark plug socket, install the spark plug.\n8. Install the ignition coil.\n9. Reconnect the ignition coil connector.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.700), (Hyundai Genesis 2.0T BK2 \u2014 p.702)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer describes a spark test procedure, not the spark plug replacement procedure; steps 3-5 are part of a diagnostic test, not replacement, and the correct replacement steps are on pages 17-18, which include inspecting electrodes and checking electrode gap."
+        }
+      },
+      "parsed": {
+        "pages": [
+          701,
+          702,
+          700,
+          744,
+          745
+        ],
+        "scores": [
+          0.3938,
+          0.3938,
+          0.3452,
+          0.3207,
+          0.3207
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 7.2,
+        "answer": "1. Remove the ignition coil connector(A) and ignition coil.\n2. Using a spark plug socket, remove the spark plug.\n3. Install the spark plug to the ignition coil.\n4. Ground the spark plug to the engine.\n5. Check if spark occurs while engine is being cranked.\nNOTE\nTo prevent fuel being injected from injectors while the engine is being cranked, remove the fuel pump(A) relay from the fuse box.\nCrank the engine for no more than 5 ~ 10 seconds.\n6. Inspect all the spark plugs.\n7. Using a spark plug socket, install the spark plug.\n8. Install the ignition coil.\n9. Reconnect the ignition coil connector.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.700), (Hyundai Genesis 2.0T BK2 \u2014 p.701)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer describes a spark test procedure, not a spark plug replacement procedure, and includes steps like grounding the spark plug and checking for spark, which are not part of a standard replacement process."
+        }
+      }
+    },
+    {
+      "id": "rep-11",
+      "category": "repair",
+      "question": "How do I remove and install the timing chain?",
+      "gold_pages": [
+        759,
+        760,
+        761,
+        762,
+        763,
+        764,
+        765,
+        766,
+        767,
+        768,
+        769,
+        770,
+        771,
+        772,
+        773
+      ],
+      "expected_values": [
+        "TDC"
+      ],
+      "visual": {
+        "pages": [
+          766,
+          764,
+          767,
+          834,
+          759
+        ],
+        "scores": [
+          21.0225,
+          20.98,
+          20.9146,
+          20.8643,
+          20.8501
+        ],
+        "seconds": 7.17,
+        "answer_seconds": 9.1,
+        "answer": "16. Remove the timing chain tensioner and timing chain tensioner arm (A).\n17. Remove the timing chain.\n18. Remove the timing chain guide (A).\n19. Remove the timing chain oil jet (A) and crankshaft sprocket (B).\n20. Remove the balance shaft chain.\n(Refer to Lubrication system in this group)\n\n3. Install the timing chain guide (A).\n4. Install the timing chain.\nTo install the timing chain with no slack between each shaft (cam, crank), follow the below procedure. Crankshaft sprocket (A) -> Timing chain guide (B) -> Intake CVVT assembly (C) -> Exhaust CVVT assembly (D). The timing mark of each sprockets should be matched with timing mark (color link) of timing chain at installing timing chain.\n\n[Hyundai Genesis 2.0T BK2 \u2014 p.27]\n[Hyundai Genesis 2.0T BK2 \u2014 p.764]\n[Hyundai Genesis 2.0T BK2 \u2014 p.766]\n[Hyundai Genesis 2.0T BK2 \u2014 p.767]",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer includes steps (16-20) and installation instructions that are not present in the provided pages, and references external pages (p.27, p.764, etc.) that are not shown, making the answer unsupported by the given document."
+        }
+      },
+      "parsed": {
+        "pages": [
+          763,
+          764,
+          767,
+          768,
+          769
+        ],
+        "scores": [
+          0.4682,
+          0.4682,
+          0.458,
+          0.458,
+          0.458
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 11.0,
+        "answer": "13. Remove the timing chain cover (A).\nCAUTION\nBe careful not to damage the contact surfaces of cylinder block, cylinder head and timing chain cover.\n14. The key of crankshaft should be aligned with the mating face of main bearing cap. As a result of this, the piston of No.1 cylinder is placed at the top dead center on compression stroke.\n15. Install a set pin after compressing the timing chain tensioner.\n16. Remove the timing chain tensioner and timing chain tensioner arm (A).\n17. Remove the timing chain.\n18. Remove the timing chain guide (A).\n19. Remove the timing chain oil jet (A) and crankshaft sprocket (B).\n20. Remove the balance shaft chain.\n(Refer to Lubrication system in this group)\n5. Install the timing chain tensioner arm (A).\nTightening torque :\n9.8 ~ 11.8N.m (1.0 ~ 1.2kgf.m, 7.2 ~ 8.7lb-ft)\n6. Install the timing chain auto tensioner (A) and remove the set pin.\nTightening torque :\n9.8 ~ 11.8N.m (1.0 ~ 1.2kgf.m, 7.2 ~ 8.7lb-ft)\n(Hyundai Genesis 2.0T BK2 \u2014 p.763, Manual \u2014 p.764, Manual \u2014 p.767)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer includes steps (16-20) and installation steps (5-6) that are not present in the provided manual pages, and incorrectly references external documents like \"Hyundai Genesis 2.0T BK2 \u2014 p.763\", which are not part of the given images."
+        }
+      }
+    },
+    {
+      "id": "rep-12",
+      "category": "repair",
+      "question": "How do I replace the water pump?",
+      "gold_pages": [
+        826,
+        827,
+        828
+      ],
+      "expected_values": [
+        "coolant"
+      ],
+      "visual": {
+        "pages": [
+          827,
+          826,
+          828,
+          798,
+          829
+        ],
+        "scores": [
+          19.2212,
+          19.1602,
+          19.0879,
+          19.085,
+          19.0781
+        ],
+        "seconds": 6.64,
+        "answer_seconds": 6.2,
+        "answer": "1. Remove the drain plug (A) and drain the engine coolant.\n2. Remove the drive belt (A).\n3. Remove the water pump (A) and water pump gasket (B).\n\nTightening torque :\n18.6 ~ 23.5Nm (1.9 ~ 2.4kgf.m, 13.7 ~ 17.4lb-ft)\n\n4. Installation is the reverse of removal with a new water pump gasket.\n5. Fill the engine coolant.\n6. Start the engine and check for leaks.\n7. Recheck the coolant level.\n\n(Manual \u2014 p.827, Manual \u2014 p.828)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the removal and installation steps and tightening torque specified on page 90 of the manual, with no omissions or additions."
+        }
+      },
+      "parsed": {
+        "pages": [
+          826,
+          827,
+          828,
+          829,
+          825
+        ],
+        "scores": [
+          0.4899,
+          0.4899,
+          0.4443,
+          0.4443,
+          0.4071
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 6.2,
+        "answer": "1. Remove the drain plug (A) and drain the engine coolant.\n2. Remove the drive belt (A).\n3. Remove the water pump (A) and water pump gasket (B).\n\nTightening torque:\n18.6 ~ 23.5Nm (1.9 ~ 2.4kgf.m, 13.7 ~ 17.4lb-ft)\n\n4. Installation is the reverse of removal with a new water pump gasket.\n5. Fill the engine coolant.\n6. Start the engine and check for leaks.\n7. Recheck the coolant level.\n\nPage 89 of 114\nPage 90 of 114",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the removal and installation steps and tightening torque specified on page 90, with no omissions or additions."
+        }
+      }
+    },
+    {
+      "id": "rep-13",
+      "category": "repair",
+      "question": "How do I replace the thermostat?",
+      "gold_pages": [
+        829,
+        830
+      ],
+      "expected_values": [
+        "coolant"
+      ],
+      "visual": {
+        "pages": [
+          829,
+          830,
+          991,
+          826,
+          982
+        ],
+        "scores": [
+          18.2178,
+          18.1934,
+          17.9922,
+          17.9629,
+          17.9355
+        ],
+        "seconds": 6.36,
+        "answer_seconds": 4.3,
+        "answer": "1. Drain the engine coolant so its level is below the thermostat.\n2. Remove the water inlet fitting (A) and thermostat (B).\n3. Installation is the reverse of removal.\n4. Fill the engine coolant.\n5. Start the engine and check for leaks.\n6. Recheck the coolant level.\n\nEngine Mechanical System > Cooling System > Thermostat > Repair procedures",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the removal and installation steps listed on page 92, including all six steps and the correct order, without adding or omitting any critical information."
+        }
+      },
+      "parsed": {
+        "pages": [
+          829,
+          983,
+          984,
+          1006,
+          1007
+        ],
+        "scores": [
+          0.4401,
+          0.3572,
+          0.3572,
+          0.3409,
+          0.3409
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 4.3,
+        "answer": "1. Drain the engine coolant so its level is below the thermostat.\n2. Remove the water inlet fitting (A) and thermostat (B).\n3. Installation is the reverse of removal.\n4. Fill the engine coolant.\n5. Start the engine and check for leaks.\n6. Recheck the coolant level.\n\nEngine Mechanical System > Cooling System > Thermostat > Repair procedures",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the removal and installation steps listed on page 92, including all six steps and the correct order, without adding or omitting any critical information."
+        }
+      }
+    },
+    {
+      "id": "rep-14",
+      "category": "repair",
+      "question": "How do I remove and install the intake manifold?",
+      "gold_pages": [
+        838,
+        839,
+        840,
+        841
+      ],
+      "expected_values": [
+        "throttle"
+      ],
+      "visual": {
+        "pages": [
+          841,
+          838,
+          775,
+          680,
+          842
+        ],
+        "scores": [
+          21.1338,
+          21.1313,
+          20.8804,
+          20.7852,
+          20.7754
+        ],
+        "seconds": 7.07,
+        "answer_seconds": 7.9,
+        "answer": "9. Remove the oil level gauge and intake manifold stay (A) bolt.\nTightening torque:\n18.6~22.5N.m (1.9~2.3kgf.m, 13.7~16.6lb-ft)\n\n10. Remove the intake manifold (A) and gasket.\nTightening torque:\n18.6~27.4N.m (1.9~2.8kgf.m, 13.7~20.2lb-ft)\n\n11. Installation is the reverse of removal.\n\nEngine Mechanical System > Intake And Exhaust System > Exhaust Manifold > Components and Components Location\n(Manual \u2014 p.841)\nEngine Mechanical System > Intake And Exhaust System > Intake Manifold > Repair procedures Removal and Installation\n(Manual \u2014 p.838)\nCAUTION\nCheck that engine is cool enough to work.\n(Manual \u2014 p.842)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant provided the final steps (9-11) for removal and installation but omitted the initial 8 steps (disconnecting battery, draining coolant, removing air duct, etc.) which are essential parts of the procedure shown on pages 102-104."
+        }
+      },
+      "parsed": {
+        "pages": [
+          842,
+          843,
+          837,
+          838,
+          839
+        ],
+        "scores": [
+          0.4596,
+          0.4596,
+          0.4261,
+          0.4261,
+          0.4261
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 5.5,
+        "answer": "Engine Mechanical System > Intake And Exhaust System > Intake Manifold > Repair procedures\nRemoval and Installation\n\n1. Disconnect the negative (-) battery terminal (A).\n2. Remove the drain plug (A) and drain the engine coolant.\n3. Remove the air duct (A).\n4. Remove the ETC connector (A) and intercooler outlet hose (B).\n\nEngine Mechanical System > Intake And Exhaust System > Intake Manifold > Components and Components Location\nComponents\n\n[Hyundai Genesis 2.0T BK2 \u2014 p.838]",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant correctly lists the first four steps of removal but omits steps 5 through 10, including critical disconnections (vacuum, fuel, MAP sensor, injectors) and the removal of the intake manifold itself, which are essential for a complete answer."
+        }
+      }
+    },
+    {
+      "id": "rep-15",
+      "category": "repair",
+      "question": "How do I remove and install the exhaust manifold?",
+      "gold_pages": [
+        842,
+        843,
+        844,
+        845,
+        846
+      ],
+      "expected_values": [
+        "heat protector"
+      ],
+      "visual": {
+        "pages": [
+          842,
+          841,
+          846,
+          775,
+          838
+        ],
+        "scores": [
+          21.1187,
+          20.9741,
+          20.9434,
+          20.7891,
+          20.7783
+        ],
+        "seconds": 7.06,
+        "answer_seconds": 12.1,
+        "answer": "1. Remove the oil level gauge and intake manifold stay (A) bolt.\nTightening torque:\n18.6~22.5N.m (1.9~2.3kgf.m, 13.7~16.6lb-ft)\n\n10. Remove the intake manifold (A) and gasket.\nTightening torque:\n18.6~27.4N.m (1.9~2.8kgf.m, 13.7~20.2lb-ft)\n\n12. Remove the turbocharger stay bolt (A) and WCC stay bolt (B).\nTightening torque:\nA: 49.0~53.9N.m (5.0~5.5kgf.m, 36.1~39.8lb-ft)\nB: 8.6~27.4N.m (1.9~2.8kgf.m, 13.7~20.2lb-ft) - Block\n49.0~53.9N.m (5.0~5.5kgf.m, 36.2~39.8lb-ft) - Exhaust\n\n13. Remove the exhaust manifold & turbocharger assembly (A) and gasket.\nTightening torque:\n49.0~53.9N.m (5.0~5.5kgf.m, 36.1~39.8lb-ft)\n\n14. Installation is the reverse of removal.\n\n(Manual \u2014 p.104 of 114), (Manual \u2014 p.109 of 114)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer references steps and torque values for removing the intake manifold (steps 1, 10) which are not part of the exhaust manifold removal procedure shown in the provided pages, and incorrectly cites page 104 which is not included in the document."
+        }
+      },
+      "parsed": {
+        "pages": [
+          842,
+          843,
+          846,
+          845,
+          754
+        ],
+        "scores": [
+          0.5053,
+          0.5053,
+          0.389,
+          0.3805,
+          0.3767
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 17.1,
+        "answer": "Engine Mechanical System > Intake And Exhaust System > Exhaust Manifold > Repair procedures\n\nRemoval and Installation\n\nCAUTION\nCheck that engine is cool enough to work.\n\n1. Disconnect the negative (-) battery terminal (A).\n2. Remove the drain plug (A) and drain the engine coolant.\n3. Remove the front muffler (A).\n4. Disconnect the breather hose (A), vacuum hose (B). And remove the air duct (C) and air cleaner assembly (D).\n\nTightening torque :\nBolt : 7.8 ~ 9.8N.m (0.8 ~ 1.0kgf.m, 5.8 ~ 7.2lb-ft)\nClamp : 2.9~ 4.9N.m (0.3 ~ 0.5kgf.m, 2.1 ~ 3.6lb-ft)\n\n12. Remove the turbocharger stay bolt (A) and WCC stay bolt (B).\n\nTightening torque :\nA: 49.0 ~ 53.9N.m (5.0 ~ 5.5kgf.m, 36.1 ~ 39.8lb-ft)\nB: 8.6~ 27.4N.m (1.9 ~ 2.8kgf.m, 13.7 ~ 20.2lb-ft) - Block\n49.0 ~ 53.9N.m (5.0 ~ 5.5kgf.m, 36.2 ~ 39.8lb-ft) - Exhaust\n\n13. Remove the exhaust manifold & turbocharger assembly (A) and gasket.\n\nTightening torque :\n49.0 ~ 53.9N.m (5.0 ~ 5.5kgf.m, 36.1 ~ 39.8lb-ft)\n\n14. Installation is the reverse of removal.\n\nNOTE\n* Always use the new turbocharger, exhaust manifold and WCC gaskets when replacing.\n* Always use a new turbocharger nuts and, exhaust manifold nuts when it is removed.\n* Check that turbo control hose is installed in the right position to avoid interference with another parts (Heat protector, air hose etc.).\n* Take care whether the turbocharger coolant hose is interfered with heat protector and exhaust manifold.\n\n(Manual \u2014 p.842)\n(Manual \u2014 p.843)\n(Manual \u2014 p.846)\n(Manual \u2014 p.845)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer includes most of the correct steps and torque values for removing and installing the exhaust manifold, but it skips several critical intermediate steps (steps 5-11) such as disconnecting the intercooler inlet hose, removing the drive belt, turbo hoses, power steering pump, steering pump bracket, heat protectors, and oxygen sensor connectors, which are all necessary according to the manual."
+        }
+      }
+    },
+    {
+      "id": "rep-16",
+      "category": "repair",
+      "question": "How do I remove and install the intercooler?",
+      "gold_pages": [
+        849,
+        850,
+        851
+      ],
+      "expected_values": [
+        "hose"
+      ],
+      "visual": {
+        "pages": [
+          849,
+          851,
+          761,
+          772,
+          844
+        ],
+        "scores": [
+          22.0513,
+          21.9849,
+          21.8071,
+          21.7983,
+          21.7236
+        ],
+        "seconds": 7.41,
+        "answer_seconds": 4.7,
+        "answer": "4. Remove the BPS connector (A) and intercooler outlet hose (B).\n5. Disconnect the intercooler inlet hose (A) and radiator lower hose (B).\n6. Remove the intercooler mounting bracket (A) and then remove the intercooler assembly (B).\n7. Installation is the reverse of removal.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.851)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer includes steps 4-7 from page 114 but omits the initial steps (1-3) from page 113, which are necessary for safe and complete removal, such as disconnecting the battery and draining coolant."
+        }
+      },
+      "parsed": {
+        "pages": [
+          849,
+          850,
+          851,
+          848,
+          759
+        ],
+        "scores": [
+          0.5461,
+          0.5461,
+          0.5037,
+          0.4636,
+          0.4256
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 11.9,
+        "answer": "1. Disconnect the negative (-) battery terminal (A).\n2. Remove the drain plug (A) and drain the engine coolant.\n3. Disconnect the breather hose (A) and vacuum hose (B). And remove the air duct (C) and air cleaner assembly (D).\nTightening torque :\nBolt : 7.8 ~ 9.8N.m (0.8 ~ 1.0kgf.m, 5.8 ~ 7.2lb-ft)\nClamp : 2.9~ 4.9N.m (0.3 ~ 0.5kgf.m, 2.1 ~ 3.6lb-ft)\n4. Remove the BPS connector (A) and intercooler outlet hose (B).\n5. Disconnect the intercooler inlet hose (A) and radiator lower hose (B).\nTightening torque :\nBolt : 14.7 ~ 19.6N.m (1.5 ~ 2.0kgf.m, 10.8 ~ 14.4lb-ft)\nClamp : 4.9~ 6.8N.m (0.5 ~ 0.7kgf.m, 3.6 ~ 5.0lb-ft)\n6. Remove the intercooler mounting bracket (A) and then remove the intercooler assembly (B).\n7. Installation is the reverse of removal.\n(Hyundai Genesis 2.0T BK2 \u2014 p.849, Hyundai Genesis 2.0T BK2 \u2014 p.850, Hyundai Genesis 2.0T BK2 \u2014 p.851)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all seven steps for removing and installing the intercooler as shown in the manual, including the correct tightening torques for each relevant step, and correctly references the pages."
+        }
+      }
+    },
+    {
+      "id": "rep-17",
+      "category": "repair",
+      "question": "How do I replace the heated oxygen sensor?",
+      "gold_pages": [
+        917,
+        918
+      ],
+      "expected_values": [
+        "sensor"
+      ],
+      "visual": {
+        "pages": [
+          858,
+          875,
+          917,
+          914,
+          916
+        ],
+        "scores": [
+          19.8184,
+          19.7568,
+          19.752,
+          19.6924,
+          19.6885
+        ],
+        "seconds": 7.13,
+        "answer_seconds": 16.1,
+        "answer": "Fuel System > General Information > Special Service Tools\nSpecial Service Tools\nTool (Number and Name)\nIllustration\nApplication\nFuel Pressure Gauge (09353-24100)\nMeasuring the fuel line pressure\nFuel Pressure Gauge Adapter (09353-38000)\nConnection between the delivery pipe and the fuel feed line\nFuel Pressure Gauge Connector (09353-24000)\nConnection between the Fuel Pressure Gauge (09353-24100) and the Fuel Pressure Gauge Adapter (09353-38000)\nHeated Oxygen Sensor Socket Wrench (09392-2H100)\nRemoval and installation of the heated oxygen sensor\n\nFuel System > Engine Control System > Knock Sensor (KS) > Specifications\nSpecification\nItem\nSpecification\nCapacitance (pF)\n1,480 ~ 2,220\n\nFuel System > Engine Control System > Heated Oxygen Sensor (HO2S) > Description and Operation\nDescription\nHeated Oxygen Sensor (HO2S) consists of the zirconium and the alumina and is installed on upstream and downstream of the Manifold Catalyst Converter (MCC).\nAfter it compares oxygen consistency of the atmosphere with the exhaust gas, it transfers the oxygen consistency of the exhaust gas to the ECM. When A/F ratio is rich or lean, it generates approximately 1V or 0V respectively. In order that this sensor normally operates, the temperature of the sensor tip is higher than 370\u00b0C (698\u00b0F). So it has a heater which is controlled by the ECM duty signal.\nWhen the exhaust gas temperature is lower than the specified value, the heater warms the sensor tip.\n\nFuel System > Engine Control System > CVVT Oil Temperature Sensor (OTS) > Description and Operation\nDescription\nContinuous Variable Valve Timing (CVVT) system advances or retards the valve timing of the intake and exhaust valve in accordance with the ECM control signal which is calculated by the engine speed and load.\nBy controlling CVVT, the valve over-lap or under-lap occurs, which makes better fuel economy and reduces exhaust gases (NOx, HC) and improves engine performance through reduction of pumping loss, internal EGR effect, improvement of combustion stability, improvement of volumetric efficiency, and increase of expansion work.\nThis system consist of",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant provided information about special service tools and specifications for a knock sensor and CVVT oil temperature sensor, but did not include the actual repair procedures for replacing the heated oxygen sensor as shown on page 66, which includes steps like turning off the ignition, disconnecting the connector, and measuring resistance between terminals 3 and 4."
+        }
+      },
+      "parsed": {
+        "pages": [
+          917,
+          914,
+          915,
+          983,
+          984
+        ],
+        "scores": [
+          0.5052,
+          0.4518,
+          0.4518,
+          0.3974,
+          0.3974
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 4.1,
+        "answer": "1. Turn the ignition switch OFF.\n2. Disconnect the HO2S connector.\n3. Measure resistance between the HO2S terminals 3 and 4.\n4. Check that the resistance is within the specification.\nSpecification: Refer to \"Specification\"\n(Hyundai Genesis 2.0T BK2 \u2014 p.917)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer lists the inspection steps for the HO2S, not the replacement procedure, and omits the actual replacement steps such as removing the sensor from the exhaust manifold."
+        }
+      }
+    },
+    {
+      "id": "rep-18",
+      "category": "repair",
+      "question": "How do I remove and install the electric wastegate control actuator (EWGA)?",
+      "gold_pages": [
+        931,
+        932,
+        933,
+        934,
+        935
+      ],
+      "expected_values": [
+        "C-ring"
+      ],
+      "visual": {
+        "pages": [
+          932,
+          927,
+          894,
+          876,
+          882
+        ],
+        "scores": [
+          28.2192,
+          28.1392,
+          28.0908,
+          28.0137,
+          27.9287
+        ],
+        "seconds": 8.98,
+        "answer_seconds": 6.7,
+        "answer": "Removal\n1. Turn the ignition switch OFF and disconnect the battery negative (-) cable.\n2. Remove the air cleaner assembly. (Refer to Engine Mechanical System - \"Air Cleaner\")\n3. Disconnect the EWGA connector (A).\n4. Remove the shaft link assembly (B) after removing the C-ring (A).\n5. Remove the EWGA after removing the bolts (A).\n\nInstallation\n1. Installation is the reverse order of removal.\n\nElectric WGT control actuator installation bolt: 7.35 ~ 8.34 N.m (0.75 ~ 0.85 kgf.m, 5.42 ~ 6.08 lb-ft)\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.932)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reflects the removal and installation steps for the EWGA as described on page 81, including the correct torque specification for the installation bolt."
+        }
+      },
+      "parsed": {
+        "pages": [
+          931,
+          932,
+          927,
+          928,
+          933
+        ],
+        "scores": [
+          0.5865,
+          0.5865,
+          0.5338,
+          0.4755,
+          0.4745
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 7.2,
+        "answer": "Removal\n1. Turn the ignition switch OFF and disconnect the battery negative (-) cable.\n2. Remove the air cleaner assembly. (Refer to Engine Mechanical System - \"Air Cleaner\")\n3. Disconnect the EWGA connector (A).\n4. Remove the shaft link assembly (B) after removing the C-ring (A).\n5. Remove the EWGA after removing the bolts (A).\n\nInstallation\n1. Installation is the reverse order of removal.\n\n(Electric WGT control actuator installation bolt: 7.35 ~ 8.34 N.m (0.75 ~ 0.85 kgf.m, 5.42 ~ 6.08 lb-ft))\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.931)\n(Hyundai Genesis 2.0T BK2 \u2014 p.932)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all removal steps from page 81 (images 1) and correctly states installation is the reverse, including the specified torque value for the installation bolt, which matches the information provided in the manual."
+        }
+      }
+    },
+    {
+      "id": "rep-19",
+      "category": "repair",
+      "question": "How do I remove and install the fuel pump?",
+      "gold_pages": [
+        944,
+        945
+      ],
+      "expected_values": [
+        "fuel tank"
+      ],
+      "visual": {
+        "pages": [
+          946,
+          945,
+          948,
+          942,
+          944
+        ],
+        "scores": [
+          21.208,
+          21.1924,
+          21.1484,
+          21.1035,
+          21.0591
+        ],
+        "seconds": 6.97,
+        "answer_seconds": 9.7,
+        "answer": "Removal\n1. Preparation\n(1) Remove the rear seat cushion. (Refer to Body - \"Rear Seat\")\n(2) Remove the service cover of the fuel pump (A).\n(3) Disconnect the fuel pump connector (A).\n(4) Idle the engine and wait until fuel in feed line is exhausted.\n(5) After engine stops, turn the ignition switch OFF.\n2. Disconnect the fuel feed tube quick-connector (A).\n3. Remove the fuel pump from the fuel tank after removing the installation bolts (C).\n\nInstallation\n1. Installation is reverse of removal.\n\nFuel pump installation bolt:\n2.0 ~ 2.9 N.m (0.2 ~ 0.3 kgf.m, 1.4 ~ 2.2 lb-ft)\n\nWhen installing the fuel pump module, be careful not to get the seal-ring entangled.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.946)\n(Hyundai Genesis 2.0T BK2 \u2014 p.945)\n(Hyundai Genesis 2.0T BK2 \u2014 p.948)\n(Hyundai Genesis 2.0T BK2 \u2014 p.942)\n(Hyundai Genesis 2.0T BK2 \u2014 p.944)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant correctly lists the removal steps from page 94 but incorrectly includes a torque specification for \"Fuel pump installation bolt\" that is not present in the provided manual pages; the manual only provides torque for the fuel tank band installation nut, not the fuel pump bolts."
+        }
+      },
+      "parsed": {
+        "pages": [
+          946,
+          941,
+          942,
+          944,
+          945
+        ],
+        "scores": [
+          0.5595,
+          0.4957,
+          0.4957,
+          0.4775,
+          0.4775
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 8.3,
+        "answer": "Removal\n1. Preparation\n(1) Remove the rear seat cushion. (Refer to Body - \"Rear Seat\")\n(2) Remove the service cover of the fuel pump (A).\n(3) Disconnect the fuel pump connector (A).\n(4) Idle the engine and wait until fuel in feed line is exhausted.\n(5) After engine stops, turn the ignition switch OFF.\n2. Disconnect the fuel feed tube quick-connector (A) and the suction tube quick-connector (B).\n3. Remove the fuel pump from the fuel tank after removing the installation bolts (C).\n\nInstallation\n1. Installation is reverse of removal.\nFuel pump installation bolt:\n2.0 ~ 2.9 N.m (0.2 ~ 0.3 kgf.m, 1.4 ~ 2.2 lb-ft)\n\nFuel System > Fuel Delivery System > Fuel Pump > Repair procedures\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.946)\n(Hyundai Genesis 2.0T BK2 \u2014 p.945)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant correctly lists the removal steps for the fuel pump from page 94, but incorrectly includes a torque specification for \"Fuel pump installation bolt\" that is not present in the manual; the manual only provides torque for the \"Fuel tank band installation nut\" on page 93, which is unrelated to the fuel pump itself."
+        }
+      }
+    },
+    {
+      "id": "rep-20",
+      "category": "repair",
+      "question": "How do I replace the fuel filter?",
+      "gold_pages": [
+        947,
+        948
+      ],
+      "expected_values": [
+        "fuel pump"
+      ],
+      "visual": {
+        "pages": [
+          681,
+          949,
+          948,
+          945,
+          947
+        ],
+        "scores": [
+          19.0967,
+          19.0957,
+          19.0903,
+          19.0752,
+          19.0649
+        ],
+        "seconds": 6.48,
+        "answer_seconds": 6.6,
+        "answer": "1. Remove the fuel pump. (Refer to Fuel Delivery System - \"Fuel Pump\")\n2. Disconnect the electric pump wiring connector (A) and the fuel sender connector (B).\n3. Remove the fuel sender.\n4. Disconnect the fuel feed line (A) from the fuel filter.\n5. Separate the head assembly (B) with the hooks (C) released.\n6. Disconnect the regulator hose (A) from the fuel filter (B).\n7. Separate the fuel filter (B) from the reservoir (D) with the hooks (C) released.\n\nFuel System > Fuel Delivery System > Fuel Filter > Repair procedures\n\nInstallation\n1. Installation is reverse of removal.\n\nFuel System > Fuel Delivery System > Fuel Filter > Repair procedures",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the removal steps for the fuel filter as shown on page 97, including all numbered steps, component labels, and the installation instruction, with no omissions or additions."
+        }
+      },
+      "parsed": {
+        "pages": [
+          681,
+          682,
+          947,
+          948,
+          949
+        ],
+        "scores": [
+          0.4476,
+          0.4476,
+          0.4152,
+          0.4152,
+          0.4152
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 6.4,
+        "answer": "1. Remove the fuel pump. (Refer to Fuel Delivery System - \"Fuel Pump\")\n2. Disconnect the electric pump wiring connector (A) and the fuel sender connector (B).\n3. Remove the fuel sender.\n4. Disconnect the fuel feed line (A) from the fuel filter.\n5. Separate the head assembly (B) with the hooks (C) released.\n6. Disconnect the regulator hose (A) from the fuel filter (B).\n7. Separate the fuel filter (B) from the reservoir (D) with the hooks (C) released.\n\nFuel System > Fuel Delivery System > Fuel Filter > Repair procedures\n[Hyundai Genesis 2.0T BK2 \u2014 p.948]",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the steps and components described on page 97 of the manual for replacing the fuel filter, including all numbered steps and referenced parts (A, B, C, D)."
+        }
+      }
+    },
+    {
+      "id": "rep-21",
+      "category": "repair",
+      "question": "How do I remove and install the A/C compressor?",
+      "gold_pages": [
+        965,
+        966,
+        967,
+        968,
+        969
+      ],
+      "expected_values": [
+        "refrigerant"
+      ],
+      "visual": {
+        "pages": [
+          965,
+          966,
+          818,
+          969,
+          974
+        ],
+        "scores": [
+          21.8135,
+          21.811,
+          21.7422,
+          21.6631,
+          21.6055
+        ],
+        "seconds": 8.12,
+        "answer_seconds": 7.5,
+        "answer": "Removal\n1. If the compressor is marginally operable, run the engine at idle speed, and let the air conditioning work for a few minutes, then shut the engine off.\n2. Disconnect the negative cable from the battery.\n3. Recover the refrigerant with a recovery/charging station.\n4. Loosen the drive belt.\n5. Remove the bolts, then disconnect the suction line (A) and discharge line (B) from the compressor. Plug or cap the lines immediately after disconnecting them to avoid moisture and dust contamination.\n6. Disconnect the compressor clutch connector, and then remove 4 mounting bolts and the compressor (C).\n\nInstallation\n1. Make sure of the length of compressor mounting bolts, and then tighten it A\u2192B\u2192C\u2192D order.\n2. Install in the reverse order of removal, and note these items.\n\n(Manual \u2014 p.965)\n(Manual \u2014 p.966)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all removal and installation steps from pages 13 and 14, including the specific order of tightening bolts (A\u2192B\u2192C\u2192D) and the note to install in reverse order of removal, matching the manual exactly."
+        }
+      },
+      "parsed": {
+        "pages": [
+          965,
+          966,
+          968,
+          969,
+          970
+        ],
+        "scores": [
+          0.5119,
+          0.5119,
+          0.4601,
+          0.4601,
+          0.4601
+        ],
+        "seconds": 0.05,
+        "answer_seconds": 7.0,
+        "answer": "1. If the compressor is marginally operable, run the engine at idle speed, and let the air conditioning work for a few minutes, then shut the engine off.\n2. Disconnect the negative cable from the battery.\n3. Recover the refrigerant with a recovery/charging station.\n4. Loosen the drive belt.\n5. Remove the bolts, then disconnect the suction line (A) and discharge line (B) from the compressor. Plug or cap the lines immediately after disconnecting them to avoid moisture and dust contamination.\n6. Disconnect the compressor clutch connector, and then remove 4 mounting bolts and the compressor (C).\n\nInstallation\n1. Make sure of the length of compressor mounting bolts, and then tighten it A\u2192B\u2192C\u2192D order.\n\n(Manual \u2014 p.965, Manual \u2014 p.966)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the removal steps from pages 13 and 14, and correctly includes the installation step about tightening bolts in A\u2192B\u2192C\u2192D order with the correct bolt lengths from page 14, matching the manual's instructions exactly."
+        }
+      }
+    },
+    {
+      "id": "rep-22",
+      "category": "repair",
+      "question": "How do I replace the climate control air filter?",
+      "gold_pages": [
+        1001,
+        1002
+      ],
+      "expected_values": [
+        "glove box"
+      ],
+      "visual": {
+        "pages": [
+          1001,
+          997,
+          1002,
+          1014,
+          1008
+        ],
+        "scores": [
+          21.167,
+          20.793,
+          20.6948,
+          20.4731,
+          20.4297
+        ],
+        "seconds": 8.24,
+        "answer_seconds": 5.1,
+        "answer": "1. Open the glove box (A). Lower the glove box down completely by removing the glove box damper (B) to the glove box.\n2. Remove the glove box lift(B).\n3. Remove the filter cover (A) with pushing the knob.\n4. Replace the air filter (B), install it after making sure of the direction of air filter.\n5. Installation is the reverse order of removal.\n\n(Manual \u2014 p.1001, Manual \u2014 p.1002)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all five steps for replacing the climate control air filter as shown in the manual, including the correct component labels and sequence, with no omissions or unsupported additions."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1001,
+          1002,
+          681,
+          682,
+          1006
+        ],
+        "scores": [
+          0.5172,
+          0.5172,
+          0.3693,
+          0.3693,
+          0.3605
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 6.5,
+        "answer": "1. Open the glove box (A). Lower the glove box down completely by removing the glove box damper (B) to the glove box.\n2. Remove the glove box lift(B).\n3. Remove the filter cover (A) with pushing the knob.\n4. Replace the air filter (B), install it after making sure of the direction of air filter.\n5. Installation is the reverse order of removal.\n\nNOTE\nIn case of driving in an air-polluted area or rugged terrain, check and replace the air filter as frequently as possible.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.1001)\n(Hyundai Genesis 2.0T BK2 \u2014 p.50 of 62)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all the steps and notes from pages 49 and 50 of the manual, including the correct sequence, component labels, and the NOTE about frequent replacement in polluted or rugged conditions."
+        }
+      }
+    },
+    {
+      "id": "rep-23",
+      "category": "repair",
+      "question": "How do I remove the steering wheel?",
+      "gold_pages": [
+        1085,
+        1086,
+        1087
+      ],
+      "expected_values": [
+        "airbag"
+      ],
+      "visual": {
+        "pages": [
+          1086,
+          1089,
+          1085,
+          432,
+          259
+        ],
+        "scores": [
+          19.3765,
+          19.3696,
+          19.3164,
+          19.2402,
+          19.2383
+        ],
+        "seconds": 6.83,
+        "answer_seconds": 9.8,
+        "answer": "Disconnect the lock nut (A) remove the steering wheel (B) by using special service tools. (09561-11001)\nTightening torque :\n39.2 ~ 44.1N.m (4.0 ~ 4.5kgf.m, 28.9 ~ 32.5lb-ft)\nDo not hammer on the steering wheel to remove it; it may damage the steering column.\n1. Disconnect the battery negative cable from the battery and then wait for at least 30 seconds.\n2. Turn the steering wheel so that the front wheels can face straight ahead.\n3. Remove the airbag module. (Refer to Restraint - \"Airbag Module\")\n4. Disconnect the screw (A-4ea) & paddle shift connector (B) and then remove the lower cover (C).\n5. Remove the steering column upper (A) and lower shroud (B).\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.1086), (Hyundai Genesis 2.0T BK2 \u2014 p.1089), (Hyundai Genesis 2.0T BK2 \u2014 p.1085), (Hyundai Genesis 2.0T BK2 \u2014 p.432)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant included correct steps for removing the steering wheel, but incorrectly added step 5 about removing the steering column upper and lower shroud, which is not mentioned in the provided pages and is not part of the steering wheel removal procedure."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1085,
+          1088,
+          1089,
+          1090,
+          1086
+        ],
+        "scores": [
+          0.5187,
+          0.4529,
+          0.4512,
+          0.4512,
+          0.4502
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 6.6,
+        "answer": "1. Disconnect the battery negative cable from the battery and then wait for at least 30 seconds.\n2. Turn the steering wheel so that the front wheels can face straight ahead.\n3. Remove the airbag module.\n(Refer to Restraint - \"Airbag Module\")\n4. Disconnect the lock nut (A) remove the steering wheel (B) by using special service tools. (09561-11001)\nTightening torque :\n39.2 ~ 44.1N.m (4.0 ~ 4.5kgf.m, 28.9 ~ 32.5lb-ft)\n\n(Manual \u2014 p.1085, Manual \u2014 p.1086)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the steps for removing the steering wheel as described on pages 7 and 8, including disconnecting the battery, turning the wheel, removing the airbag module, disconnecting the lock nut, and using the specified special service tool, along with the correct tightening torque."
+        }
+      }
+    },
+    {
+      "id": "rep-24",
+      "category": "repair",
+      "question": "How do I replace the power steering gear box?",
+      "gold_pages": [
+        1093,
+        1094,
+        1095,
+        1096,
+        1097
+      ],
+      "expected_values": [
+        "tie rod"
+      ],
+      "visual": {
+        "pages": [
+          1093,
+          1092,
+          1095,
+          1082,
+          1088
+        ],
+        "scores": [
+          21.0195,
+          20.8057,
+          20.7627,
+          20.7319,
+          20.7271
+        ],
+        "seconds": 7.0,
+        "answer_seconds": 4.1,
+        "answer": "1. Drain the power steering fluid.\n2. Remove the front wheel & tire.\n6. Remove steering gearbox from the cross member by loosening the bracket mounting bolts (A).\n7. Installation is the reverse of the removal.\n\n(Manual \u2014 p.1093, Manual \u2014 p.1095)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer includes the correct initial steps and final step but skips critical intermediate steps such as disconnecting the universal joint, loosening the castle nut, removing the tie rod end, and removing the feed tubes, which are all detailed in the manual."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1093,
+          1094,
+          1092,
+          1098,
+          1099
+        ],
+        "scores": [
+          0.5902,
+          0.5902,
+          0.4375,
+          0.4368,
+          0.4125
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 7.9,
+        "answer": "Steering System > Hydraulic Power Steering System > Power Steering Gear Box > Repair procedures\n\nReplacement\n1. Drain the power steering fluid.\n2. Remove the front wheel & tire.\n\n3. Loosen the bolt and then disconnect the universal joint (A) assembly from the pinion of the steering gear box.\nTightening torque :\n17.7 ~ 24.5N.m (1.8 ~ 2.5kgf.m, 13.0 ~ 18.1lb-ft)\n\n4. Loosen the castle nut (A).\nTightening torque :\n58.8 ~ 78.5N.m (6.0 ~ 8.0kgf.m, 43.4 ~ 57.9lb-ft)\n\n5. Remove the Tie rod end from the front axle by using a SST (09568-2J100).\n\n(Manual \u2014 p.1093 to p.1094)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the replacement steps from pages 15 to 17, including the correct tightening torques and the use of SST (09568-2J100), matching the manual's content exactly."
+        }
+      }
+    },
+    {
+      "id": "rep-25",
+      "category": "repair",
+      "question": "How do I replace the front strut assembly?",
+      "gold_pages": [
+        1110,
+        1111,
+        1112
+      ],
+      "expected_values": [
+        "strut"
+      ],
+      "visual": {
+        "pages": [
+          1110,
+          1111,
+          1117,
+          1116,
+          1113
+        ],
+        "scores": [
+          20.2183,
+          20.1807,
+          20.1729,
+          20.0864,
+          20.0796
+        ],
+        "seconds": 6.87,
+        "answer_seconds": 13.0,
+        "answer": "Suspension System > Front Suspension System > Front Strut Assembly > Repair procedures\n\nReplacement\n1. Remove the front wheel & tire.\nTightening torque :\n88.3 ~ 107.9 N.m(9.0 ~ 11.0 kgf.m, 65.1 ~ 79.6 lb-ft)\n2. Disconnect the stabilizer link (B) with the front strut assembly (A) after loosening the nut.\nTightening torque :\n98.1 ~ 117.7 N.m(10.0 ~ 12.0 kgf.m, 72.3 ~ 86.8 lb-ft)\n3. Disconnect the front strut assembly with the knuckle by loosening the bolt & nut.\nTightening torque :\n137.3 ~ 156.9 N.m(16.0~18.0 kgf.m, 101.3 ~ 115.7 lb-ft)\n4. Remove the front stabilizer bar (A)removing the nut.\nTightening torque :\n26.5 ~ 40.2 N.m(2.7 ~ 4.1 kgf.m, 19.5 ~ 29.7 lb-ft)\n5. Remove the strut cap (A).\n3. Remove stabilizer (B) from the cross member by loosening the clamp mounting bolts (A).\n4. Installation is the reverse of removal.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.1110), (Hyundai Genesis 2.0T BK2 \u2014 p.1111), (Hyundai Genesis 2.0T BK2 \u2014 p.1116), (Hyundai Genesis 2.0T BK2 \u2014 p.1113)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant correctly lists the first five steps of the replacement procedure and their corresponding tightening torques, but incorrectly adds a step \"3. Remove stabilizer (B) from the cross member by loosening the clamp mounting bolts (A)\" which is not in the manual, and omits step 6 (Remove the bracket) and step 7 (Installation is the reverse of removal)."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1110,
+          1111,
+          1116,
+          1117,
+          1113
+        ],
+        "scores": [
+          0.5678,
+          0.5678,
+          0.5043,
+          0.4976,
+          0.4718
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 11.2,
+        "answer": "Suspension System > Front Suspension System > Front Strut Assembly > Repair procedures\n\n1. Remove the front wheel & tire.\nTightening torque :\n88.3 ~ 107.9 N.m(9.0 ~ 11.0 kgf.m, 65.1 ~ 79.6 lb-ft)\n\n2. Disconnect the stabilizer link (B) with the front strut assembly (A) after loosening the nut.\nTightening torque :\n98.1 ~ 117.7 N.m(10.0 ~ 12.0 kgf.m, 72.3 ~ 86.8 lb-ft)\n\n3. Disconnect the front strut assembly with the knuckle by loosening the bolt & nut.\nTightening torque :\n137.3 ~ 156.9 N.m(16.0~18.0 kgf.m, 101.3 ~ 115.7 lb-ft)\n\n4. Remove the front stabilizer bar (A)removing the nut.\nTightening torque :\n26.5 ~ 40.2 N.m(2.7 ~ 4.1 kgf.m, 19.5 ~ 29.7 lb-ft)\n\n5. Remove the strut cap (A).\n\nInstallation is the reverse of removal.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.1110, Manual \u2014 p.1111, Manual \u2014 p.1113)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the steps for replacing the front strut assembly as shown in the manual, including the correct tightening torques and sequence, and correctly notes that installation is the reverse of removal."
+        }
+      }
+    },
+    {
+      "id": "rep-26",
+      "category": "repair",
+      "question": "How do I replace the rear shock absorber?",
+      "gold_pages": [
+        1119,
+        1120
+      ],
+      "expected_values": [
+        "shock absorber"
+      ],
+      "visual": {
+        "pages": [
+          1119,
+          1120,
+          1123,
+          1127,
+          1118
+        ],
+        "scores": [
+          21.1914,
+          21.0977,
+          21.0645,
+          21.0127,
+          20.8896
+        ],
+        "seconds": 7.0,
+        "answer_seconds": 8.5,
+        "answer": "1. Remove the rear wheel & tire.\nTightening torque :\n88.3 ~ 107.9 N.m(9.0 ~ 11.0 kgf.m, 65.1 ~ 79.6 lb-ft)\n2. Loosen the bolts and nuts and then remove the rear shock absorber from the lower arm.\nTightening torque :\n137.3 ~ 156.9 N.m(14.0~16.0 kgf.m, 101.3 ~ 115.7 lb-ft)\n3. Loosen the mounting bolts (A).\nTightening torque :\n44.1 ~ 58.8 N.m(4.5 ~ 6.0 kgf.m, 32.5 ~ 43.4 lb-ft)\n4. Installation is the reverse of removal.\nSuspension System > Rear Suspension System > Rear Shock Absorber > Repair procedures\n(Manual \u2014 p.1119, Manual \u2014 p.1120)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the steps for replacing the rear shock absorber as shown on pages 17 and 18, including the correct tightening torques for each step, and correctly references the repair procedures section."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1119,
+          1120,
+          1123,
+          1127,
+          1128
+        ],
+        "scores": [
+          0.6089,
+          0.6089,
+          0.5461,
+          0.5442,
+          0.5442
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 8.5,
+        "answer": "1. Remove the rear wheel & tire.\nTightening torque :\n88.3 ~ 107.9 N.m(9.0 ~ 11.0 kgf.m, 65.1 ~ 79.6 lb-ft)\n2. Loosen the bolts and nuts and then remove the rear shock absorber from the lower arm.\nTightening torque :\n137.3 ~ 156.9 N.m(14.0~16.0 kgf.m, 101.3 ~ 115.7 lb-ft)\n3. Loosen the mounting bolts (A).\nTightening torque :\n44.1 ~ 58.8 N.m(4.5 ~ 6.0 kgf.m, 32.5 ~ 43.4 lb-ft)\n4. Installation is the reverse of removal.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.1119, Hyundai Genesis 2.0T BK2 \u2014 p.1120)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the steps for replacing the rear shock absorber as shown on pages 17 and 18, including the correct tightening torques for each step, and correctly notes that installation is the reverse of removal."
+        }
+      }
+    },
+    {
+      "id": "rep-27",
+      "category": "repair",
+      "question": "How do I remove and install a TPMS sensor?",
+      "gold_pages": [
+        1138,
+        1139,
+        1140,
+        1141,
+        1142,
+        1143,
+        1144
+      ],
+      "expected_values": [
+        "valve"
+      ],
+      "visual": {
+        "pages": [
+          1138,
+          1141,
+          1139,
+          1140,
+          1146
+        ],
+        "scores": [
+          21.833,
+          21.5469,
+          21.521,
+          21.5171,
+          21.4849
+        ],
+        "seconds": 7.22,
+        "answer_seconds": 7.3,
+        "answer": "Suspension System > Tire Pressure Monitoring System > TPMS Sensor > Repair procedures\n\nRemoval\nCAUTION\nHandle the sensor with care.\n\n1. Remove the tire. (Refer to \"Tire Removal\")\n2. Remove the valve nut.\nCAUTION\nThe valve nut should not be re-used.\n3. Discard the valve assembly.\n\nInstallation\nSensor Fit\nCAUTION\n\u2022 Handle the sensor with care.\n\u2022 Avoid lubricant contact.\n\u2022 Ensure that the wheel to be fitted is designed for sensor mount. There should normally be a mark to indicate this.\n\u2022 Ensure that the valve hole and mating face of the wheel are clean.\n\n1. Slide the sensor-valve unit through the valve hole of the rim. Hold the sensor against the rim and the rubber grommet against the sealing surface.\n\n[Hyundai Genesis 2.0T BK2 \u2014 p.1146]",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces the removal and installation steps, including all CAUTION notes and procedural details, exactly as presented on pages 36 and 37 of the manual."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1138,
+          1139,
+          1140,
+          1141,
+          1142
+        ],
+        "scores": [
+          0.6252,
+          0.5235,
+          0.484,
+          0.484,
+          0.484
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 13.3,
+        "answer": "Suspension System > Tire Pressure Monitoring System > TPMS Sensor > Repair procedures\n\nRemoval\nCAUTION\nHandle the sensor with care.\n1. Remove the tire. (Refer to \"Tire Removal\")\n2. Remove the valve nut.\nCAUTION\nThe valve nut should not be re-used.\n3. Discard the valve assembly.\n\nInstallation\nSensor Fit\nCAUTION\n\u2022 Handle the sensor with care.\n\u2022 Avoid lubricant contact.\n\u2022 Ensure that the wheel to be fitted is designed for sensor mount. There should normally be a mark to indicate this.\n\u2022 Ensure that the valve hole and mating face of the wheel are clean.\n1. Slide the sensor-valve unit through the valve hole of the rim. Hold the sensor against the rim and the rubber grommet against the sealing surface.\n2. Insert the nut over the valve stem and then tighten the nut.\n3. Continue to tightening the nut until contact with the rim and then tighten to 3.5 ~ 4.5Nm.\nCAUTION\n- Tighten slowly with quarter turn steps until the final torque is reached.\n- Do not exceed allowed torque.\n- Do not use electric or pneumatic tools.\n4. Check that the sensor is firmly attached to the rim.\nCAUTION\nRisk of damage during the tire installation/ removal if the sensor is not firmly attached to the rim.\n5. Carry out inflation / pressure correction and then fit valve cap.\nCAUTION\nChange the newly installed sensor mode to Normal Fixed Base(Low Line) with the 'GDS'. Mode (Status / option) of the sensor installed to the vehicle should be Normal Fixed Base (Low).\n6. Install the tire. (Refer to \"Tire Installation\")\n\nHyundai Genesis 2.0T BK2 \u2014 p.1138\nHyundai Genesis 2.0T BK2 \u2014 p.1139\nHyundai Genesis 2.0T BK2 \u2014 p.1140",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all removal and installation steps, cautions, and torque specifications from pages 36-37 of the manual, including the critical note about changing the sensor mode to Normal Fixed Base (Low Line) with GDS."
+        }
+      }
+    },
+    {
+      "id": "fl-01",
+      "category": "fluids",
+      "question": "How do I replace the automatic transaxle fluid (ATF)?",
+      "gold_pages": [
+        44,
+        45,
+        46
+      ],
+      "expected_values": [
+        "drain"
+      ],
+      "visual": {
+        "pages": [
+          47,
+          46,
+          51,
+          44,
+          28
+        ],
+        "scores": [
+          24.8013,
+          24.6763,
+          24.5503,
+          24.4458,
+          24.4019
+        ],
+        "seconds": 7.97,
+        "answer_seconds": 5.6,
+        "answer": "1. Remove the drain plug (A) and reinstall the drain plug after draining ATF totally.\n22.6 ~ 24.5 N.m (2.3 ~ 2.5 kgf.m, 16.6 ~ 18.1 lb-ft)\n2. Fill the oil about 7.0 liters through oil injection hole.\n3. Check the oil level.\n(Refer to \"Hydraulic system (Fluid)\" in this group)\nReplacement\n1. Draining ATF totally.\n2. Remove the oil pan (A).\nPage 24 of 74",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer is incorrect because it describes a complete fluid replacement procedure, but the manual states that ATF replacement is not normally required and only specifies an oil level check procedure, not a full drain and refill."
+        }
+      },
+      "parsed": {
+        "pages": [
+          46,
+          47,
+          48,
+          44,
+          51
+        ],
+        "scores": [
+          0.5623,
+          0.5165,
+          0.5165,
+          0.5047,
+          0.4712
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 7.2,
+        "answer": "1. Remove the drain plug (A) and reinstall the drain plug after draining ATF totally.\nDrain plug tightening torque:\n22.6 ~ 24.5 N.m (2.3 ~ 2.5 kgf.m, 16.6 ~ 18.1 lb-ft)\n2. Fill the oil about 7.0 liters through oil injection hole.\n3. Check the oil level.\n(Refer to \"Hydraulic system (Fluid)\" in this group)\n\nAutomatic Transaxle System > Hydraulic System > Oil Filter > Repair procedures\n\n1. Draining ATF totally.\n2. Remove the oil pan (A).\n3. Must be replaced by new oil pan.\n4. Adding automatic transmission fluid.\n(Refer to \"automatic transaxle system\" in this group.)\n\n(Manual \u2014 p.47), (Manual \u2014 p.48)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer describes a drain-and-fill procedure that is not supported by the provided pages, which only detail an oil level check and replacement interval, not a full fluid replacement process."
+        }
+      }
+    },
+    {
+      "id": "fl-02",
+      "category": "fluids",
+      "question": "How do I replace the engine coolant and bleed air out of the cooling system?",
+      "gold_pages": [
+        820,
+        821
+      ],
+      "expected_values": [
+        "cooling fan"
+      ],
+      "visual": {
+        "pages": [
+          821,
+          820,
+          758,
+          839,
+          760
+        ],
+        "scores": [
+          26.3975,
+          26.165,
+          26.1221,
+          26.04,
+          25.937
+        ],
+        "seconds": 8.4,
+        "answer_seconds": 9.0,
+        "answer": "1. Start the engine and run coolant circulates.\nWhen the cooling fan operates and coolant circulates, refill coolant through the radiator cap.\n2. Repeat 11 until the cooling fan 3 ~ 5times and bleed air sufficiently out of the cooling system.\n3. Install the radiator cap and fill the reservoir tank to the \"MAX\" line with coolant.\n4. Run the vehicle under idle until the cooling fan operates 2 ~ 3 times.\n5. Stop the engine and wait coolant to cool.\n6. Repeat step.10 to step.15 until the coolant level doesn't fall any more, bleed air out of the cooling system\n\nNOTE\nAs it is to bleed air out to the cooling system and refill coolant when coolant gets cool completely, recheck the coolant level in the reservoir tank for 2 ~ 3 days after replacing coolant.\n\nCoolant capacity :\nMT : 5.5L (5.8 US qt, 4.8 lmp/qt)\nAT : 6.3L (6.6 US qt, 5.5 lmp/qt)\n\nEngine Mechanical System > Cooling System > Radiator > Components and Components Location\nComponents",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer includes steps 11-16 from page 84, but omits the critical initial steps (1-10) from page 83, such as draining the coolant, cleaning the tank, and initial filling with water, which are essential for proper coolant replacement and bleeding."
+        }
+      },
+      "parsed": {
+        "pages": [
+          821,
+          820,
+          829,
+          823,
+          824
+        ],
+        "scores": [
+          0.5128,
+          0.5055,
+          0.4418,
+          0.4294,
+          0.4294
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 6.4,
+        "answer": "11. Start the engine and run coolant circulates.\nWhen the cooling fan operates and coolant circulates, refill coolant through the radiator cap.\n12. Repeat 11 until the cooling fan 3 ~ 5times and bleed air sufficiently out of the cooling system.\n13. Install the radiator cap and fill the reservoir tank to the \"MAX\" line with coolant.\n14. Run the vehicle under idle until the cooling fan operates 2 ~ 3 times.\n15. Stop the engine and wait coolant to cool.\n16. Repeat step.10 to step.15 until the coolant level doesn't fall any more, bleed air out of the cooling system\n\n(Manual \u2014 p.821)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer includes steps 11-16 from page 84, but omits the critical initial steps (1-10) from page 83, such as draining the coolant, cleaning the tank, and initial filling, which are essential for a complete coolant replacement and bleeding procedure."
+        }
+      }
+    },
+    {
+      "id": "fl-03",
+      "category": "fluids",
+      "question": "How do I change the engine oil?",
+      "gold_pages": [
+        831,
+        832
+      ],
+      "expected_values": [
+        "drain plug"
+      ],
+      "visual": {
+        "pages": [
+          831,
+          832,
+          833,
+          45,
+          837
+        ],
+        "scores": [
+          19.2314,
+          19.1777,
+          19.0781,
+          19.0659,
+          19.001
+        ],
+        "seconds": 6.49,
+        "answer_seconds": 13.4,
+        "answer": "1. Drain the engine oil.\n(1) Remove the oil filler cap.\n(2) Remove the oil drain plug, and drain the oil into a container.\n\n2. Replace the oil filter.\n(1) Remove the oil filter.\n(2) Check and clean the oil filter installation surface.\n(3) Check the part number of the new oil filter is as same as old one.\n(4) Apply clean engine oil to the gasket of a new oil filter.\n(5) Lightly screw the oil filter into place, and tighten it until the gasket contacts the seat.\n(6) Tighten it with the torque below.\nTightening torque :\n11.8 ~ 15.7N.m (1.2 ~ 1.6kgf.m, 8.7 ~ 11.6lb-ft)\n\n3. Refill with engine oil.\n(1) Clean and install the oil drain plug with a new gasket.\nTightening torque :\n34.3 ~ 44.1N.m (3.5 ~ 4.5kgf.m, 25.3 ~ 32.5lb-ft)\n(2) Fill with fresh engine oil.\nCapacity :\nTotal : 6.0L (6.34US qt, 5.27lmp qt)\nOil pan : 5.0L (5.28US qt, 4.41lmp qt)\nDrain and refill including oil filter : 5.3L (5.60US qt, 4.66lmp qt)\n(3) Install the oil filler cap.\n\n4. Start engine and check for oil leaks and check the oil gauge or light for an indication of oil pressure.\n\n5. Recheck the engine oil level.\n\nEngine Mechanical System > Lubrication System > Engine Oil > Repair procedures\nPage 94 of 114",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all the steps, torque specifications, oil capacities, and procedural details from pages 94 and 95 of the manual without adding or omitting any critical information."
+        }
+      },
+      "parsed": {
+        "pages": [
+          831,
+          832,
+          833,
+          834,
+          45
+        ],
+        "scores": [
+          0.4781,
+          0.4095,
+          0.3803,
+          0.3738,
+          0.3733
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 14.6,
+        "answer": "1. Drain the engine oil.\n(1) Remove the oil filler cap.\n(2) Remove the oil drain plug, and drain the oil into a container.\n\n2. Replace the oil filter.\n(1) Remove the oil filter.\n(2) Check and clean the oil filter installation surface.\n(3) Check the part number of the new oil filter is as same as old one.\n(4) Apply clean engine oil to the gasket of a new oil filter.\n(5) Lightly screw the oil filter into place, and tighten it until the gasket contacts the seat.\n(6) Tighten it with the torque below.\nTightening torque :\n11.8 ~ 15.7N.m (1.2 ~ 1.6kgf.m, 8.7 ~ 11.6lb-ft)\n\n3. Refill with engine oil.\n(1) Clean and install the oil drain plug with a new gasket.\nTightening torque :\n34.3 ~ 44.1N.m (3.5 ~ 4.5kgf.m, 25.3 ~ 32.5lb-ft)\n(2) Fill with fresh engine oil.\nCapacity :\nTotal : 6.0L (6.34US qt, 5.27lmp qt)\nOil pan : 5.0L (5.28US qt, 4.41lmp qt)\nDrain and refill including oil filter : 5.3L (5.60US qt, 4.66lmp qt)\n(3) Install the oil filler cap.\n\n4. Start engine and check for oil leaks and check the oil gauge or light for an indication of oil pressure.\n\n5. Recheck the engine oil level.\n\nEngine Mechanical System > Lubrication System > Engine Oil > Repair procedures\n(Hyundai Genesis 2.0T BK2 \u2014 p.831)\n(Hyundai Genesis 2.0T BK2 \u2014 p.832)\n(Hyundai Genesis 2.0T BK2 \u2014 p.833)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all the steps, torque specifications, oil capacities, and procedural details from pages 94 and 95 of the manual without adding or omitting any critical information."
+        }
+      }
+    },
+    {
+      "id": "fl-04",
+      "category": "fluids",
+      "question": "How do I replace the manual transaxle oil?",
+      "gold_pages": [
+        1016,
+        1017,
+        1018
+      ],
+      "expected_values": [
+        "75W/85"
+      ],
+      "visual": {
+        "pages": [
+          1018,
+          1016,
+          47,
+          1015,
+          1017
+        ],
+        "scores": [
+          21.7046,
+          21.6519,
+          21.52,
+          21.4912,
+          21.4707
+        ],
+        "seconds": 7.21,
+        "answer_seconds": 5.5,
+        "answer": "1. With the vehicle parked on a level surface, remove the drain plug.\n2. Drain the transmission oil after loosening the drain plug (A).\n3. Install the drain plug with new gasket.\n4. Add new oil through the fill plug hole and, fill it just below the plug opening.\n\nStandard oil: SAE 75W/85, API GL-4\nOil capacity: 2.2\u2113 (2.3US qt, 1.94Imp qt)\n\n(Manual Transaxle System \u2014 p.1017)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reflects the steps and specifications for replacing the manual transaxle oil as described on page 3 of the manual, including the correct oil type, capacity, and procedure."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1016,
+          47,
+          48,
+          1015,
+          1018
+        ],
+        "scores": [
+          0.4872,
+          0.4658,
+          0.4658,
+          0.4374,
+          0.4328
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 5.3,
+        "answer": "1. Remove oil filler plug (A).\n2. Check level with finger.\nOil level must be up to fill the hole, if not, add oil until it runs over.\n3. Install filler plug with a new gasket.\n\nTightening torque :\n60 ~ 80 N.m (6.0 ~ 8.0 kgf.m, 43.4 ~ 57.8 lb-ft)\n\n(Manual Transaxle System > Manual Transaxle System > Repair procedures \u2014 p.1016)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer describes the inspection procedure for oil level (from page 2) but omits the full oil replacement steps, such as draining the oil via the drain plug (page 3) and adding new oil to the correct capacity (2.2L), which are essential for a complete oil replacement."
+        }
+      }
+    },
+    {
+      "id": "fl-05",
+      "category": "fluids",
+      "question": "How do I bleed air from the power steering system?",
+      "gold_pages": [
+        1081,
+        1082
+      ],
+      "expected_values": [
+        "reservoir"
+      ],
+      "visual": {
+        "pages": [
+          1082,
+          1084,
+          1098,
+          758,
+          1083
+        ],
+        "scores": [
+          21.7485,
+          21.6768,
+          21.5786,
+          21.5728,
+          21.5493
+        ],
+        "seconds": 7.19,
+        "answer_seconds": 12.4,
+        "answer": "Power steering fluid replacement\n1. Raise the reservoir and then disconnect the return hose to drain the reservoir. Take care not to spill the fluid on the body and parts. Wipe off any spilled fluid at once.\n2. Connect a tube of suitable diameter to the disconnected return hose, and put the hose end in a suitable container.\n3. Jack up the front wheels and turn the steering wheel from the lock to lock until fluid stops running out of the tube.\n4. Reconnect the return hose to reservoir\n5. Fill the reservoir with the power steering fluid and then bleed the power steering system.\n\nAir bleeding\nCAUTION\nAlways use genuine power steering fluid. Using other type of power steering fluid or ATF can cause increased wear and poor steering in cold weather.\n\n1. Disconnect the pressure tube from the power steering pump and then install the special tools between the pump and the pressure tube as illustration below.\n2. Start the engine and turn the steering wheel several times so that the fluid temperature can rise to approx. 50 ~ 60 C (122 F).\n3. Set the engine speed to approx. 1000rpm.\n4. Close the shut-off valve of the special tools and measure the fluid pressure.\nRelief pressure:\n100 ~ 105kgf/cm\u00b2 (1422 ~ 1493psi, 9.7 ~ 10.2Mpa)\nCAUTION\nDo not keep the shut-off valve on the pressure gauge closed for longer than 10 seconds.\n5. Remove the special tools, and than connect the pressure tube to the pump by tightening the eye bolt.\n6. Bleed the power steering system.\n\n(Manual \u2014 p.1082), (Manual \u2014 p.1083)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer includes detailed steps for air bleeding using special tools and pressure measurement, which are not present in the provided manual pages; the manual only mentions \"bleed the power steering system\" after fluid replacement without specifying the method."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1081,
+          1082,
+          1083,
+          595,
+          596
+        ],
+        "scores": [
+          0.4541,
+          0.4541,
+          0.4541,
+          0.444,
+          0.444
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 14.6,
+        "answer": "Power steering fluid replacement\n1. Raise the reservoir and then disconnect the return hose to drain the reservoir. Take care not to spill the fluid on the body and parts. Wipe off any spilled fluid at once.\n2. Connect a tube of suitable diameter to the disconnected return hose, and put the hose end in a suitable container.\n3. Jack up the front wheels and turn the steering wheel from the lock to lock until fluid stops running out of the tube.\n4. Reconnect the return hose to reservoir\n5. Fill the reservoir with the power steering fluid and then bleed the power steering system.\n\nAir bleeding\n1. Fill the reservoir with the power steering fluid up to the level of 'COLD MAX' marked on the reservoir.\nNOTE\nWhile conducting the following operations, keep replenishing the reservoir so that the fluid level can be always between the 'COLD MAX' and the 'COLD MIN' marked on the reservoir.\n2. Jack up the front wheels.\n3. Crank the engine 1 ~ 2times by turning the ignition key very quickly from the 'On' position to the 'Start' position, but do not start the engine.\nCAUTION\nBe careful not to start the engine. If starting the engine before performing the steps 3 through 4, it may cause an abnormal noise during power steering pump operation.\n4. Turn the steering wheel from lock to lock 5 ~ 6 times for 15 ~ 20 seconds.\n5. Start the engine and keep turning the steering wheel from lock to lock until air bubbles stop appearing in the reservoir with the engine idle.\n6. Check the color and level of the power steering fluid in the reservoir and then replenish the reservoir up to the 'COLD MAX' level as required.\nNOTE\nIf the fluid level moves up and down when turning the steering wheel, the fluid overflows out of the reservoir when the turning off the engine or the fluid has white color, it indicates that air bubbles have not been removed sufficiently from the power steering system. Therefore, repeat the steps 5 through 6 as required.\n(Manual \u2014 p.1082)\n(Manual \u2014 p.1083)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer includes detailed steps for air bleeding that are not present in the provided manual pages, which only mention \"bleed the power steering system\" without specifying the procedure."
+        }
+      }
+    },
+    {
+      "id": "fl-06",
+      "category": "fluids",
+      "question": "How do I bleed air from the ABS hydraulic unit (HCU)?",
+      "gold_pages": [
+        596,
+        597
+      ],
+      "expected_values": [
+        "GDS"
+      ],
+      "visual": {
+        "pages": [
+          596,
+          595,
+          601,
+          597,
+          626
+        ],
+        "scores": [
+          23.8135,
+          23.5264,
+          23.5146,
+          23.4702,
+          23.4282
+        ],
+        "seconds": 7.95,
+        "answer_seconds": 6.3,
+        "answer": "(1) Select vehicle name.\n(2) Select Anti-Lock Brake system.\n(3) Select HCU air bleeding mode.\n(4) Press \"OK\" to operate motor pump and solenoid valve.\n(5) Wait 60 sec. before operating the air bleeding. (If not, you may damage the motor.)\n(6) Perform the air bleeding.\n6. Pump the brake pedal several times, and then loosen the bleeder screw until fluid starts to run out without bubbles. Then close the bleeder screw.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.596)(Hyundai Genesis 2.0T BK2 \u2014 p.597)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the steps for bleeding air from the ABS hydraulic unit (HCU) as shown in the provided manual pages, including the GDS screen selections, waiting period, and physical bleeding procedure for both front and rear wheels."
+        }
+      },
+      "parsed": {
+        "pages": [
+          596,
+          597,
+          598,
+          626,
+          601
+        ],
+        "scores": [
+          0.4741,
+          0.4741,
+          0.4741,
+          0.396,
+          0.3624
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 13.8,
+        "answer": "1. Remove the reservoir cap and fill the brake reservoir with brake fluid.\nCAUTION\nIf there is any brake fluid on any painted surface, wash it off immediately.\nNOTE\nWhen pressure bleeding, do not depress the brake pedal.\nRecommended fluid...... DOT3 or DOT4\n2. Disconnect the vacuum switch connector.\n(2.0 AT & ESC Only)\n3. Connect a clear plastic tube to the wheel cylinder bleeder plug and insert the other end of the tube into a half filled clear plastic bottle.\n4. Connect the GDS to the data link connector located underneath the dash panel.\n5. Select and operate according to the instructions on the GDS screen.\nCAUTION\nYou must obey the maximum operating time of the ABS motor with the GDS to prevent the motor pump from burning.\n(1) Select vehicle name.\n(2) Select Anti-Lock Brake system.\n(3) Select HCU air bleeding mode.\n(4) Press \"OK\" to operate motor pump and solenoid valve.\n(5) Wait 60 sec. before operating the air bleeding.\n(If not, you may damage the motor.)\n(6) Perform the air bleeding.\n6. Pump the brake pedal several times, and then loosen the bleeder screw until fluid starts to run out without bubbles. Then close the bleeder screw.\nFront\nRear\n7. Repeat step 5 until there are no more bubbles in the fluid for each wheel.\n8. Tighten the bleeder screw.\nBleed screw tightening torque:\n6.9 ~ 12.7N.m (0.7 ~ 2.0kgf.m, 5.1 ~ 9.5lb-ft)\n9. Connect the vacuum switch connector.\n(2.0 AT & ESC Only)\n(Hyundai Genesis 2.0T BK2 \u2014 p.596, Hyundai Genesis 2.0T BK2 \u2014 p.597, Hyundai Genesis 2.0T BK2 \u2014 p.598)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer includes all the correct steps from the manual but adds unsupported steps 7, 8, and 9 (repeating the process, tightening torque, and reconnecting the vacuum switch connector), which are not mentioned in the provided pages."
+        }
+      }
+    },
+    {
+      "id": "ia-01",
+      "category": "inspect-adjust",
+      "question": "How do I measure the cylinder compression pressure, and what is the standard value?",
+      "gold_pages": [
+        744,
+        745
+      ],
+      "expected_values": [
+        "185"
+      ],
+      "visual": {
+        "pages": [
+          745,
+          808,
+          744,
+          810,
+          784
+        ],
+        "scores": [
+          26.5391,
+          26.0933,
+          26.0259,
+          25.9653,
+          25.9009
+        ],
+        "seconds": 8.45,
+        "answer_seconds": 7.4,
+        "answer": "4. Check cylinder compression pressure.\nA. Insert a compression gauge into the spark plug hole.\nB. Fully open the throttle.\nC. While cranking the engine, measure the compression pressure.\nNOTE\nAlways use a fully charged battery to obtain engine speed of 200 rpm or more.\nD. Repeat steps (a) through (c) for each cylinder.\nNOTE\nThis measurement must be done in as short a time as possible.\n\nCompression pressure:\n1,283kPa (13.0kgf/cm\u00b2, 185psi)\nMinimum pressure:\n1,135kPa (11.5kgf/cm\u00b2, 164psi)\nDifference between each cylinder:\n100kPa (1.0kgf/cm\u00b2, 15psi) or less\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.745)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces the steps for measuring cylinder compression pressure and the specified standard values (compression pressure, minimum pressure, and cylinder difference) as presented on page 8 of the manual, with no omissions or inaccuracies."
+        }
+      },
+      "parsed": {
+        "pages": [
+          745,
+          744,
+          810,
+          811,
+          808
+        ],
+        "scores": [
+          0.5608,
+          0.4501,
+          0.3815,
+          0.371,
+          0.3664
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 7.4,
+        "answer": "4. Check cylinder compression pressure.\nA. Insert a compression gauge into the spark plug hole.\nB. Fully open the throttle.\nC. While cranking the engine, measure the compression pressure.\nNOTE\nAlways use a fully charged battery to obtain engine speed of 200 rpm or more.\nD. Repeat steps (a) through (c) for each cylinder.\nNOTE\nThis measurement must be done in as short a time as possible.\nCompression pressure :\n1,283kPa (13.0kgf/cm\u00b2, 185psi)\nMinimum pressure :\n1,135kPa (11.5kgf/cm\u00b2, 164psi)\nDifference between each cylinder :\n100kPa (1.0kgf/cm\u00b2, 15psi) or less\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.745)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces the steps and specifications for measuring cylinder compression pressure as shown on page 8 of the manual, including the correct values for compression pressure, minimum pressure, and cylinder-to-cylinder difference."
+        }
+      }
+    },
+    {
+      "id": "ia-02",
+      "category": "inspect-adjust",
+      "question": "How do I inspect and adjust the valve clearance?",
+      "gold_pages": [
+        745,
+        746,
+        747,
+        748,
+        749
+      ],
+      "expected_values": [
+        "TDC"
+      ],
+      "visual": {
+        "pages": [
+          746,
+          745,
+          747,
+          749,
+          793
+        ],
+        "scores": [
+          21.0298,
+          21.0054,
+          20.9341,
+          20.9004,
+          20.8667
+        ],
+        "seconds": 7.29,
+        "answer_seconds": 14.4,
+        "answer": "Inspect and adjust the valve clearance when the engine is cold (Engine coolant temperature : 20\u00b0C (68\u00b0F)) and cylinder head is installed on the cylinder block.\n1. Remove the cylinder head cover. (Refer to Timing system)\nB. Turn the crankshaft pulley one revolution (360\u00b0) and align the groove with the timing mark \"T\" of the lower timing chain cover.\nC. Check only valves indicated as shown. [NO. 4 cylinder : TDC/compression]. Measure the valve clearance.\n4. Adjust the intake and exhaust valve clearance.\nA. Set the No.1 cylinder to the TDC/compression.\nB. Marks on the timing chain and camshaft timing sprockets.\nC. Remove the service hole bolt(A) of the timing chain cover.\nD. Insert the SST(A) (09240-2G000) in the service hole of the timing chain cover and release the ratchet.\nN. Align the matchmarks on the timing chain and camshaft timing sprocket.\nO. Install the intake and exhaust camshaft.\nP. Install the front bearing cap.\nQ. Install the sevice hole bolt.\nR. Turn the crankshaft two turns in the operating direction(clockwise) and realign crankshaft sprocket and camshaft sprocket timing marks(A).\nS. Recheck the valve clearance.\nValve clearance (Engine coolant temperature : 20\u00b0C)\n[Specification]\nIntake : 0.17 ~ 0.23mm (0.0067 ~ 0.0090in.)\nExhaust : 0.27 ~ 0.33mm (0.0106 ~ 0.0129in.)\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.745), (Hyundai Genesis 2.0T BK2 \u2014 p.746), (Hyundai Genesis 2.0T BK2 \u2014 p.747), (Hyundai Genesis 2.0T BK2 \u2014 p.749)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant's answer includes most of the correct steps for inspecting and adjusting valve clearance, but it omits critical steps such as removing the camshaft bearing caps, measuring the thickness of the removed tappet, calculating the new tappet thickness, and selecting/installing the new tappet, which are essential parts of the adjustment process as shown on pages 11 and 12."
+        }
+      },
+      "parsed": {
+        "pages": [
+          781,
+          745,
+          746,
+          747,
+          782
+        ],
+        "scores": [
+          0.5265,
+          0.5243,
+          0.5243,
+          0.4573,
+          0.4349
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 11.1,
+        "answer": "Inspect and adjust the valve clearance when the engine is cold (Engine coolant temperature : 20\u00b0C (68\u00b0F)) and cylinder head is installed on the cylinder block.\n1. Remove the cylinder head cover. (Refer to Timing system)\n2. Set No.1 cylinder to TDC/compression.\nA. Turn the crankshaft pulley and align its groove with the timing mark \"T\" of the lower timing chain cover.\nB. Check that the mark (A) of the camshaft timing sprockets are in straight line on the cylinder head surface as shown in the illustration.\nIf not, turn the crankshaft one revolution (360\u00b0)\n3. Inspect the valve clearance.\nA. Check only the valve indicated as shown. [No. 1 cylinder : TDC/Compression] measure the valve clearance.\n\u2022 Using a thickness gauge, measure the clearance between the tappet and the base circle of camshaft.\n\u2022 Record the out-of-specification valve clearance measurements. They will be used later to determine the required replacement adjusting tappet.\nValve clearance\nSpecification\nEngine coolant temperature : 20\u00b0C [68\u00b0F]\nLimit\nIntake : 0.10 ~ 0.30mm (0.0039 ~ 0.0118in.)\nExhaust : 0.25 ~ 0.45mm (0.0098 ~ 0.0177in.)\n(Manual \u2014 p.746), (Manual \u2014 p.747)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reflects the steps and specifications for inspecting and adjusting valve clearance as detailed on pages 8, 9, and 10, including the correct temperature condition, measurement procedure, and valve clearance limits."
+        }
+      }
+    },
+    {
+      "id": "ia-03",
+      "category": "inspect-adjust",
+      "question": "How do I perform a fuel pressure test?",
+      "gold_pages": [
+        939,
+        940,
+        941
+      ],
+      "expected_values": [
+        "fuel pressure"
+      ],
+      "visual": {
+        "pages": [
+          939,
+          940,
+          941,
+          868,
+          867
+        ],
+        "scores": [
+          20.0947,
+          20.0098,
+          19.9409,
+          19.8872,
+          19.8638
+        ],
+        "seconds": 6.74,
+        "answer_seconds": 20.1,
+        "answer": "Fuel Pressure Test\n1. Release the residual pressure in fuel line (Refer to \"Release Residual Pressure in Fuel Line\" in this group).\nWhen removing the fuel pump relay, a Diagnostic Trouble Code (DTC) may occur. Delete the code with the GDS after completion of \"Release Residual Pressure in Fuel Line\" work.\n2. Install the Special Service Tool (SST).\n(1) Disconnect the fuel feed tube from the high pressure fuel pump.\nCAUTION\nThere may be some residual pressure even after \"Release Residual Pressure in Fuel Line\" work, so cover the hose connection with a shop towel to prevent residual fuel from spilling out before disconnecting any fuel connection.\n(2) Install the special service tool for measuring the fuel pressure in between the fuel feed tube and the high pressure fuel pump (Refer to the figure below).\n3. Inspect fuel leakage on connections among the fuel feed tube, the high pressure fuel pump, and the SST components with IG ON.\n4. Measure Fuel Pressure.\n(1) Start the engine and measure the fuel pressure at idle.\nFuel Pressure:\n579 kPa (5.9 kgf/cm\u00b2, 83.9 psi)\nNOTE\nIf the fuel pressure differs from the standard value, repair or replace the related part (Refer to the table below).\n\n(2) Stop the engine, and then check for the change in the fuel pressure gauge reading.\nStandard Value: The gauge reading should hold for about 5 minutes after the engine stops\nNOTE\nIf the gauge reading should not be held, repair or replace the related part (Refer to the table below).\n\n(3) Turn the ignition switch OFF.\n5. Release the residual pressure in fuel line (Refer to \"Release Residual Pressure in Fuel Line\").\nWhen removing the fuel pump relay, a Diagnostic Trouble Code (DTC) may occur. Delete the code with the GDS after completion of \"Release Residual Pressure in Fuel Line\" work.\n6. Test End\n(1) Remove the Special Service Tool (SST) from the fuel feed tube and the high pressure fuel pump.\n(2) Connect the fuel feed tube and the high pressure fuel pump.\n\nRelease Residual Pressure in Fuel Line\nCAUTION\nThere may be some residual pressure even after \"Release Residual Pressure in Fuel Line\" work, so cover the hose connection with a shop towel to prevent residual fuel from spilling out before disconnecting any fuel connection.\n1. Turn the ignition switch OFF and disconnect the battery (-) cable.\n2. Remove the fuel pump relay (A).\nWhen removing the fuel pump relay, a Diagnostic Trouble Code (DTC) may occur. Delete the code with the GDS after completion of \"Release Residual Pressure in Fuel Line\" work.\n3. Connect the battery (-) cable.\n4. Start the engine and let idle, and then turn the ignition switch OFF after the engine has stopped on its own.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.939, Hyundai Genesis 2.0T BK2 \u2014 p.940, Hyundai Genesis 2.0T BK2 \u2014 p.941)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all steps, warnings, standard values, and tables from pages 88-90 of the manual, including the fuel pressure test procedure, residual pressure release, and associated cautions and notes."
+        }
+      },
+      "parsed": {
+        "pages": [
+          939,
+          940,
+          941,
+          922,
+          923
+        ],
+        "scores": [
+          0.4952,
+          0.4952,
+          0.4485,
+          0.3734,
+          0.3734
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 22.9,
+        "answer": "Fuel Pressure Test\n1. Release the residual pressure in fuel line (Refer to \u201cRelease Residual Pressure in Fuel Line\u201d in this group).\nCAUTION\nWhen removing the fuel pump relay, a Diagnostic Trouble Code (DTC) may occur. Delete the code with the GDS after completion of \u201cRelease Residual Pressure in Fuel Line\u201d work.\n2. Install the Special Service Tool (SST).\n(1) Disconnect the fuel feed tube from the high pressure fuel pump.\nCAUTION\nThere may be some residual pressure even after \u201cRelease Residual Pressure in Fuel Line\u201d work, so cover the hose connection with a shop towel to prevent residual fuel from spilling out before disconnecting any fuel connection.\n(2) Install the special service tool for measuring the fuel pressure in between the fuel feed tube and the high pressure fuel pump (Refer to the figure below).\n3. Inspect fuel leakage on connections among the fuel feed tube, the high pressure fuel pump, and the SST components with IG ON.\n4. Measure Fuel Pressure.\n(1) Start the engine and measure the fuel pressure at idle.\nFuel Pressure:\n579 kPa (5.9 kgf/cm\u00b2, 83.9 psi)\nNOTE\nIf the fuel pressure differs from the standard value, repair or replace the related part (Refer to the table below).\nFuel Pressure | Cause | Related Part\n---|---|---\nToo Low | Fuel filter clogged | Fuel Filter\nFuel leakage | Fuel Pressure Regulator |\nToo High | Fuel pressure regulator stuck | Fuel Pressure Regulator\n(2) Stop the engine, and then check for the change in the fuel pressure gauge reading.\nStandard Value: The gauge reading should hold for about 5 minutes after the engine stops\nNOTE\nIf the gauge reading should not be held, repair or replace the related part (Refer to the table below).\nFuel Pressure (After Engine Stops) | Cause | Related Part\n---|---|---\nFuel Pressure Drops Slowly | Leakage on injector | Injector\nFuel Pressure Drops Immediately | Check valve of fuel pump stuck open | Fuel Pump\n(3) Turn the ignition switch OFF.\n5. Release the residual pressure in fuel line (Refer to \u201cRelease Residual Pressure in Fuel Line\u201d).\nCAUTION\nWhen removing the fuel pump relay, a Diagnostic Trouble Code (DTC) may occur. Delete the code with the GDS after completion of \u201cRelease Residual Pressure in Fuel Line\u201d work.\n6. Test End\n(1) Remove the Special Service Tool (SST) from the fuel feed tube and the high pressure fuel pump.\n(2) Connect the fuel feed tube and the high pressure fuel pump.\nRelease Residual Pressure in Fuel Line\nCAUTION\nThere may be some residual pressure even after \u201cRelease Residual Pressure in Fuel Line\u201d work, so cover the hose connection with a shop towel to prevent residual fuel from spilling out before disconnecting any fuel connection.\n1. Turn the ignition switch OFF and disconnect the battery (-) cable.\n2. Remove the fuel pump relay (A).\nCAUTION\nWhen removing the fuel pump relay, a Diagnostic Trouble Code (DTC) may occur. Delete the code with the GDS after completion of \u201cRelease Residual Pressure in Fuel Line\u201d work.\n3. Connect the battery (-) cable.\n4. Start the engine and let idle, and then turn the ignition switch OFF after the engine has stopped on its own.\nHyundai Genesis 2.0T BK2 \u2014 p.939, Hyundai Genesis 2.0T BK2 \u2014 p.940, Hyundai Genesis 2.0T BK2 \u2014 p.941",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all steps, cautions, standard values, and tables for the fuel pressure test and residual pressure release as shown in the provided manual pages, with no omissions or inaccuracies."
+        }
+      }
+    },
+    {
+      "id": "ia-04",
+      "category": "inspect-adjust",
+      "question": "How do I adjust the EWGA rod length when the voltage value is out of specification?",
+      "gold_pages": [
+        933,
+        934,
+        935
+      ],
+      "expected_values": [
+        "rod end"
+      ],
+      "visual": {
+        "pages": [
+          933,
+          934,
+          929,
+          931,
+          994
+        ],
+        "scores": [
+          27.9834,
+          27.2715,
+          26.7979,
+          26.6035,
+          26.4438
+        ],
+        "seconds": 9.18,
+        "answer_seconds": 5.8,
+        "answer": "8. If the voltage value measured is not within the specified voltage value, adjust the EWGA rod length.\n(1) Loosen the rod end lock nut (A) and remove the C-ring (B).\n(2) Adjust the rod end part (C) by rotating it clockwise (D) or counterclockwise (E) to satisfy the specification.\nA. If output voltage > 3.9 V\n: Turn it counterclockwise (E)\nB. If output voltage < 3.7 V\n: Turn it clockwise (D)\n\n(Manual \u2014 p.933, p.934)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reflects the adjustment procedure for the EWGA rod length as described on pages 82 and 83, including the correct steps, component labels (A, B, C, D, E), and voltage thresholds (3.7 V and 3.9 V) for clockwise and counterclockwise rotation."
+        }
+      },
+      "parsed": {
+        "pages": [
+          934,
+          932,
+          933,
+          931,
+          928
+        ],
+        "scores": [
+          0.5104,
+          0.4921,
+          0.4921,
+          0.3721,
+          0.3553
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 5.1,
+        "answer": "8. If the voltage value measured is not within the specified voltage value, adjust the EWGA rod length.\n(1) Loosen the rod end lock nut (A) and remove the C-ring (B).\n(2) Adjust the rod end part (C) by rotating it clockwise (D) or counterclockwise (E) to satisfy the specification.\nA. If output voltage > 3.9 V\n: Turn it counterclockwise (E)\n(Manual \u2014 p.934)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reflects the steps and conditions for adjusting the EWGA rod length as described in the manual on pages 82 and 83, including the correct directions for rotation based on voltage readings."
+        }
+      }
+    },
+    {
+      "id": "tq-01",
+      "category": "torque",
+      "question": "What is the tightening torque for the front caliper assembly to knuckle bolts?",
+      "gold_pages": [
+        554
+      ],
+      "expected_values": [
+        "88.3",
+        "103.0"
+      ],
+      "visual": {
+        "pages": [
+          553,
+          554,
+          529,
+          1111,
+          633
+        ],
+        "scores": [
+          26.3389,
+          26.2778,
+          26.0796,
+          25.9521,
+          25.9404
+        ],
+        "seconds": 8.44,
+        "answer_seconds": 5.5,
+        "answer": "78.5 ~ 98.1 N.m (8.0 ~ 10.0 kgf.m, 57.9 ~ 72.3 lb-ft)\n88.3 ~ 103.0 N.m (9.0 ~ 10.5 kgf.m, 65.1 ~ 75.9 lb-ft)\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.553), (Hyundai Genesis 2.0T BK2 \u2014 p.554)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant provided two torque ranges, one of which is incorrect, and included unsupported references to Hyundai Genesis 2.0T BK2 pages, which are not present in the provided manual pages."
+        }
+      },
+      "parsed": {
+        "pages": [
+          553,
+          554,
+          555,
+          633,
+          634
+        ],
+        "scores": [
+          0.5043,
+          0.5043,
+          0.5043,
+          0.4949,
+          0.4949
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 7.7,
+        "answer": "78.5 ~ 98.1 N.m (8.0 ~ 10.0 kgf.m, 57.9 ~ 72.3 lb-ft)\n88.3 ~ 103.0 N.m (9.0 ~ 10.5 kgf.m, 65.1 ~ 75.9 lb-ft)\n21.6 ~ 31.4 N.m (2.2 ~ 3.2 kgf.m, 15.9 ~ 23.1 lb-ft)\n49 ~ 58.8 N.m (5.0 ~ 6.0 kgf.m, 36.1 ~ 43.3 lb-ft)\n78.4 ~ 88.2 N.m (8.0 ~ 9.0 kgf.m, 57.8 ~ 65.0 lb-ft)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer lists multiple torque values, but only one of them (88.3 ~ 103.0 N.m) is correct for the caliper assembly to knuckle bolts; the others are incorrect and not supported by the manual."
+        }
+      }
+    },
+    {
+      "id": "tq-02",
+      "category": "torque",
+      "question": "What is the tightening torque for the wheel nuts?",
+      "gold_pages": [
+        552,
+        553,
+        560,
+        627,
+        633,
+        640,
+        645,
+        1079,
+        1093,
+        1104,
+        1110,
+        1113,
+        1115,
+        1116,
+        1117,
+        1119,
+        1121,
+        1122,
+        1123,
+        1124,
+        1125,
+        1126,
+        1127,
+        1133
+      ],
+      "expected_values": [
+        "88.3",
+        "107.9"
+      ],
+      "visual": {
+        "pages": [
+          1133,
+          1079,
+          1104,
+          627,
+          640
+        ],
+        "scores": [
+          21.1885,
+          21.043,
+          20.9844,
+          20.896,
+          20.8516
+        ],
+        "seconds": 7.02,
+        "answer_seconds": 3.7,
+        "answer": "88.3 ~ 107.9 N.m (9.0 ~ 11.0 kgf.m, 65.1 ~ 79.6 lb-ft)\n(Manual \u2014 p.1133)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The tightening torque for the wheel nuts is correctly stated as 88.3 ~ 107.9 N.m (9.0 ~ 11.0 kgf.m, 65.1 ~ 79.6 lb-ft), which matches the values in the \"Tightening Torque\" table on page 1 of 40 (image 3) for both front and rear wheel nuts."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1133,
+          627,
+          628,
+          1132,
+          1104
+        ],
+        "scores": [
+          0.497,
+          0.4356,
+          0.4335,
+          0.4212,
+          0.3922
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 4.4,
+        "answer": "88.3 ~ 107.9 N.m(9.0 ~ 11.0 kgf.m, 65.1 ~ 79.6 lb-ft)\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.1133)\n(Hyundai Genesis 2.0T BK2 \u2014 p.627)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer correctly states the tightening torque for the wheel nuts as 88.3 ~ 107.9 N.m (9.0 ~ 11.0 kgf.m, 65.1 ~ 79.6 lb-ft), which matches the values provided in the \"Tightening Torque\" table on page 1 of 40 (image 3) for both front and rear wheel nuts."
+        }
+      }
+    },
+    {
+      "id": "tq-03",
+      "category": "torque",
+      "question": "What is the tightening torque for the manual transaxle drain plug?",
+      "gold_pages": [
+        1016,
+        1017,
+        1020
+      ],
+      "expected_values": [
+        "60",
+        "80"
+      ],
+      "visual": {
+        "pages": [
+          47,
+          1017,
+          1016,
+          1020,
+          665
+        ],
+        "scores": [
+          24.3525,
+          24.3052,
+          24.2119,
+          24.1626,
+          24.1294
+        ],
+        "seconds": 8.24,
+        "answer_seconds": 3.9,
+        "answer": "60 ~ 80 N.m (6.0 ~ 8.0 kgf.m, 43.4 ~ 57.8 lb-ft)\n\n(Manual Transaxle System > Manual Transaxle System > Repair procedures \u2014 p.1016)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the tightening torque value (60 ~ 80 N.m, 6.0 ~ 8.0 kgf.m, 43.4 ~ 57.8 lb-ft) specified for the drain plug on pages 3 and 6 of the manual."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1017,
+          1020,
+          1016,
+          1018,
+          47
+        ],
+        "scores": [
+          0.4221,
+          0.4183,
+          0.4151,
+          0.4151,
+          0.4121
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 3.5,
+        "answer": "60 ~ 80 N.m (6.0 ~ 8.0 kgf.m, 43.4 ~ 57.8 lb-ft)\n(Manual \u2014 p.1020)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The tightening torque for the drain plug is consistently stated as 60 ~ 80 N.m (6.0 ~ 8.0 kgf.m, 43.4 ~ 57.8 lb-ft) on pages 3 and 6, matching the assistant's answer exactly."
+        }
+      }
+    },
+    {
+      "id": "tq-04",
+      "category": "torque",
+      "question": "What is the tightening torque for the electric wastegate actuator (EWGA) installation bolts?",
+      "gold_pages": [
+        857,
+        932
+      ],
+      "expected_values": [
+        "7.35",
+        "8.34"
+      ],
+      "visual": {
+        "pages": [
+          932,
+          857,
+          927,
+          876,
+          882
+        ],
+        "scores": [
+          29.9771,
+          29.5635,
+          29.4888,
+          29.4067,
+          29.3184
+        ],
+        "seconds": 9.55,
+        "answer_seconds": 3.9,
+        "answer": "7.35 ~ 8.34 N.m (0.75 ~ 0.85 kgf.m, 5.42 ~ 6.08 lb-ft)\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.932)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the tightening torque value for the Electric WGT control actuator installation bolt as specified in the \"Tightening Torques\" table on page 6 and reiterated in the installation instructions on page 81."
+        }
+      },
+      "parsed": {
+        "pages": [
+          932,
+          933,
+          934,
+          931,
+          927
+        ],
+        "scores": [
+          0.5008,
+          0.5008,
+          0.5008,
+          0.4862,
+          0.4668
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 3.9,
+        "answer": "7.35 ~ 8.34 N.m (0.75 ~ 0.85 kgf.m, 5.42 ~ 6.08 lb-ft)\n(Hyundai Genesis 2.0T BK2 \u2014 p.932)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the tightening torque value for the Electric WGT control actuator installation bolt as specified in the \"Tightening Torques\" table on page 6 and reiterated in the installation instructions on page 81."
+        }
+      }
+    },
+    {
+      "id": "tq-05",
+      "category": "torque",
+      "question": "What is the tightening torque for the rear driveshaft castle nut?",
+      "gold_pages": [
+        627,
+        641
+      ],
+      "expected_values": [
+        "196.1",
+        "255"
+      ],
+      "visual": {
+        "pages": [
+          627,
+          1094,
+          646,
+          1114,
+          641
+        ],
+        "scores": [
+          23.5176,
+          23.2783,
+          23.1885,
+          23.1782,
+          23.145
+        ],
+        "seconds": 8.05,
+        "answer_seconds": 4.0,
+        "answer": "196.1 ~ 255.0 N.m (20.0 ~ 26.0 kgf.m, 144.7 ~ 188.1 lb-ft)\n(Hyundai Genesis 2.0T BK2 \u2014 p.646)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer exactly matches the tightening torque for the rear driveshaft castle nut as specified on page 15 of the manual, which is 196.1 ~ 255.0 N.m (20.0 ~ 26.0 kgf.m, 144.7 ~ 188.1 lb-ft)."
+        }
+      },
+      "parsed": {
+        "pages": [
+          646,
+          1094,
+          649,
+          1114,
+          1095
+        ],
+        "scores": [
+          0.4426,
+          0.4376,
+          0.4337,
+          0.4214,
+          0.419
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 3.8,
+        "answer": "58.8 ~ 78.5N.m (6.0 ~ 8.0kgf.m, 43.4 ~ 57.9lb-ft)\n(Hyundai Genesis 2.0T BK2 \u2014 p.1094)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer provides incorrect torque values for the rear driveshaft castle nut; the correct values are 196.1 ~ 255.0 N.m (20.0 ~ 26.0 kgf.m, 144.7 ~ 188.1 lb-ft) as shown on page 15, which matches the specification table on page 1."
+        }
+      }
+    },
+    {
+      "id": "pa-01",
+      "category": "paraphrase",
+      "question": "My brakes are squeaking and I want to put new pads on the front. How do I do that?",
+      "gold_pages": [
+        552,
+        553,
+        554,
+        555,
+        556,
+        557
+      ],
+      "expected_values": [
+        "caliper"
+      ],
+      "visual": {
+        "pages": [
+          555,
+          554,
+          1129,
+          557,
+          562
+        ],
+        "scores": [
+          31.4355,
+          31.4326,
+          31.1836,
+          31.1821,
+          31.1816
+        ],
+        "seconds": 10.93,
+        "answer_seconds": 10.9,
+        "answer": "2. Loosen the guide rod bolt (B) and remove the caliper body (A).\nTightening torque:\n21.6 ~ 31.4 N.m (2.2 ~ 3.2 kgf.m, 15.9 ~ 23.1 lb-ft)\n3. Replace pad shim (B), pad retainers (C) and brake pads (B) in the caliper bracket (A).\n\nFront Brake Pads (Brembo caliper type)\n1. Remove the guide pin (B) of the lower part with the pin punch (A).\n\n(Manual \u2014 p.555)\n\n2. Loosen the hose eye-bolt (B) and caliper mounting bolts (C), then remove the front caliper assembly (A).\nTightening torque\nBrake hose to caliper (B):\n24.5 ~ 29.4 N.m (2.5 ~ 3.0 kgf.m, 18.1 ~ 21.7 lb-ft)\nCaliper assembly to knuckle (C):\n88.3 ~ 103.0 N.m (9.0 ~ 10.5 kgf.m, 65.1 ~ 75.9 lb-ft)\n3. Remove the front brake disc by loosening the screws.\n\nFront Brake Pads (General caliper type)\n1. Remove the brake hose mounting bracket (knuckle mounting part : D).\n\n(Manual \u2014 p.554)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant included correct steps for replacing brake pads for both General and Brembo caliper types, but omitted the initial step of removing the front wheel and tire, which is required before any caliper work, and incorrectly referenced page numbers (p.555, p.554) that do not match the provided images (pages 26-30)."
+        }
+      },
+      "parsed": {
+        "pages": [
+          557,
+          555,
+          556,
+          550,
+          530
+        ],
+        "scores": [
+          0.3722,
+          0.3664,
+          0.3664,
+          0.364,
+          0.3487
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 8.7,
+        "answer": "Loosen the guide rod bolt (B) and remove the caliper body (A).\nTightening torque : 21.6 ~ 31.4 N.m (2.2 ~ 3.2 kgf.m, 15.9 ~ 23.1 lb-ft)\nReplace pad shim (B), pad retainers (C) and brake pads (B) in the caliper bracket (A).\nFront Brake Pads (Brembo caliper type)\nRemove the guide pin (B) of the lower part with the pin punch (A).\nRemove the guide pin (C) of the upper part and retraction spring (D).\nReplace brake pads (E) at the caliper body.\nInstallation is the reverse of removal.\nBefore installing the pin, apply the grease to the clevis pin.\nUse a new snap pin whenever installing.\nCheck the stop lamp switch.\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.557, Hyundai Genesis 2.0T BK2 \u2014 p.555, Hyundai Genesis 2.0T BK2 \u2014 p.556)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant included steps for both General and Brembo caliper types, but incorrectly combined them and added unsupported steps like applying grease to the clevis pin and checking the stop lamp switch, which are not mentioned in the provided pages."
+        }
+      }
+    },
+    {
+      "id": "pa-02",
+      "category": "paraphrase",
+      "question": "How do I change the oil?",
+      "gold_pages": [
+        831,
+        832
+      ],
+      "expected_values": [
+        "drain plug"
+      ],
+      "visual": {
+        "pages": [
+          831,
+          45,
+          1017,
+          832,
+          1018
+        ],
+        "scores": [
+          18.1973,
+          18.1802,
+          18.1367,
+          18.1191,
+          18.0864
+        ],
+        "seconds": 9.04,
+        "answer_seconds": 13.3,
+        "answer": "Engine Oil And Filter Replacement\n\n1. Drain the engine oil.\n   (1) Remove the oil filler cap.\n   (2) Remove the oil drain plug, and drain the oil into a container.\n\n2. Replace the oil filter.\n   (1) Remove the oil filter.\n   (2) Check and clean the oil filter installation surface.\n   (3) Check the part number of the new oil filter is as same as old one.\n   (4) Apply clean engine oil to the gasket of a new oil filter.\n   (5) Lightly screw the oil filter into place, and tighten it until the gasket contacts the seat.\n   (6) Tighten it with the torque below.\n\nTightening torque :\n11.8 ~ 15.7N.m (1.2 ~ 1.6kgf.m, 8.7 ~ 11.6lb-ft)\n\n3. Refill with engine oil.\n   (1) Clean and install the oil drain plug with a new gasket.\n   Tightening torque :\n34.3 ~ 44.1N.m (3.5 ~ 4.5kgf.m, 25.3 ~ 32.5lb-ft)\n   (2) Fill with fresh engine oil.\nCapacity :\nTotal : 6.0L (6.34US qt, 5.27lmp qt)\nOil pan : 5.0L (5.28US qt, 4.41lmp qt)\nDrain and refill including oil filter : 5.3L (5.60US qt, 4.66lmp qt)\n   (3) Install the oil filler cap.\n4. Start engine and check for oil leaks and check the oil gauge or light for an indication of oil pressure.\n5. Recheck the engine oil level.\n\nPage 94 of 114",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all the steps, torque specifications, oil capacities, and procedural details from pages 94 and 95 of the manual without adding or omitting any critical information."
+        }
+      },
+      "parsed": {
+        "pages": [
+          831,
+          832,
+          1016,
+          1017,
+          1018
+        ],
+        "scores": [
+          0.3846,
+          0.3462,
+          0.3414,
+          0.3414,
+          0.3414
+        ],
+        "seconds": 0.05,
+        "answer_seconds": 13.2,
+        "answer": "Engine Oil And Filter Replacement\n\n1. Drain the engine oil.\n(1) Remove the oil filler cap.\n(2) Remove the oil drain plug, and drain the oil into a container.\n\n2. Replace the oil filter.\n(1) Remove the oil filter.\n(2) Check and clean the oil filter installation surface.\n(3) Check the part number of the new oil filter is as same as old one.\n(4) Apply clean engine oil to the gasket of a new oil filter.\n(5) Lightly screw the oil filter into place, and tighten it until the gasket contacts the seat.\n(6) Tighten it with the torque below.\n\nTightening torque :\n11.8 ~ 15.7N.m (1.2 ~ 1.6kgf.m, 8.7 ~ 11.6lb-ft)\n\n3. Refill with engine oil.\n(1) Clean and install the oil drain plug with a new gasket.\nTightening torque :\n34.3 ~ 44.1N.m (3.5 ~ 4.5kgf.m, 25.3 ~ 32.5lb-ft)\n(2) Fill with fresh engine oil.\n\nCapacity :\nTotal : 6.0L (6.34US qt, 5.27lmp qt)\nOil pan : 5.0L (5.28US qt, 4.41lmp qt)\nDrain and refill including oil filter : 5.3L (5.60US qt, 4.66lmp qt)\n(3) Install the oil filler cap.\n\n4. Start engine and check for oil leaks and check the oil gauge or light for an indication of oil pressure.\n5. Recheck the engine oil level.\n\n(Manual \u2014 p.831, Manual \u2014 p.832)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all key steps, torque specifications, oil capacities, and procedural details from pages 94 and 95 of the manual without adding or omitting critical information."
+        }
+      }
+    },
+    {
+      "id": "pa-03",
+      "category": "paraphrase",
+      "question": "I need to swap out the AC compressor \u2014 walk me through it.",
+      "gold_pages": [
+        965,
+        966,
+        967,
+        968,
+        969
+      ],
+      "expected_values": [
+        "refrigerant"
+      ],
+      "visual": {
+        "pages": [
+          965,
+          966,
+          964,
+          969,
+          974
+        ],
+        "scores": [
+          24.1182,
+          24.0537,
+          23.9824,
+          23.9561,
+          23.9326
+        ],
+        "seconds": 10.83,
+        "answer_seconds": 13.6,
+        "answer": "Removal\n1. If the compressor is marginally operable, run the engine at idle speed, and let the air conditioning work for a few minutes, then shut the engine off.\n2. Disconnect the negative cable from the battery.\n3. Recover the refrigerant with a recovery/charging station.\n4. Loosen the drive belt.\n5. Remove the bolts, then disconnect the suction line (A) and discharge line (B) from the compressor. Plug or cap the lines immediately after disconnecting them to avoid moisture and dust contamination.\n6. Disconnect the compressor clutch connector, and then remove 4 mounting bolts and the compressor (C).\n\nInstallation\n1. Make sure of the length of compressor mounting bolts, and then tighten it A\u2192B\u2192C\u2192D order.\n2. Install in the reverse order of removal, and note these items.\nA. If you're installing a new compressor, drain all the refrigerant oil from the removed compressor, and measure its volume, Subtract the volume of drained oil from 120cc(4.20 oz.) the result is the amount of oil you should drain from the new compressor (through the suction fitting).\nB. Replace the O-rings with new ones at each fitting, and apply a thin coat of refrigerant oil before installing them. Be sure to use the right O-rings for R-134a to avoid leakage.\nC. To avoid contamination, do not return the oil to the container once dispensed, and never mix it with other refrigerant oils.\nD. Immediately after using the oil, replace the cap on the container and seal it to avoid moisture absorption.\nE. Do not spill the refrigerant oil on the vehicle; it may damage the paint; if the refrigerant oil contacts the paint, wash it off immediately.\nF. Adjust the drive belt.\nG. Charge the system and test its performance.\n\n(Manual \u2014 p.965), (Manual \u2014 p.966), (Manual \u2014 p.964)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reflects all removal and installation steps, including specific details like plugging lines, bolt tightening order, oil volume calculation, and O-ring replacement, as described on pages 13-14 of the manual."
+        }
+      },
+      "parsed": {
+        "pages": [
+          965,
+          966,
+          968,
+          969,
+          970
+        ],
+        "scores": [
+          0.4403,
+          0.4403,
+          0.386,
+          0.386,
+          0.386
+        ],
+        "seconds": 0.05,
+        "answer_seconds": 14.4,
+        "answer": "Heating, Ventilation, Air Conditioning > Air conditioning System > Compressor > Repair procedures\n\nRemoval\n1. If the compressor is marginally operable, run the engine at idle speed, and let the air conditioning work for a few minutes, then shut the engine off.\n2. Disconnect the negative cable from the battery.\n3. Recover the refrigerant with a recovery/charging station.\n4. Loosen the drive belt.\n5. Remove the bolts, then disconnect the suction line (A) and discharge line (B) from the compressor. Plug or cap the lines immediately after disconnecting them to avoid moisture and dust contamination.\n6. Disconnect the compressor clutch connector, and then remove 4 mounting bolts and the compressor (C).\n\nInstallation\n1. Make sure of the length of compressor mounting bolts, and then tighten it A\u2192B\u2192C\u2192D order.\n\n2. Install in the reverse order of removal, and note these items.\nA. If you're installing a new compressor, drain all the refrigerant oil from the removed compressor, and measure its volume, Subtract the volume of drained oil from 120cc(4.20 oz.) the result is the amount of oil you should drain from the new compressor (through the suction fitting).\nB. Replace the O-rings with new ones at each fitting, and apply a thin coat of refrigerant oil before installing them. Be sure to use the right O-rings for R-134a to avoid leakage.\nC. To avoid contamination, do not return the oil to the container once dispensed, and never mix it with other refrigerant oils.\nD. Immediately after using the oil, replace the cap on the container and seal it to avoid moisture absorption.\nE. Do not spill the refrigerant oil on the vehicle; it may damage the paint; if the refrigerant oil contacts the paint, wash it off immediately.\nF. Adjust the drive belt.\nG. Charge the system and test its performance.\n\n(Manual \u2014 p.965)\n(Manual \u2014 p.966)\n(Manual \u2014 p.968)\n(Manual \u2014 p.969)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all removal and installation steps, including specific details like bolt tightening order, oil volume calculation, and O-ring replacement, directly matching the content on pages 13, 14, and 15 of the manual."
+        }
+      }
+    },
+    {
+      "id": "pa-04",
+      "category": "paraphrase",
+      "question": "How do I take the steering wheel off?",
+      "gold_pages": [
+        1085,
+        1086,
+        1087
+      ],
+      "expected_values": [
+        "airbag"
+      ],
+      "visual": {
+        "pages": [
+          1086,
+          1089,
+          1085,
+          259,
+          432
+        ],
+        "scores": [
+          20.0952,
+          20.0889,
+          20.0054,
+          19.978,
+          19.9502
+        ],
+        "seconds": 7.05,
+        "answer_seconds": 11.3,
+        "answer": "Disconnect the lock nut (A) remove the steering wheel (B) by using special service tools. (09561-11001)\nTightening torque :\n39.2 ~ 44.1N.m (4.0 ~ 4.5kgf.m, 28.9 ~ 32.5lb-ft)\nDo not hammer on the steering wheel to remove it; it may damage the steering column.\nDisconnect the screw (A-4ea) & paddle shift connector (B) and then remove the lower cover (C).\nDisconnect the negative (-) battery terminal.\nTurn the steering wheel so that the front wheels can face straight ahead.\nRemove the airbag module.\n(Refer to Restraint - \"Airbag Module\")\nDisconnect the negative (-) battery terminal.\nRemove the steering wheel.\n(Refer to ST group - \"Steering column & shaft\")\nRemove the steering wheel cover after loosening the 4 screws.\nDisconnect the lock nut (A) remove the steering wheel (B) by using special service tools. (09561-11001)\nTightening torque :\n39.2 ~ 44.1N.m (4.0 ~ 4.5kgf.m, 28.9 ~ 32.5lb-ft)\nDo not hammer on the steering wheel to remove it; it may damage the steering column.\nRemove the steering column upper (A) and lower shroud (B).\n(Manual \u2014 p.1086), (Manual \u2014 p.1089)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant included most of the correct steps for removing the steering wheel, such as disconnecting the battery, removing the airbag module, and using special tools to remove the steering wheel, but redundantly repeated steps and added unsupported information like \"Remove the steering column upper (A) and lower shroud (B)\" and references to \"Manual \u2014 p.1086\" and \"Manual \u2014 p.1089\" which are not in the provided pages."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1085,
+          1088,
+          1086,
+          1087,
+          1089
+        ],
+        "scores": [
+          0.5063,
+          0.44,
+          0.4327,
+          0.4327,
+          0.4283
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 7.2,
+        "answer": "1. Disconnect the battery negative cable from the battery and then wait for at least 30 seconds.\n2. Turn the steering wheel so that the front wheels can face straight ahead.\n3. Remove the airbag module.\n(Refer to Restraint - \"Airbag Module\")\n4. Disconnect the lock nut (A) remove the steering wheel (B) by using special service tools. (09561-11001)\nTightening torque :\n39.2 ~ 44.1N.m (4.0 ~ 4.5kgf.m, 28.9 ~ 32.5lb-ft)\nCAUTION\n\u2022 Do not hammer on the steering wheel to remove it; it may damage the steering column.\n(Manual \u2014 p.1086), (Manual \u2014 p.1089)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the steps for removing the steering wheel as described on pages 7 and 8, including disconnecting the battery, removing the airbag module, disconnecting the lock nut, using special tools, and the specified tightening torque with the caution note."
+        }
+      }
+    },
+    {
+      "id": "pa-05",
+      "category": "paraphrase",
+      "question": "What's involved in changing the timing chain?",
+      "gold_pages": [
+        759,
+        760,
+        761,
+        762,
+        763,
+        764,
+        765,
+        766,
+        767,
+        768,
+        769,
+        770,
+        771,
+        772,
+        773
+      ],
+      "expected_values": [
+        "TDC"
+      ],
+      "visual": {
+        "pages": [
+          766,
+          764,
+          759,
+          767,
+          748
+        ],
+        "scores": [
+          19.666,
+          19.6587,
+          19.5835,
+          19.5732,
+          19.5537
+        ],
+        "seconds": 6.8,
+        "answer_seconds": 16.6,
+        "answer": "3. Install the timing chain guide (A).\nTightening torque :\n9.8 ~ 11.8N.m (1.0 ~ 1.2kgf.m, 7.2 ~ 8.7lb-ft)\n4. Install the timing chain.\nTo install the timing chain with no slack between each shaft (cam, crank), follow the below procedure.Crankshaft sprocket (A) -> Timing chain guide (B) -> Intake CVVT assembly (C) -> Exhaust CVVT assembly (D). The timing mark of each sprockets should be matched with timing mark (color link) of timing chain at installing timing chain.\n\n16. Remove the timing chain tensioner and timing chain tensioner arm (A).\n17. Remove the timing chain.\n18. Remove the timing chain guide (A).\n19. Remove the timing chain oil jet (A) and crankshaft sprocket (B).\n20. Remove the balance shaft chain.\n(Refer to Lubrication system in this group)\n\n5. Install the timing chain tensioner arm (A).\nTightening torque :\n9.8 ~ 11.8N.m (1.0 ~ 1.2kgf.m, 7.2 ~ 8.7lb-ft)\n6. Install the timing chain auto tensioner (A) and remove the set pin.\nTightening torque :\n9.8 ~ 11.8N.m (1.0 ~ 1.2kgf.m, 7.2 ~ 8.7lb-ft)\n\nE. Remove the front camshaft bearing cap(A).\nF. Remove the exhaust camshaft bearing cap and exhaust camshaft.\nG. Remove the intake camshaft bearing cap and intake camshaft.\nH. Tie down timing chain so that it doesn't move.\nI. Measure the thickness of the removed tappet using a micrometer.\nJ. Calculate the thickness of a new tappet so that the valve clearance comes within the specified value.\nK. Select a new tappet with a thickness as close as possible to the calculated value.\nL. Place a new tappet on the cylinder head.\nM. Hold the timing chain, and install the intake camshaft and timing sprocket assembly.\n\n(Manual \u2014 p.766)\n(Manual \u2014 p.764)\n(Manual \u2014 p.759)\n(Manual \u2014 p.767)\n(Manual \u2014 p.748)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer includes steps and components (e.g., balance shaft chain, camshaft bearing caps, tappet measurement) that are not mentioned in the provided manual pages, and incorrectly lists installation steps before removal steps, contradicting the actual removal procedure shown in the images."
+        }
+      },
+      "parsed": {
+        "pages": [
+          763,
+          764,
+          767,
+          768,
+          769
+        ],
+        "scores": [
+          0.4154,
+          0.4154,
+          0.3943,
+          0.3943,
+          0.3943
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 33.4,
+        "answer": "13. Remove the timing chain cover (A).\nCAUTION\nBe careful not to damage the contact surfaces of cylinder block, cylinder head and timing chain cover.\n14. The key of crankshaft should be aligned with the mating face of main bearing cap. As a result of this, the piston of No.1 cylinder is placed at the top dead center on compression stroke.\n15. Install a set pin after compressing the timing chain tensioner.\n16. Remove the timing chain tensioner and timing chain tensioner arm (A).\n17. Remove the timing chain.\n18. Remove the timing chain guide (A).\n19. Remove the timing chain oil jet (A) and crankshaft sprocket (B).\n20. Remove the balance shaft chain.\n(Refer to Lubrication system in this group)\nInspection\nSprockets, Hydraulic Tensioner, Chain Guide, Tensioner Arm\n1. Check the CVVT sprocket, crankshaft sprocket teeth for abnormal wear, cracks or damage. Replace if necessary.\n2. Check a contact surface of the chain tensioner arm and guide for abnormal wear, cracks or damage. Replace if necessary.\n3. Check the hydraulic tensioner for its piston stroke and ratchet operation. Replace if necessary.\nBelt, Idler, Pulley\n1. Check the idler for excessive oil leakage, abnormal rotation or vibration. Replace if necessary.\n2. Check belt for maintenance and abnormal wear of V-ribbed part. Replace if necessary.\n3. Check the pulleys for vibration in rotation, oil or dust deposit of V-ribbed part. Replace if necessary.\n5. Install the timing chain tensioner arm (A).\nTightening torque :\n9.8 ~ 11.8N.m (1.0 ~ 1.2kgf.m, 7.2 ~ 8.7lb-ft)\n6. Install the timing chain auto tensioner (A) and remove the set pin.\nTightening torque :\n9.8 ~ 11.8N.m (1.0 ~ 1.2kgf.m, 7.2 ~ 8.7lb-ft)\n7. After rotating crankshaft 2 revolutions in regular direction (clockwise viewed from front), confirm the timing mark (A).\n8. Install timing chain cover.\nA. Using a gasket scraper remove all the old packing material from the gasket surfaces.\nB. The sealant locations on chain cover and on counter parts (cylinder head, cylinder block, and ladder frame) must be free of engine oil and ETC.\nC. Before assembling the timing chain cover, the liquid sealant Loctite 5900H or THREEBOND 1217H should be applied on the gap between cylinder head and cylinder block.\nThe part must be assembled within 5 minutes after sealant was applied.\nBead width : 2.5\u00b10.5mm (0.098\u00b10.019in.)\nD. After applying liquid sealant Loctite 5900H on timing chain cover. The part must be assembled within 5 minutes after sealant was applied. Sealant should be applied without discontinuity.\nBead width : 3.0mm(0.12in.)\nE. The dowel pins on the cylinder block and holes on the timing chain cover should be used as a reference in order to assemble the timing chain cover to be in exact position.\nTightening torque :\nM6 : 7.8 ~ 9.8N.m (0.8 ~ 1.0kgf.m, 5.8 ~ 7.2lb-ft)\nM8 : 18.6 ~ 22.5N.m (1.9 ~ 2.3kgf.m, 13.7 ~ 16.6lb-ft)\nF. The firing and/or blow out test should not be performed within 30 minutes after the timing chain cover was assembled.\n9. Install the oil pan.\nA. Using a gasket scraper, remove all the old packing material from the gasket surfaces.\nB. Before assembling the oil pan, the liquid sealant Loctite 5900H or THREEBOND 1217H should be applied on oil pan. The part must be assembled within 5 minutes after the sealant was applied.\nCAUTION\n\u2022 When applying sealant gasket, sealant must not be protruded into the inside of oil pan.\n\u2022 To prevent leakage of oil, apply sealant gasket to the inner threads of the bolt holes.\nC. Install the oil pan (A).\nUniformly tighten the bolts in several passes.\nTightening torque :\n9.8 ~ 11.8N.m (1.0 ~ 1.2kgf.m, 7.2 ~ 8.7lb-ft)\nD. After assembly, wait at least 30 minutes before filling the engine with oil.\n(Manual \u2014 p.763)\n(Manual \u2014 p.764)\n(Manual \u2014 p.767)\n(Manual \u2014 p.768)\n(Manual \u2014 p.769)\n(Manual \u2014 p.30)\n(Manual \u2014 p.31)\n(Manual \u2014 p.32)",
+        "value_score": 0.0,
+        "judge": {
+          "grade": "wrong",
+          "raw": "GRADE: wrong\nREASON: The assistant's answer includes steps and details (like installing sealant, specific torque values for installation, and removal of the balance shaft chain) that are not present in the provided manual pages, and it invents steps like \"16. Remove the timing chain tensioner and timing chain tensioner arm\" which are not shown in the sequence, making it unsupported and inaccurate."
+        }
+      }
+    },
+    {
+      "id": "pa-06",
+      "category": "paraphrase",
+      "question": "How do I change the coolant without getting air trapped in the system?",
+      "gold_pages": [
+        820,
+        821
+      ],
+      "expected_values": [
+        "cooling fan"
+      ],
+      "visual": {
+        "pages": [
+          821,
+          758,
+          989,
+          820,
+          987
+        ],
+        "scores": [
+          23.9438,
+          23.8384,
+          23.7427,
+          23.6953,
+          23.6938
+        ],
+        "seconds": 7.94,
+        "answer_seconds": 9.1,
+        "answer": "11. Start the engine and run coolant circulates.\nWhen the cooling fan operates and coolant circulates, refill coolant through the radiator cap.\n12. Repeat 11 until the cooling fan 3 ~ 5times and bleed air sufficiently out of the cooling system.\n13. Install the radiator cap and fill the reservoir tank to the \"MAX\" line with coolant.\n14. Run the vehicle under idle until the cooling fan operates 2 ~ 3 times.\n15. Stop the engine and wait coolant to cool.\n16. Repeat step.10 to step.15 until the coolant level doesn't fall any more, bleed air out of the cooling system\n\nNOTE\nAs it is to bleed air out to the cooling system and refill coolant when coolant gets cool completely, recheck the coolant level in the reservoir tank for 2 ~ 3 days after replacing coolant.\n\nCoolant capacity :\nMT : 5.5L (5.8 US qt, 4.8 Impqt)\nAT : 6.3L (6.6 US qt, 5.5 Impqt)\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.821)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces the steps and notes from pages 83-84 of the manual for bleeding air from the cooling system, including the correct sequence, coolant capacity values, and the final note about rechecking the coolant level after 2-3 days."
+        }
+      },
+      "parsed": {
+        "pages": [
+          820,
+          821,
+          829,
+          849,
+          850
+        ],
+        "scores": [
+          0.4033,
+          0.4033,
+          0.3394,
+          0.3148,
+          0.3148
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 10.6,
+        "answer": "1. Make sure the engine and radiator are cool to the touch.\n2. Remove radiator cap.\n3. Loosen the drain plug, and drain the coolant\n4. Tighten the radiator drain plug securely.\n5. After draining engine coolant in the reservoir tank, clean the tank.\n6. Fill the radiator with water through the radiator cap and tighten the cap.\n7. Pressure can blow water back out the radiator cap-pour water slowly while intermittently squeezing the radiator hoses.\n8. After warming up the engine until the cooling fan operates several times, accelerate it at idle.\n9. Wait until the engine is cool.\n10. Repeat the step 1 to 8 until the drained water is clean.\n11. Start the engine and run coolant circulates.\nWhen the cooling fan operates and coolant circulates, refill coolant through the radiator cap.\n12. Repeat 11 until the cooling fan 3 ~ 5times and bleed air sufficiently out of the cooling system.\n13. Install the radiator cap and fill the reservoir tank to the \"MAX\" line with coolant.\n14. Run the vehicle under idle until the cooling fan operates 2 ~ 3 times.\n15. Stop the engine and wait coolant to cool.\n16. Repeat step.10 to step.15 until the coolant level doesn't fall any more, bleed air out of the cooling system\n\n(Manual \u2014 p.820, Manual \u2014 p.821)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all the steps for changing coolant and bleeding air from the system as described on pages 83 and 84 of the manual, including the correct sequence, warnings, and notes."
+        }
+      }
+    },
+    {
+      "id": "pa-07",
+      "category": "paraphrase",
+      "question": "My tire pressure light is on and I think a sensor is dead. How do I put a new one in the wheel?",
+      "gold_pages": [
+        1138,
+        1139,
+        1140,
+        1141,
+        1142,
+        1143,
+        1144
+      ],
+      "expected_values": [
+        "valve"
+      ],
+      "visual": {
+        "pages": [
+          1138,
+          1139,
+          1141,
+          1144,
+          1142
+        ],
+        "scores": [
+          33.6709,
+          33.6104,
+          33.4189,
+          33.3936,
+          33.3735
+        ],
+        "seconds": 11.09,
+        "answer_seconds": 11.2,
+        "answer": "Suspension System > Tire Pressure Monitoring System > TPMS Sensor > Repair procedures\nRemoval\nCAUTION\nHandle the sensor with care.\n1. Remove the tire. (Refer to \"Tire Removal\")\n2. Remove the valve nut.\nCAUTION\nThe valve nut should not be re-used.\n3. Discard the valve assembly.\nInstallation\nSensor Fit\nCAUTION\n\u2022 Handle the sensor with care.\n\u2022 Avoid lubricant contact.\n\u2022 Ensure that the wheel to be fitted is designed for sensor mount. There should normally be a mark to indicate this.\n\u2022 Ensure that the valve hole and mating face of the wheel are clean.\n1. Slide the sensor-valve unit through the valve hole of the rim. Hold the sensor against the rim and the rubber grommet against the sealing surface.\n2. Insert the nut over the valve stem and then tighten the nut.\n3. Continue to tightening the nut until contact with the rim and then tighten to 3.5 ~ 4.5Nm.\nCAUTION\n- Tighten slowly with quarter turn steps until the final torque is reached.\n- Do not exceed allowed torque.\n- Do not use electric or pneumatic tools.\n4. Check that the sensor is firmly attached to the rim.\nCAUTION\nRisk of damage during the tire installation/ removal if the sensor is not firmly attached to the rim.\n5. Carry out inflation / pressure correction and then fit valve cap.\n6. Install the tire. (Refer to \"Tire Installation\")\n(Manual \u2014 p.1138, Manual \u2014 p.1139)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all the removal and installation steps, cautions, and torque specifications from pages 36 and 37 of the manual, including the correct sequence and warnings."
+        }
+      },
+      "parsed": {
+        "pages": [
+          1138,
+          1139,
+          1055,
+          1056,
+          1140
+        ],
+        "scores": [
+          0.4234,
+          0.4173,
+          0.398,
+          0.398,
+          0.3973
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 12.5,
+        "answer": "Suspension System > Tire Pressure Monitoring System > TPMS Sensor > Repair procedures\nRemoval\nCAUTION\nHandle the sensor with care.\n1. Remove the tire. (Refer to \"Tire Removal\")\n2. Remove the valve nut.\nCAUTION\nThe valve nut should not be re-used.\n3. Discard the valve assembly.\nInstallation\nSensor Fit\nCAUTION\n\u2022 Handle the sensor with care.\n\u2022 Avoid lubricant contact.\n\u2022 Ensure that the wheel to be fitted is designed for sensor mount. There should normally be a mark to indicate this.\n\u2022 Ensure that the valve hole and mating face of the wheel are clean.\n1. Slide the sensor-valve unit through the valve hole of the rim. Hold the sensor against the rim and the rubber grommet against the sealing surface.\n2. Insert the nut over the valve stem and then tighten the nut.\n3. Continue to tightening the nut until contact with the rim and then tighten to 3.5 ~ 4.5Nm.\nCAUTION\n- Tighten slowly with quarter turn steps until the final torque is reached.\n- Do not exceed allowed torque.\n- Do not use electric or pneumatic tools.\n4. Check that the sensor is firmly attached to the rim.\nCAUTION\nRisk of damage during the tire installation/ removal if the sensor is not firmly attached to the rim.\n5. Carry out inflation / pressure correction and then fit valve cap.\nCAUTION\nChange the newly installed sensor mode to Normal Fixed Base(Low Line) with the 'GDS'. Mode (Status / option) of the sensor installed to the vehicle should be Normal Fixed Base (Low).\n6. Install the tire. (Refer to \"Tire Installation\")\nSensor ID Writing (Wireless)\n(Manual \u2014 p.1138, p.1139)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately reproduces all the removal, installation, and sensor mode configuration steps from pages 36-37, including all CAUTION notes and torque specifications, without adding or omitting any critical information."
+        }
+      }
+    },
+    {
+      "id": "pa-08",
+      "category": "paraphrase",
+      "question": "How do I get to the fuel pump to replace it?",
+      "gold_pages": [
+        944,
+        945
+      ],
+      "expected_values": [
+        "fuel tank"
+      ],
+      "visual": {
+        "pages": [
+          945,
+          946,
+          948,
+          942,
+          944
+        ],
+        "scores": [
+          22.6489,
+          22.5615,
+          22.5562,
+          22.5278,
+          22.4072
+        ],
+        "seconds": 7.72,
+        "answer_seconds": 6.2,
+        "answer": "1. Preparation\n(1) Remove the rear seat cushion. (Refer to Body - \"Rear Seat\")\n(2) Remove the service cover of the fuel pump (A).\n(3) Disconnect the fuel pump connector (A).\n(4) Idle the engine and wait until fuel in feed line is exhausted.\n(5) After engine stops, turn the ignition switch OFF.\n\n2. Disconnect the fuel feed tube quick-connector (A).\n\n3. Remove the fuel pump from the fuel tank after removing the installation bolts (C).\n\n(Hyundai Genesis 2.0T BK2 \u2014 p.942)\n(Hyundai Genesis 2.0T BK2 \u2014 p.946)",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "correct",
+          "raw": "GRADE: correct\nREASON: The assistant's answer accurately lists all the steps from page 94 of the manual for accessing and removing the fuel pump, including preparation steps, disconnecting connectors, and removing bolts, with correct labels and sequence."
+        }
+      },
+      "parsed": {
+        "pages": [
+          946,
+          942,
+          943,
+          944,
+          947
+        ],
+        "scores": [
+          0.4307,
+          0.4299,
+          0.4297,
+          0.4297,
+          0.4154
+        ],
+        "seconds": 0.04,
+        "answer_seconds": 11.7,
+        "answer": "Fuel System > Fuel Delivery System > Fuel Tank > Repair procedures\n\nRemoval\n1. Preparation\n   (1) Remove the rear seat cushion. (Refer to Body - \"Rear Seat\")\n   (2) Remove the service cover of the fuel pump (A).\n3. Disconnect the fuel feed tube quick-connector (A).\n\nFuel tank band installation nut:\n39.2 ~ 54.0 N.m (4.0 ~ 5.5 kgf.m, 28.9 ~ 39.8 lb-ft)\n\nFuel System > Fuel Delivery System > Fuel Pump > Repair procedures\nRemoval\n\n1. Preparation\n   (1) Remove the rear seat cushion. (Refer to Body - \"Rear Seat\")\n   (2) Remove the service cover of the fuel pump (A).\n(3) Disconnect the fuel pump connector (A).\n(4) Idle the engine and wait until fuel in feed line is exhausted.\n(5) After engine stops, turn the ignition switch OFF.\n5. Disconnect the battery (-) cable, and then install the fuel pump relay (A).\n6. Connect the battery (-) cable.\n7. Delete the Diagnostic Trouble Code (DTC) related the fuel pump relay with the GDS.\n\nFuel System > Fuel Delivery System > Sub Fuel Sender > Repair procedures\nRemoval\n\n2. Remove the service cover of the sub fuel sender (A).\n3. Disconnect the sub fuel sender connector (A).\n4. Disconnect the suction tube quick-connector (B).\n5. Remove the sub fuel sender from the fuel tank after removing the installation bolts (C).\n\nFuel System > Fuel Delivery System > Fuel Filter > Repair procedures",
+        "value_score": 1.0,
+        "judge": {
+          "grade": "partial",
+          "raw": "GRADE: partial\nREASON: The assistant included correct steps for accessing the fuel pump but incorrectly added steps like disconnecting the battery and installing a fuel pump relay, which are not in the manual, and referenced non-existent sections like \"Sub Fuel Sender\" and \"Fuel Filter\" repair procedures."
+        }
+      }
+    }
+  ]
+}

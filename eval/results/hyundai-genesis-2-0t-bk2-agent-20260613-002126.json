@@ -1,0 +1,1421 @@
+{
+  "doc_id": "hyundai-genesis-2-0t-bk2",
+  "candidates": 5,
+  "summary": {
+    "repair": {
+      "n": 27,
+      "colembed_top1": 0.8148148148148148,
+      "rerank": 0.6666666666666666,
+      "ceiling": 1.0,
+      "median_s": 0.04
+    },
+    "fluids": {
+      "n": 6,
+      "colembed_top1": 0.8333333333333334,
+      "rerank": 0.5,
+      "ceiling": 1.0,
+      "median_s": 0.04
+    },
+    "inspect-adjust": {
+      "n": 4,
+      "colembed_top1": 1.0,
+      "rerank": 0.75,
+      "ceiling": 1.0,
+      "median_s": 0.05
+    },
+    "torque": {
+      "n": 5,
+      "colembed_top1": 0.6,
+      "rerank": 0.6,
+      "ceiling": 1.0,
+      "median_s": 0.05
+    },
+    "paraphrase": {
+      "n": 8,
+      "colembed_top1": 1.0,
+      "rerank": 0.875,
+      "ceiling": 1.0,
+      "median_s": 0.04
+    },
+    "overall": {
+      "n": 50,
+      "colembed_top1": 0.84,
+      "rerank": 0.68,
+      "ceiling": 1.0,
+      "median_s": 0.04
+    }
+  },
+  "questions": [
+    {
+      "id": "rep-01",
+      "category": "repair",
+      "question": "How do I remove and install the brake master cylinder?",
+      "gold_pages": [
+        541,
+        542,
+        543,
+        544
+      ],
+      "expected_values": [
+        "reservoir"
+      ],
+      "shortlist": [
+        543,
+        544,
+        536,
+        541,
+        619
+      ],
+      "picked": 543,
+      "rerank_raw": "543",
+      "seconds": 0.12,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-02",
+      "category": "repair",
+      "question": "How do I replace the front brake pads?",
+      "gold_pages": [
+        552,
+        553,
+        554,
+        555,
+        556,
+        557
+      ],
+      "expected_values": [
+        "caliper"
+      ],
+      "shortlist": [
+        554,
+        555,
+        562,
+        556,
+        557
+      ],
+      "picked": 555,
+      "rerank_raw": "555",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-03",
+      "category": "repair",
+      "question": "How do I replace the rear brake disc?",
+      "gold_pages": [
+        559,
+        560,
+        561,
+        562,
+        563
+      ],
+      "expected_values": [
+        "caliper"
+      ],
+      "shortlist": [
+        561,
+        639,
+        560,
+        563,
+        562
+      ],
+      "picked": 561,
+      "rerank_raw": "561",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-04",
+      "category": "repair",
+      "question": "How do I remove and install the parking brake assembly?",
+      "gold_pages": [
+        566,
+        567,
+        568,
+        569
+      ],
+      "expected_values": [
+        "cable"
+      ],
+      "shortlist": [
+        567,
+        566,
+        569,
+        564,
+        568
+      ],
+      "picked": 567,
+      "rerank_raw": "567",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-05",
+      "category": "repair",
+      "question": "How do I replace the clutch cover and clutch disc?",
+      "gold_pages": [
+        616,
+        617
+      ],
+      "expected_values": [
+        "flywheel"
+      ],
+      "shortlist": [
+        616,
+        618,
+        617,
+        615,
+        614
+      ],
+      "picked": 616,
+      "rerank_raw": "616",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-06",
+      "category": "repair",
+      "question": "How do I remove and install the clutch master cylinder?",
+      "gold_pages": [
+        618,
+        619,
+        620,
+        621
+      ],
+      "expected_values": [
+        "clutch tube"
+      ],
+      "shortlist": [
+        623,
+        619,
+        620,
+        618,
+        622
+      ],
+      "picked": 623,
+      "rerank_raw": "623",
+      "seconds": 0.04,
+      "colembed_top1_hit": false,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "rep-07",
+      "category": "repair",
+      "question": "How do I replace the front hub and knuckle assembly?",
+      "gold_pages": [
+        632,
+        633,
+        634,
+        635,
+        636,
+        637,
+        638
+      ],
+      "expected_values": [
+        "knuckle"
+      ],
+      "shortlist": [
+        632,
+        637,
+        636,
+        639,
+        630
+      ],
+      "picked": 632,
+      "rerank_raw": "632",
+      "seconds": 0.03,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-08",
+      "category": "repair",
+      "question": "How do I replace the rear driveshaft?",
+      "gold_pages": [
+        644,
+        645,
+        646,
+        647,
+        648,
+        649,
+        650
+      ],
+      "expected_values": [
+        "castle nut"
+      ],
+      "shortlist": [
+        644,
+        655,
+        649,
+        639,
+        638
+      ],
+      "picked": 644,
+      "rerank_raw": "644",
+      "seconds": 0.03,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-09",
+      "category": "repair",
+      "question": "How do I replace the propeller shaft?",
+      "gold_pages": [
+        651,
+        652,
+        653
+      ],
+      "expected_values": [
+        "flange"
+      ],
+      "shortlist": [
+        652,
+        653,
+        651,
+        1022,
+        37
+      ],
+      "picked": 37,
+      "rerank_raw": "37",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "rep-10",
+      "category": "repair",
+      "question": "How do I replace the spark plugs?",
+      "gold_pages": [
+        700,
+        701,
+        702
+      ],
+      "expected_values": [
+        "socket"
+      ],
+      "shortlist": [
+        744,
+        700,
+        702,
+        687,
+        745
+      ],
+      "picked": 744,
+      "rerank_raw": "744",
+      "seconds": 0.05,
+      "colembed_top1_hit": false,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "rep-11",
+      "category": "repair",
+      "question": "How do I remove and install the timing chain?",
+      "gold_pages": [
+        759,
+        760,
+        761,
+        762,
+        763,
+        764,
+        765,
+        766,
+        767,
+        768,
+        769,
+        770,
+        771,
+        772,
+        773
+      ],
+      "expected_values": [
+        "TDC"
+      ],
+      "shortlist": [
+        766,
+        764,
+        767,
+        834,
+        759
+      ],
+      "picked": 767,
+      "rerank_raw": "767",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-12",
+      "category": "repair",
+      "question": "How do I replace the water pump?",
+      "gold_pages": [
+        826,
+        827,
+        828
+      ],
+      "expected_values": [
+        "coolant"
+      ],
+      "shortlist": [
+        827,
+        826,
+        828,
+        798,
+        829
+      ],
+      "picked": 826,
+      "rerank_raw": "826",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-13",
+      "category": "repair",
+      "question": "How do I replace the thermostat?",
+      "gold_pages": [
+        829,
+        830
+      ],
+      "expected_values": [
+        "coolant"
+      ],
+      "shortlist": [
+        829,
+        830,
+        991,
+        826,
+        982
+      ],
+      "picked": 826,
+      "rerank_raw": "826",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "rep-14",
+      "category": "repair",
+      "question": "How do I remove and install the intake manifold?",
+      "gold_pages": [
+        838,
+        839,
+        840,
+        841
+      ],
+      "expected_values": [
+        "throttle"
+      ],
+      "shortlist": [
+        841,
+        838,
+        775,
+        680,
+        842
+      ],
+      "picked": 841,
+      "rerank_raw": "841",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-15",
+      "category": "repair",
+      "question": "How do I remove and install the exhaust manifold?",
+      "gold_pages": [
+        842,
+        843,
+        844,
+        845,
+        846
+      ],
+      "expected_values": [
+        "heat protector"
+      ],
+      "shortlist": [
+        842,
+        841,
+        846,
+        775,
+        838
+      ],
+      "picked": 842,
+      "rerank_raw": "842",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-16",
+      "category": "repair",
+      "question": "How do I remove and install the intercooler?",
+      "gold_pages": [
+        849,
+        850,
+        851
+      ],
+      "expected_values": [
+        "hose"
+      ],
+      "shortlist": [
+        849,
+        851,
+        761,
+        772,
+        844
+      ],
+      "picked": 849,
+      "rerank_raw": "849",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-17",
+      "category": "repair",
+      "question": "How do I replace the heated oxygen sensor?",
+      "gold_pages": [
+        917,
+        918
+      ],
+      "expected_values": [
+        "sensor"
+      ],
+      "shortlist": [
+        858,
+        875,
+        917,
+        914,
+        916
+      ],
+      "picked": 917,
+      "rerank_raw": "917",
+      "seconds": 0.04,
+      "colembed_top1_hit": false,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-18",
+      "category": "repair",
+      "question": "How do I remove and install the electric wastegate control actuator (EWGA)?",
+      "gold_pages": [
+        931,
+        932,
+        933,
+        934,
+        935
+      ],
+      "expected_values": [
+        "C-ring"
+      ],
+      "shortlist": [
+        932,
+        927,
+        894,
+        876,
+        882
+      ],
+      "picked": 927,
+      "rerank_raw": "927",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "rep-19",
+      "category": "repair",
+      "question": "How do I remove and install the fuel pump?",
+      "gold_pages": [
+        944,
+        945
+      ],
+      "expected_values": [
+        "fuel tank"
+      ],
+      "shortlist": [
+        946,
+        945,
+        948,
+        942,
+        944
+      ],
+      "picked": 946,
+      "rerank_raw": "946",
+      "seconds": 0.04,
+      "colembed_top1_hit": false,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "rep-20",
+      "category": "repair",
+      "question": "How do I replace the fuel filter?",
+      "gold_pages": [
+        947,
+        948
+      ],
+      "expected_values": [
+        "fuel pump"
+      ],
+      "shortlist": [
+        681,
+        949,
+        948,
+        945,
+        947
+      ],
+      "picked": 949,
+      "rerank_raw": "949",
+      "seconds": 0.04,
+      "colembed_top1_hit": false,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "rep-21",
+      "category": "repair",
+      "question": "How do I remove and install the A/C compressor?",
+      "gold_pages": [
+        965,
+        966,
+        967,
+        968,
+        969
+      ],
+      "expected_values": [
+        "refrigerant"
+      ],
+      "shortlist": [
+        965,
+        966,
+        818,
+        969,
+        974
+      ],
+      "picked": 965,
+      "rerank_raw": "19",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-22",
+      "category": "repair",
+      "question": "How do I replace the climate control air filter?",
+      "gold_pages": [
+        1001,
+        1002
+      ],
+      "expected_values": [
+        "glove box"
+      ],
+      "shortlist": [
+        1001,
+        997,
+        1002,
+        1014,
+        1008
+      ],
+      "picked": 1001,
+      "rerank_raw": "1001",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-23",
+      "category": "repair",
+      "question": "How do I remove the steering wheel?",
+      "gold_pages": [
+        1085,
+        1086,
+        1087
+      ],
+      "expected_values": [
+        "airbag"
+      ],
+      "shortlist": [
+        1086,
+        1089,
+        1085,
+        432,
+        259
+      ],
+      "picked": 1089,
+      "rerank_raw": "1089",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "rep-24",
+      "category": "repair",
+      "question": "How do I replace the power steering gear box?",
+      "gold_pages": [
+        1093,
+        1094,
+        1095,
+        1096,
+        1097
+      ],
+      "expected_values": [
+        "tie rod"
+      ],
+      "shortlist": [
+        1093,
+        1092,
+        1095,
+        1082,
+        1088
+      ],
+      "picked": 1093,
+      "rerank_raw": "1093",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-25",
+      "category": "repair",
+      "question": "How do I replace the front strut assembly?",
+      "gold_pages": [
+        1110,
+        1111,
+        1112
+      ],
+      "expected_values": [
+        "strut"
+      ],
+      "shortlist": [
+        1110,
+        1111,
+        1117,
+        1116,
+        1113
+      ],
+      "picked": 1110,
+      "rerank_raw": "1110",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "rep-26",
+      "category": "repair",
+      "question": "How do I replace the rear shock absorber?",
+      "gold_pages": [
+        1119,
+        1120
+      ],
+      "expected_values": [
+        "shock absorber"
+      ],
+      "shortlist": [
+        1119,
+        1120,
+        1123,
+        1127,
+        1118
+      ],
+      "picked": 1123,
+      "rerank_raw": "1123",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "rep-27",
+      "category": "repair",
+      "question": "How do I remove and install a TPMS sensor?",
+      "gold_pages": [
+        1138,
+        1139,
+        1140,
+        1141,
+        1142,
+        1143,
+        1144
+      ],
+      "expected_values": [
+        "valve"
+      ],
+      "shortlist": [
+        1138,
+        1141,
+        1139,
+        1140,
+        1146
+      ],
+      "picked": 1140,
+      "rerank_raw": "1140",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "fl-01",
+      "category": "fluids",
+      "question": "How do I replace the automatic transaxle fluid (ATF)?",
+      "gold_pages": [
+        44,
+        45,
+        46
+      ],
+      "expected_values": [
+        "drain"
+      ],
+      "shortlist": [
+        47,
+        46,
+        51,
+        44,
+        28
+      ],
+      "picked": 47,
+      "rerank_raw": "47",
+      "seconds": 0.04,
+      "colembed_top1_hit": false,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "fl-02",
+      "category": "fluids",
+      "question": "How do I replace the engine coolant and bleed air out of the cooling system?",
+      "gold_pages": [
+        820,
+        821
+      ],
+      "expected_values": [
+        "cooling fan"
+      ],
+      "shortlist": [
+        821,
+        820,
+        758,
+        839,
+        760
+      ],
+      "picked": 821,
+      "rerank_raw": "821",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "fl-03",
+      "category": "fluids",
+      "question": "How do I change the engine oil?",
+      "gold_pages": [
+        831,
+        832
+      ],
+      "expected_values": [
+        "drain plug"
+      ],
+      "shortlist": [
+        831,
+        832,
+        833,
+        45,
+        837
+      ],
+      "picked": 831,
+      "rerank_raw": "831",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "fl-04",
+      "category": "fluids",
+      "question": "How do I replace the manual transaxle oil?",
+      "gold_pages": [
+        1016,
+        1017,
+        1018
+      ],
+      "expected_values": [
+        "75W/85"
+      ],
+      "shortlist": [
+        1018,
+        1016,
+        47,
+        1015,
+        1017
+      ],
+      "picked": 1017,
+      "rerank_raw": "1017",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "fl-05",
+      "category": "fluids",
+      "question": "How do I bleed air from the power steering system?",
+      "gold_pages": [
+        1081,
+        1082
+      ],
+      "expected_values": [
+        "reservoir"
+      ],
+      "shortlist": [
+        1082,
+        1084,
+        1098,
+        758,
+        1083
+      ],
+      "picked": 1084,
+      "rerank_raw": "1084",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "fl-06",
+      "category": "fluids",
+      "question": "How do I bleed air from the ABS hydraulic unit (HCU)?",
+      "gold_pages": [
+        596,
+        597
+      ],
+      "expected_values": [
+        "GDS"
+      ],
+      "shortlist": [
+        596,
+        595,
+        601,
+        597,
+        626
+      ],
+      "picked": 626,
+      "rerank_raw": "626",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "ia-01",
+      "category": "inspect-adjust",
+      "question": "How do I measure the cylinder compression pressure, and what is the standard value?",
+      "gold_pages": [
+        744,
+        745
+      ],
+      "expected_values": [
+        "185"
+      ],
+      "shortlist": [
+        745,
+        808,
+        744,
+        810,
+        784
+      ],
+      "picked": 808,
+      "rerank_raw": "808",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "ia-02",
+      "category": "inspect-adjust",
+      "question": "How do I inspect and adjust the valve clearance?",
+      "gold_pages": [
+        745,
+        746,
+        747,
+        748,
+        749
+      ],
+      "expected_values": [
+        "TDC"
+      ],
+      "shortlist": [
+        746,
+        745,
+        747,
+        749,
+        793
+      ],
+      "picked": 746,
+      "rerank_raw": "746",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "ia-03",
+      "category": "inspect-adjust",
+      "question": "How do I perform a fuel pressure test?",
+      "gold_pages": [
+        939,
+        940,
+        941
+      ],
+      "expected_values": [
+        "fuel pressure"
+      ],
+      "shortlist": [
+        939,
+        940,
+        941,
+        868,
+        867
+      ],
+      "picked": 939,
+      "rerank_raw": "939",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "ia-04",
+      "category": "inspect-adjust",
+      "question": "How do I adjust the EWGA rod length when the voltage value is out of specification?",
+      "gold_pages": [
+        933,
+        934,
+        935
+      ],
+      "expected_values": [
+        "rod end"
+      ],
+      "shortlist": [
+        933,
+        934,
+        929,
+        931,
+        994
+      ],
+      "picked": 933,
+      "rerank_raw": "933",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "tq-01",
+      "category": "torque",
+      "question": "What is the tightening torque for the front caliper assembly to knuckle bolts?",
+      "gold_pages": [
+        554
+      ],
+      "expected_values": [
+        "88.3",
+        "103.0"
+      ],
+      "shortlist": [
+        553,
+        554,
+        529,
+        1111,
+        633
+      ],
+      "picked": 633,
+      "rerank_raw": "633",
+      "seconds": 0.05,
+      "colembed_top1_hit": false,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "tq-02",
+      "category": "torque",
+      "question": "What is the tightening torque for the wheel nuts?",
+      "gold_pages": [
+        552,
+        553,
+        560,
+        627,
+        633,
+        640,
+        645,
+        1079,
+        1093,
+        1104,
+        1110,
+        1113,
+        1115,
+        1116,
+        1117,
+        1119,
+        1121,
+        1122,
+        1123,
+        1124,
+        1125,
+        1126,
+        1127,
+        1133
+      ],
+      "expected_values": [
+        "88.3",
+        "107.9"
+      ],
+      "shortlist": [
+        1133,
+        1079,
+        1104,
+        627,
+        640
+      ],
+      "picked": 627,
+      "rerank_raw": "627",
+      "seconds": 0.06,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "tq-03",
+      "category": "torque",
+      "question": "What is the tightening torque for the manual transaxle drain plug?",
+      "gold_pages": [
+        1016,
+        1017,
+        1020
+      ],
+      "expected_values": [
+        "60",
+        "80"
+      ],
+      "shortlist": [
+        47,
+        1017,
+        1016,
+        1020,
+        665
+      ],
+      "picked": 1016,
+      "rerank_raw": "1016",
+      "seconds": 0.05,
+      "colembed_top1_hit": false,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "tq-04",
+      "category": "torque",
+      "question": "What is the tightening torque for the electric wastegate actuator (EWGA) installation bolts?",
+      "gold_pages": [
+        857,
+        932
+      ],
+      "expected_values": [
+        "7.35",
+        "8.34"
+      ],
+      "shortlist": [
+        932,
+        857,
+        927,
+        876,
+        882
+      ],
+      "picked": 927,
+      "rerank_raw": "927",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "tq-05",
+      "category": "torque",
+      "question": "What is the tightening torque for the rear driveshaft castle nut?",
+      "gold_pages": [
+        627,
+        641
+      ],
+      "expected_values": [
+        "196.1",
+        "255"
+      ],
+      "shortlist": [
+        627,
+        1094,
+        646,
+        1114,
+        641
+      ],
+      "picked": 627,
+      "rerank_raw": "627",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "pa-01",
+      "category": "paraphrase",
+      "question": "My brakes are squeaking and I want to put new pads on the front. How do I do that?",
+      "gold_pages": [
+        552,
+        553,
+        554,
+        555,
+        556,
+        557
+      ],
+      "expected_values": [
+        "caliper"
+      ],
+      "shortlist": [
+        555,
+        554,
+        1129,
+        557,
+        562
+      ],
+      "picked": 562,
+      "rerank_raw": "562",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": false
+    },
+    {
+      "id": "pa-02",
+      "category": "paraphrase",
+      "question": "How do I change the oil?",
+      "gold_pages": [
+        831,
+        832
+      ],
+      "expected_values": [
+        "drain plug"
+      ],
+      "shortlist": [
+        831,
+        45,
+        1017,
+        832,
+        1018
+      ],
+      "picked": 832,
+      "rerank_raw": "832",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "pa-03",
+      "category": "paraphrase",
+      "question": "I need to swap out the AC compressor \u2014 walk me through it.",
+      "gold_pages": [
+        965,
+        966,
+        967,
+        968,
+        969
+      ],
+      "expected_values": [
+        "refrigerant"
+      ],
+      "shortlist": [
+        965,
+        966,
+        964,
+        969,
+        974
+      ],
+      "picked": 965,
+      "rerank_raw": "965",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "pa-04",
+      "category": "paraphrase",
+      "question": "How do I take the steering wheel off?",
+      "gold_pages": [
+        1085,
+        1086,
+        1087
+      ],
+      "expected_values": [
+        "airbag"
+      ],
+      "shortlist": [
+        1086,
+        1089,
+        1085,
+        259,
+        432
+      ],
+      "picked": 1085,
+      "rerank_raw": "1085",
+      "seconds": 0.05,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "pa-05",
+      "category": "paraphrase",
+      "question": "What's involved in changing the timing chain?",
+      "gold_pages": [
+        759,
+        760,
+        761,
+        762,
+        763,
+        764,
+        765,
+        766,
+        767,
+        768,
+        769,
+        770,
+        771,
+        772,
+        773
+      ],
+      "expected_values": [
+        "TDC"
+      ],
+      "shortlist": [
+        766,
+        764,
+        759,
+        767,
+        748
+      ],
+      "picked": 767,
+      "rerank_raw": "767",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "pa-06",
+      "category": "paraphrase",
+      "question": "How do I change the coolant without getting air trapped in the system?",
+      "gold_pages": [
+        820,
+        821
+      ],
+      "expected_values": [
+        "cooling fan"
+      ],
+      "shortlist": [
+        821,
+        758,
+        989,
+        820,
+        987
+      ],
+      "picked": 821,
+      "rerank_raw": "821",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "pa-07",
+      "category": "paraphrase",
+      "question": "My tire pressure light is on and I think a sensor is dead. How do I put a new one in the wheel?",
+      "gold_pages": [
+        1138,
+        1139,
+        1140,
+        1141,
+        1142,
+        1143,
+        1144
+      ],
+      "expected_values": [
+        "valve"
+      ],
+      "shortlist": [
+        1138,
+        1139,
+        1141,
+        1144,
+        1142
+      ],
+      "picked": 1144,
+      "rerank_raw": "1144",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    },
+    {
+      "id": "pa-08",
+      "category": "paraphrase",
+      "question": "How do I get to the fuel pump to replace it?",
+      "gold_pages": [
+        944,
+        945
+      ],
+      "expected_values": [
+        "fuel tank"
+      ],
+      "shortlist": [
+        945,
+        946,
+        948,
+        942,
+        944
+      ],
+      "picked": 945,
+      "rerank_raw": "945",
+      "seconds": 0.04,
+      "colembed_top1_hit": true,
+      "shortlist_hit": true,
+      "rerank_hit": true
+    }
+  ]
+}

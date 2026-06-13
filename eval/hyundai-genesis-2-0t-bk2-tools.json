@@ -1,0 +1,28 @@
+{
+  "doc_id": "hyundai-genesis-2-0t-bk2",
+  "doc_name": "Hyundai Genesis 2.0T BK2",
+  "notes": "Tool-calling eval (Layer A) for the agent's decide() step: given a viewer state (current page + section), optional history, and a request, did it pick an ACCEPTABLE tool and emit a valid JSON tool call? `accept` is a SET of acceptable tools, not one golden answer — multiple tools are often legitimate (e.g. a chapter-name request is fine as go_to_section OR search). The tight cases (circle-here, over-search, history) measure the real decision boundaries; the generous ones avoid punishing correct behavior. Pages are grounded in the repair-question gold spans so the injected current-page text is real procedure content. This is a smoke/regression gate, not gospel — it is partly subjective. Categories: circle-here (target is on the current page → circle), go-to-section (request names a chapter), search (off-page specific part/procedure), over-search (already on the right page → must NOT search), history (reference resolved from past turns), not-found (absent thing).",
+  "scenarios": [
+    { "id": "cir-01", "category": "circle-here", "viewer": {"page": 554, "section": ""}, "request": "circle the caliper mounting bolts", "accept": ["circle"] },
+    { "id": "cir-02", "category": "circle-here", "viewer": {"page": 552, "section": ""}, "request": "circle the brake pads", "accept": ["circle"] },
+    { "id": "cir-03", "category": "circle-here", "viewer": {"page": 832, "section": ""}, "request": "circle the oil drain plug", "accept": ["circle"] },
+    { "id": "cir-04", "category": "circle-here", "viewer": {"page": 744, "section": ""}, "request": "circle the standard compression value", "accept": ["circle"] },
+    { "id": "cir-05", "category": "circle-here", "viewer": {"page": 651, "section": ""}, "request": "highlight the propeller shaft flange", "accept": ["circle"] },
+    { "id": "sec-01", "category": "go-to-section", "viewer": {"page": 1, "section": ""}, "request": "go to the brake system section", "accept": ["go_to_section"] },
+    { "id": "sec-02", "category": "go-to-section", "viewer": {"page": 1, "section": ""}, "request": "take me to the cooling system", "accept": ["go_to_section"] },
+    { "id": "sec-03", "category": "go-to-section", "viewer": {"page": 300, "section": ""}, "request": "open the steering section", "accept": ["go_to_section"] },
+    { "id": "sec-04", "category": "go-to-section", "viewer": {"page": 1, "section": ""}, "request": "jump to engine mechanical", "accept": ["go_to_section"] },
+    { "id": "srch-01", "category": "search", "viewer": {"page": 1, "section": ""}, "request": "where do I replace the climate control air filter", "accept": ["search", "go_to_section"] },
+    { "id": "srch-02", "category": "search", "viewer": {"page": 100, "section": ""}, "request": "find the torque for the rear driveshaft castle nut", "accept": ["search"] },
+    { "id": "srch-03", "category": "search", "viewer": {"page": 200, "section": ""}, "request": "remove and install the EWGA actuator", "accept": ["search"] },
+    { "id": "srch-04", "category": "search", "viewer": {"page": 1, "section": ""}, "request": "spark plug replacement", "accept": ["search", "go_to_section"] },
+    { "id": "ovr-01", "category": "over-search", "viewer": {"page": 832, "section": ""}, "request": "where's the drain plug", "accept": ["circle"] },
+    { "id": "ovr-02", "category": "over-search", "viewer": {"page": 553, "section": ""}, "request": "show me the pads", "accept": ["circle"] },
+    { "id": "ovr-03", "category": "over-search", "viewer": {"page": 1016, "section": ""}, "request": "circle the fill plug", "accept": ["circle"] },
+    { "id": "hist-01", "category": "history", "history": [{"request": "circle the front caliper bolt", "action": "circled “front caliper bolt” on p.554"}], "viewer": {"page": 554, "section": ""}, "request": "circle the other one", "accept": ["circle"] },
+    { "id": "hist-02", "category": "history", "history": [{"request": "replace the water pump", "action": "showed “water pump” on p.826"}], "viewer": {"page": 826, "section": ""}, "request": "now circle the mounting bolts", "accept": ["circle"] },
+    { "id": "hist-03", "category": "history", "history": [{"request": "front brake pads", "action": "showed p.553"}], "viewer": {"page": 553, "section": ""}, "request": "circle the caliper", "accept": ["circle"] },
+    { "id": "nf-01", "category": "not-found", "viewer": {"page": 1, "section": ""}, "request": "circle the flux capacitor", "accept": ["search", "done"] },
+    { "id": "nf-02", "category": "not-found", "viewer": {"page": 1, "section": ""}, "request": "where is the turbo encabulator", "accept": ["search", "done"] }
+  ]
+}

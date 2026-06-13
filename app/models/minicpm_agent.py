@@ -190,6 +190,23 @@ def search_result_message(request: str, page: int, text: str, stuck: bool) -> st
     )
 
 
+def ground_failed_message(request: str, target: str, page: int) -> str:
+    """The observation fed back when the VLM could not locate `target` on p.`page`.
+    A failed grounding almost always means the target is NOT on this page (the
+    agent circled on the wrong one), so this FORCES a relocate — search or
+    navigate — and forbids re-circling the same spot, the same greedy-loop guard
+    used after a no-op search. Without it, circle is a dead-end: the page shows
+    with no pin and the turn ends."""
+    return (
+        f"I could not find {target!r} on p.{page} — it does not appear to be on "
+        "this page, so circling here will not work. Do NOT circle that on this "
+        "page again. It is almost certainly on a DIFFERENT page: search for "
+        f"{request!r}, or go to the right section or page, and only circle once "
+        "you are on the page whose text actually shows it. Use done only if it is "
+        "truly not in this manual."
+    )
+
+
 def assistant_action_message(tool: dict) -> dict:
     """Record an action the agent took, so it stays in the running transcript
     (this turn) and the compact history (later turns)."""
