@@ -105,3 +105,34 @@ is running show up without a restart. See `pipelines/mock_ask.py`.
   `flash_attention_2` if flash-attn is installed).
 
 Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+
+## Tracing (Langfuse)
+
+Each find turn is traced to [Langfuse](https://langfuse.com) when keys are
+present, otherwise tracing is a complete no-op and the Space runs unchanged.
+Set these as **Space secrets** (or shell env / a `.env` for local runs):
+
+```bash
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com   # or https://us.cloud.langfuse.com, or self-hosted
+```
+
+(`LANGFUSE_BASE_URL` is accepted as an alias for `LANGFUSE_HOST`.) Keys come from
+the Langfuse project's **Settings → API Keys**.
+
+One turn is one trace — an `agent` observation named `agent-find` (input = the
+mechanic's request, output = the terminal action), with a child per step:
+
+- `agent-decide` (`generation`) — the 1B brain picking a tool, with the resident
+  model id and input/output token counts.
+- `search` / `find_answer` (`retriever`) — the ColEmbed / dense lookups and their
+  page hits.
+- `ground-circle` (`generation`) — MiniCPM-V placing the circle box.
+
+The frontend sends a per-page-load `session_id`, so a visit's turns group into
+one **session** in the Langfuse UI. The wiring lives in `core/tracing.py` (a
+no-op-safe wrapper that builds and flushes the trace inside the ZeroGPU worker,
+attaching children to the root explicitly rather than via context — the turn is
+a streamed generator). The Langfuse working skill is vendored under
+`.claude/skills/langfuse/`.

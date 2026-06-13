@@ -145,11 +145,13 @@ class MockAskPipeline:
         history: list | None = None,
         ground_thinking: bool | None = None,
         agent_model: str | None = None,
+        vram_log: bool = False,
+        session_id: str | None = None,
     ):
         """Yield the same event sequence as pipelines/agent_ask.py, with a
         keyword-driven stand-in for the agent's tool choice. Both stores are the
-        one MockStore; history, ground_thinking and agent_model are ignored.
-        MOCK_DELAY (seconds) paces events."""
+        one MockStore; history, ground_thinking, agent_model, vram_log and
+        session_id are ignored. MOCK_DELAY (seconds) paces events."""
         request = (request or "").strip()
         if not request:
             raise ValueError("Tell me what to find.")

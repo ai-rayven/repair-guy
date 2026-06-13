@@ -47,6 +47,7 @@ import logging
 
 import spaces
 
+from core import tracing
 from core.constants import (
     AGENT_HISTORY_TURNS,
     AGENT_MAX_STEPS,
@@ -91,6 +92,7 @@ def agent_events(
     ground_thinking: bool | None = None,
     agent_model: str | None = None,
     vram_log: bool = False,
+    session_id: str | None = None,
 ):
     """Yield the events of one agent turn (see module docstring). sections is the
     numbered table of contents shown to the agent ([{title, page}]); the agent's
@@ -182,167 +184,205 @@ def agent_events(
             )
         )
 
-    for step in range(AGENT_MAX_STEPS):
-        # Render the exact prompt BEFORE deciding so the trace can show what the
-        # brain was asked, not just what it answered.
-        prompt = minicpm_agent.render_prompt(messages)
-        tool, raw = minicpm_agent.decide(messages)
-        log.info("step %d: tool=%s | raw=%r", step, tool, raw[:200])
-        # Diagnostic event: the prompt fed in, the raw 1B reply, and the parsed
-        # tool for this step, so the UI's trace view shows exactly what the brain
-        # was asked and decided (and why a reply was rejected). Not used by the
-        # normal chip flow.
-        yield {"type": "trace", "step": step, "tool": tool, "raw": raw,
-               "prompt": prompt}
-        if tool is None:
-            # Unusable reply (bad JSON, or an echoed placeholder target). Correct
-            # it and let the agent try again rather than abandon the turn.
-            messages.append(
-                minicpm_agent.tool_result_message(
-                    "Your last reply was not one complete JSON object. Reply with "
-                    "ONE complete JSON object and nothing else, e.g. "
-                    '{"tool": "search", "query": "fuel filter"}. If you circle, the '
-                    "target MUST be copied from the page text above — never invent "
-                    "a part that is not printed there."
-                )
-            )
-            continue
-        messages.append(minicpm_agent.assistant_action_message(tool))
-
-        if tool["tool"] == "go_to_section":
-            idx = tool["section"] - 1
-            if not 0 <= idx < len(sections):
+    # Open the trace for this turn (no-op when Langfuse is unconfigured). The
+    # whole loop runs under try/finally so the root span is always ended and
+    # flushed — on a terminal return, a mid-turn error, OR an early client
+    # disconnect (GeneratorExit raised at a yield). `turn_output` is the terminal
+    # `done` event, recorded as the trace's output. Children (the brain's
+    # decisions, searches, the grounding) attach to this span explicitly.
+    span = tracing.start_turn(
+        name="agent-find",
+        input=request,
+        session_id=session_id,
+        tags=[t for t in (manual, active) if t],
+        metadata={
+            "manual": manual,
+            "agent_model": active,
+            "k": int(top_k),
+            "thinking": bool(ground_thinking),
+            "viewer_pages": shown_pages,
+        },
+    )
+    turn_output = None
+    try:
+        for step in range(AGENT_MAX_STEPS):
+            # Render the exact prompt BEFORE deciding so the trace can show what the
+            # brain was asked, not just what it answered.
+            prompt = minicpm_agent.render_prompt(messages)
+            tool, raw = minicpm_agent.decide(messages)
+            log.info("step %d: tool=%s | raw=%r", step, tool, raw[:200])
+            # Diagnostic event: the prompt fed in, the raw 1B reply, and the parsed
+            # tool for this step, so the UI's trace view shows exactly what the brain
+            # was asked and decided (and why a reply was rejected). Not used by the
+            # normal chip flow.
+            yield {"type": "trace", "step": step, "tool": tool, "raw": raw,
+                   "prompt": prompt}
+            if tool is None:
+                # Unusable reply (bad JSON, or an echoed placeholder target). Correct
+                # it and let the agent try again rather than abandon the turn.
                 messages.append(
                     minicpm_agent.tool_result_message(
-                        f"There is no section {tool['section']}. Pick a number from "
-                        "the table of contents, or use search."
+                        "Your last reply was not one complete JSON object. Reply with "
+                        "ONE complete JSON object and nothing else, e.g. "
+                        '{"tool": "search", "query": "fuel filter"}. If you circle, the '
+                        "target MUST be copied from the page text above — never invent "
+                        "a part that is not printed there."
                     )
                 )
                 continue
-            opt = sections[idx]
-            yield {"type": "step", "tool": "go_to_section",
-                   "title": opt["title"], "page": int(opt["page"])}
-            yield {"type": "done", "kind": "navigate", "nav": "section",
-                   "page": int(opt["page"]), "title": opt["title"]}
-            return
+            messages.append(minicpm_agent.assistant_action_message(tool))
 
-        if tool["tool"] == "go_to_page":
-            page = tool["page"]
-            n = page_count(visual_store.pdf_path(doc_id))
-            if not 1 <= page <= n:
-                messages.append(
-                    minicpm_agent.tool_result_message(
-                        f"There is no page {page}; this manual has pages 1–{n}. "
-                        "Pick a page in range, search, or go to a section."
+            if tool["tool"] == "go_to_section":
+                idx = tool["section"] - 1
+                if not 0 <= idx < len(sections):
+                    messages.append(
+                        minicpm_agent.tool_result_message(
+                            f"There is no section {tool['section']}. Pick a number from "
+                            "the table of contents, or use search."
+                        )
                     )
-                )
-                continue
-            yield {"type": "step", "tool": "go_to_page", "page": page}
-            yield {"type": "done", "kind": "navigate", "nav": "page",
-                   "page": page, "title": f"Page {page}"}
-            return
+                    continue
+                opt = sections[idx]
+                yield {"type": "step", "tool": "go_to_section",
+                       "title": opt["title"], "page": int(opt["page"])}
+                turn_output = {"type": "done", "kind": "navigate", "nav": "section",
+                               "page": int(opt["page"]), "title": opt["title"]}
+                yield turn_output
+                return
 
-        if tool["tool"] == "search":
-            query = tool["query"]
-            yield {"type": "step", "tool": "search", "query": query}
-            yield {"type": "status", "text": f"Searching for “{query}”…"}
-            # k (the viewer's slider) is the shortlist size; ColEmbed's top page
-            # is the one shown. A 1B text rerank measured WORSE than raw ColEmbed
-            # top-1 (0.68 vs 0.84 hit@1) — visual late interaction already ranks
-            # these (figure-heavy) pages better than re-judging from page text.
-            hits = maxsim_search(query, visual_store, doc_ids, top_k)
-            log.info("search(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
-            if not hits:
-                messages.append(
-                    minicpm_agent.tool_result_message(f"Search for {query!r} found nothing.")
-                )
-                continue
-            yield from present_hits(hits, "search:" + " ".join(query.lower().split()))
-            continue
-
-        if tool["tool"] == "find_answer":
-            query = tool["query"]
-            yield {"type": "step", "tool": "find_answer", "query": query}
-            yield {"type": "status", "text": f"Looking up “{query}”…"}
-            # Dense retrieval over the PARSED chunks (text/semantic) — the index
-            # the parsed store was built for. A fact lookup ("what fuel does it
-            # take") is a TEXT match: ColEmbed ranks pages by VISUAL similarity
-            # and misses the plain specs page, so fact questions route here. Same
-            # (doc_id, page, score) shape as maxsim_search; the agent then circles
-            # the answering line on the page shown.
-            hits = retrieve_pages(query, parsed_store, doc_ids, top_k)
-            log.info("find_answer(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
-            if not hits:
-                messages.append(
-                    minicpm_agent.tool_result_message(f"Looking up {query!r} found nothing.")
-                )
-                continue
-            yield from present_hits(hits, "answer:" + " ".join(query.lower().split()))
-            continue
-
-        if tool["tool"] == "circle":
-            target = tool["target"]
-            # The agent says which shown page the target is on (it has both pages'
-            # text). Default to the active page when it's unspecified or not one of
-            # the pages on screen — so the box is grounded on, and drawn over, the
-            # RIGHT page.
-            page = tool.get("page")
-            if page not in circleable:
-                page = current_page
-            yield {"type": "step", "tool": "circle", "target": target, "page": page}
-            yield {"type": "status", "text": "Pinning it down…"}
-            img = render_page(visual_store.pdf_path(doc_id), page)
-            box, braw = minicpm.ground_box(img, target, enable_thinking=ground_thinking)
-            # Heaviest op of the turn — the VLM vision encoder runs on a full-res
-            # page. peak here is the turn's activation high-water (since
-            # turn-start), the number that decides whether a big brain still fits.
-            log_vram("after-ground")
-            log.info("ground_box(%r) on p.%d → %s | raw=%r",
-                     target, page, box, braw[:200])
-            # The VLM couldn't find the target on this page — almost always
-            # because it's on a DIFFERENT page (the agent circled too early).
-            # Don't end the turn with an empty pin: push it to relocate and try
-            # again. Only fall through to showing the page un-pinned once we've
-            # already missed this exact (page, target) — a repeat means retrying
-            # here won't help, same guard as the no-op search.
-            tkey = (page, " ".join(target.lower().split()))
-            if box is None and tkey not in ground_failed:
-                ground_failed.add(tkey)
-                messages.append(
-                    minicpm_agent.tool_result_message(
-                        minicpm_agent.ground_failed_message(request, target, page)
+            if tool["tool"] == "go_to_page":
+                page = tool["page"]
+                n = page_count(visual_store.pdf_path(doc_id))
+                if not 1 <= page <= n:
+                    messages.append(
+                        minicpm_agent.tool_result_message(
+                            f"There is no page {page}; this manual has pages 1–{n}. "
+                            "Pick a page in range, search, or go to a section."
+                        )
                     )
-                )
+                    continue
+                yield {"type": "step", "tool": "go_to_page", "page": page}
+                turn_output = {"type": "done", "kind": "navigate", "nav": "page",
+                               "page": page, "title": f"Page {page}"}
+                yield turn_output
+                return
+
+            if tool["tool"] == "search":
+                query = tool["query"]
+                yield {"type": "step", "tool": "search", "query": query}
+                yield {"type": "status", "text": f"Searching for “{query}”…"}
+                # k (the viewer's slider) is the shortlist size; ColEmbed's top page
+                # is the one shown. A 1B text rerank measured WORSE than raw ColEmbed
+                # top-1 (0.68 vs 0.84 hit@1) — visual late interaction already ranks
+                # these (figure-heavy) pages better than re-judging from page text.
+                with tracing.retriever("search", input=query,
+                                       metadata={"retriever": "colembed", "k": int(top_k)}) as rsp:
+                    hits = maxsim_search(query, visual_store, doc_ids, top_k)
+                    if rsp is not None:
+                        rsp.update(output=[{"page": p, "score": round(float(s), 4)}
+                                           for _, p, s in hits])
+                log.info("search(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
+                if not hits:
+                    messages.append(
+                        minicpm_agent.tool_result_message(f"Search for {query!r} found nothing.")
+                    )
+                    continue
+                yield from present_hits(hits, "search:" + " ".join(query.lower().split()))
                 continue
-            yield {
-                "type": "done",
-                "kind": "point",
-                "found": True,
-                "target": target,
-                "page": page,
-                "bbox": [round(v) for v in box] if box is not None else None,
-                # The pixel size of the image the box was GROUNDED on — the bbox
-                # is in this coordinate space. The frontend sizes its SVG viewBox
-                # from this (not the browser-loaded <img>), so the circle lands
-                # correctly even if the displayed page PNG is served at a
-                # different/stale resolution than this grounding render.
-                "dims": [img.width, img.height],
-                # the VLM's raw grounding reply — diagnostic only (helps explain
-                # where/why a box landed); shown in the trace view.
-                "ground_raw": braw[:300],
-            }
-            return
 
-        if tool["tool"] == "done":
-            yield {"type": "done", "kind": "reply",
-                   "message": tool.get("message") or "Done."}
-            return
+            if tool["tool"] == "find_answer":
+                query = tool["query"]
+                yield {"type": "step", "tool": "find_answer", "query": query}
+                yield {"type": "status", "text": f"Looking up “{query}”…"}
+                # Dense retrieval over the PARSED chunks (text/semantic) — the index
+                # the parsed store was built for. A fact lookup ("what fuel does it
+                # take") is a TEXT match: ColEmbed ranks pages by VISUAL similarity
+                # and misses the plain specs page, so fact questions route here. Same
+                # (doc_id, page, score) shape as maxsim_search; the agent then circles
+                # the answering line on the page shown.
+                with tracing.retriever("find_answer", input=query,
+                                       metadata={"retriever": "parsed-dense", "k": int(top_k)}) as rsp:
+                    hits = retrieve_pages(query, parsed_store, doc_ids, top_k)
+                    if rsp is not None:
+                        rsp.update(output=[{"page": p, "score": round(float(s), 4)}
+                                           for _, p, s in hits])
+                log.info("find_answer(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
+                if not hits:
+                    messages.append(
+                        minicpm_agent.tool_result_message(f"Looking up {query!r} found nothing.")
+                    )
+                    continue
+                yield from present_hits(hits, "answer:" + " ".join(query.lower().split()))
+                continue
 
-    yield {
-        "type": "done",
-        "kind": "reply",
-        "message": "I went in circles on that one — try rephrasing?",
-    }
+            if tool["tool"] == "circle":
+                target = tool["target"]
+                # The agent says which shown page the target is on (it has both pages'
+                # text). Default to the active page when it's unspecified or not one of
+                # the pages on screen — so the box is grounded on, and drawn over, the
+                # RIGHT page.
+                page = tool.get("page")
+                if page not in circleable:
+                    page = current_page
+                yield {"type": "step", "tool": "circle", "target": target, "page": page}
+                yield {"type": "status", "text": "Pinning it down…"}
+                img = render_page(visual_store.pdf_path(doc_id), page)
+                box, braw = minicpm.ground_box(img, target, enable_thinking=ground_thinking)
+                # Heaviest op of the turn — the VLM vision encoder runs on a full-res
+                # page. peak here is the turn's activation high-water (since
+                # turn-start), the number that decides whether a big brain still fits.
+                log_vram("after-ground")
+                log.info("ground_box(%r) on p.%d → %s | raw=%r",
+                         target, page, box, braw[:200])
+                # The VLM couldn't find the target on this page — almost always
+                # because it's on a DIFFERENT page (the agent circled too early).
+                # Don't end the turn with an empty pin: push it to relocate and try
+                # again. Only fall through to showing the page un-pinned once we've
+                # already missed this exact (page, target) — a repeat means retrying
+                # here won't help, same guard as the no-op search.
+                tkey = (page, " ".join(target.lower().split()))
+                if box is None and tkey not in ground_failed:
+                    ground_failed.add(tkey)
+                    messages.append(
+                        minicpm_agent.tool_result_message(
+                            minicpm_agent.ground_failed_message(request, target, page)
+                        )
+                    )
+                    continue
+                turn_output = {
+                    "type": "done",
+                    "kind": "point",
+                    "found": True,
+                    "target": target,
+                    "page": page,
+                    "bbox": [round(v) for v in box] if box is not None else None,
+                    # The pixel size of the image the box was GROUNDED on — the bbox
+                    # is in this coordinate space. The frontend sizes its SVG viewBox
+                    # from this (not the browser-loaded <img>), so the circle lands
+                    # correctly even if the displayed page PNG is served at a
+                    # different/stale resolution than this grounding render.
+                    "dims": [img.width, img.height],
+                    # the VLM's raw grounding reply — diagnostic only (helps explain
+                    # where/why a box landed); shown in the trace view.
+                    "ground_raw": braw[:300],
+                }
+                yield turn_output
+                return
+
+            if tool["tool"] == "done":
+                turn_output = {"type": "done", "kind": "reply",
+                               "message": tool.get("message") or "Done."}
+                yield turn_output
+                return
+
+        turn_output = {
+            "type": "done",
+            "kind": "reply",
+            "message": "I went in circles on that one — try rephrasing?",
+        }
+        yield turn_output
+    finally:
+        tracing.finish_turn(span, output=turn_output)
 
 
 class AgentPipeline:
@@ -362,9 +402,11 @@ class AgentPipeline:
         ground_thinking: bool | None = None,
         agent_model: str | None = None,
         vram_log: bool = False,
+        session_id: str | None = None,
     ):
         """One streamed agent turn (the event generator of agent_events).
-        vram_log forwards the UI's VRAM-logging toggle to the probe."""
+        vram_log forwards the UI's VRAM-logging toggle to the probe; session_id
+        groups a page session's turns together in Langfuse."""
         request = (request or "").strip()
         if not request:
             raise ValueError("Tell me what to find.")
@@ -375,5 +417,5 @@ class AgentPipeline:
         return agent_events(
             request, visual_store, parsed_store, doc_ids or list(names),
             int(top_k), names, sections, viewer, history, ground_thinking,
-            agent_model, vram_log,
+            agent_model, vram_log, session_id,
         )

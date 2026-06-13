@@ -6,3 +6,4 @@ torchvision
 pymupdf
 pillow
 numpy
+langfuse>=3,<5

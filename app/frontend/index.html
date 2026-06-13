@@ -433,6 +433,9 @@ const ICONS = {
 function repairGuy() {
   return {
     client:null, ready:false,
+    // One id per page load — groups this visit's find turns into a single
+    // Langfuse session so a whole conversation can be replayed together.
+    sessionId:(self.crypto&&crypto.randomUUID)?crypto.randomUUID():'sess-'+Date.now()+'-'+Math.random().toString(36).slice(2),
     manuals:[], manual:'',
     k:__DEFAULT_K__, maxK:__MAX_K__,
     // When on, MiniCPM-V reasons before committing to a circle box (slower,
@@ -731,6 +734,7 @@ function repairGuy() {
       try{
         const job = this.client.submit('/find', {
           request:q, manual:this.manual, k:this.k, think:this.think, agent_model:this.agentModel,
+          session_id:this.sessionId,
           page: this.viewDoc ? this.viewPage : 0, section: this.sectionTitle(this.viewPage),
           pages: this.spreadPages,  // every page currently on screen — the agent may circle on any
           history: this.history,

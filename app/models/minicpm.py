@@ -25,6 +25,7 @@ import torch
 from PIL import Image
 from transformers import AutoModel, AutoProcessor, AutoTokenizer
 
+from core import tracing
 from core.constants import (
     ANSWER_MAX_NEW_TOKENS,
     DESCRIBE_MAX_NEW_TOKENS,
@@ -171,24 +172,33 @@ def ground_box(
     GROUND_ENABLE_THINKING default; the UI settings panel passes an explicit
     bool per request."""
     think = GROUND_ENABLE_THINKING if enable_thinking is None else enable_thinking
-    with torch.no_grad():
-        out = _MODEL.chat(
-            msgs=[
-                {
-                    "role": "user",
-                    "content": [image.convert("RGB"), GROUND_PROMPT.format(query=query)],
-                }
-            ],
-            tokenizer=_TOKENIZER,
-            # The think trace needs room (a bare box fits in 64 tokens; a think
-            # trace does not) or it gets cut off before emitting the box — so
-            # the token budget tracks the flag.
-            enable_thinking=think,
-            max_new_tokens=(
-                GROUND_THINK_MAX_NEW_TOKENS if think else GROUND_BOX_MAX_NEW_TOKENS
-            ),
-        )
-    raw = str(out).strip()
+    # One `generation` (the VLM "eyes" placing the box): query in, raw reply out.
+    with tracing.generation(
+        "ground-circle",
+        model=MINICPM_MODEL_ID,
+        input=query,
+        metadata={"thinking": bool(think)},
+    ) as gen:
+        with torch.no_grad():
+            out = _MODEL.chat(
+                msgs=[
+                    {
+                        "role": "user",
+                        "content": [image.convert("RGB"), GROUND_PROMPT.format(query=query)],
+                    }
+                ],
+                tokenizer=_TOKENIZER,
+                # The think trace needs room (a bare box fits in 64 tokens; a think
+                # trace does not) or it gets cut off before emitting the box — so
+                # the token budget tracks the flag.
+                enable_thinking=think,
+                max_new_tokens=(
+                    GROUND_THINK_MAX_NEW_TOKENS if think else GROUND_BOX_MAX_NEW_TOKENS
+                ),
+            )
+        raw = str(out).strip()
+        if gen is not None:
+            gen.update(output=raw)
     # The thinking trace can mention "not found" mid-reasoning ("at first this
     # looked not found, but…"), so test only the FINAL answer after </think>,
     # not the whole reply.

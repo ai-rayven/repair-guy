@@ -42,6 +42,7 @@ import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from core import tracing
 from core.constants import (
     AGENT_MAX_NEW_TOKENS,
     AGENT_MODELS,
@@ -254,6 +255,11 @@ def _spec(key: str | None) -> dict:
     return _REGISTRY.get(key or "", _REGISTRY[DEFAULT_AGENT_MODEL])
 
 
+def _active_model_id() -> str:
+    """The HF id of the resident brain — the `model` for its generation spans."""
+    return _spec(_active_key).get("model_id", _active_key or "unknown")
+
+
 def use_model(key: str | None = None) -> str:
     """Make `key` the resident agent brain, loading it (and evicting the
     previous one) when it isn't already active — one model in VRAM at a time.
@@ -319,25 +325,40 @@ def _template_kwargs() -> dict:
     return {"enable_thinking": False} if _THINKING else {}
 
 
-def _generate(messages: list[dict], max_new_tokens: int) -> str:
-    """Greedy decode the assistant's next message."""
-    inputs = _TOKENIZER.apply_chat_template(
-        messages,
-        tokenize=True,
-        add_generation_prompt=True,
-        return_dict=True,
-        return_tensors="pt",
-        **_template_kwargs(),
-    ).to(_MODEL.device)
-    # apply_chat_template emits token_type_ids, which this LlamaForCausalLM's
-    # generate() rejects as an unused kwarg.
-    inputs.pop("token_type_ids", None)
-    with torch.no_grad():
-        out = _MODEL.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
-    text = _TOKENIZER.decode(
-        out[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True
-    )
-    return text.strip()
+def _generate(
+    messages: list[dict], max_new_tokens: int, trace_name: str = "agent-generate"
+) -> str:
+    """Greedy decode the assistant's next message. Traced as one `generation`
+    (the resident brain as the model, the messages as input, the reply and the
+    in/out token counts attached) when Langfuse is configured."""
+    with tracing.generation(
+        trace_name, model=_active_model_id(), input=messages
+    ) as gen:
+        inputs = _TOKENIZER.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt",
+            **_template_kwargs(),
+        ).to(_MODEL.device)
+        # apply_chat_template emits token_type_ids, which this LlamaForCausalLM's
+        # generate() rejects as an unused kwarg.
+        inputs.pop("token_type_ids", None)
+        n_in = int(inputs["input_ids"].shape[1])
+        with torch.no_grad():
+            out = _MODEL.generate(
+                **inputs, max_new_tokens=max_new_tokens, do_sample=False
+            )
+        new_ids = out[0, n_in:]
+        text = _TOKENIZER.decode(new_ids, skip_special_tokens=True)
+        if gen is not None:
+            n_out = int(new_ids.shape[0])
+            gen.update(
+                output=text.strip(),
+                usage_details={"input": n_in, "output": n_out, "total": n_in + n_out},
+            )
+        return text.strip()
 
 
 def render_prompt(messages: list[dict]) -> str:
@@ -419,7 +440,7 @@ def decide(messages: list[dict]) -> tuple[dict | None, str]:
     maintains (system + past turns + this turn's state and any tool results).
     Returns (parsed tool call, raw reply); the tool is None when the reply isn't
     a usable JSON tool call. Must run on GPU."""
-    raw = _generate(messages, AGENT_MAX_NEW_TOKENS)
+    raw = _generate(messages, AGENT_MAX_NEW_TOKENS, trace_name="agent-decide")
     return _parse_tool(raw), raw
 
 
@@ -443,7 +464,9 @@ def rerank(query: str, candidates: list[tuple[int, str]]) -> tuple[int, str]:
         f"PAGE {page}:\n{text or '(no text)'}" for page, text in candidates
     )
     prompt = RERANK_PROMPT.format(query=query, n=len(candidates), candidates=listing)
-    raw = _generate([{"role": "user", "content": prompt}], max_new_tokens=8)
+    raw = _generate(
+        [{"role": "user", "content": prompt}], max_new_tokens=8, trace_name="agent-rerank"
+    )
     m = re.search(r"\d+", raw)
     if m:
         picked = int(m.group())
