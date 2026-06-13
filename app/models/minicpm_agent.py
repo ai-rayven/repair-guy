@@ -59,8 +59,10 @@ SYSTEM_PROMPT = (
     '  {"tool": "go_to_section", "section": <number>}\n'
     "- Jump straight to a known PHYSICAL page number:\n"
     '  {"tool": "go_to_page", "page": <number>}\n'
-    "- Circle something on the CURRENT page (its full text is given to you):\n"
-    '  {"tool": "circle", "target": "<short name of the thing to circle>"}\n'
+    "- Circle something on a page CURRENTLY ON SCREEN (their full text is given "
+    "to you). When two pages are shown, set page to the one whose text has it:\n"
+    '  {"tool": "circle", "target": "<short name of the thing to circle>", '
+    '"page": <the on-screen page number it is on>}\n'
     "- Finish — nothing more to do, or it isn't in the manual:\n"
     '  {"tool": "done", "message": "<one short line for the mechanic>"}\n\n'
     "How to choose:\n"
@@ -69,11 +71,12 @@ SYSTEM_PROMPT = (
     'contents that lists the part with a page number ("Actuators .... 855"), or '
     "history gave one → go_to_page that number. Do NOT circle the index line; "
     "go to the page it points to.\n"
-    "- The thing they want is on the CURRENT page → circle it. The target MUST "
-    "be what the mechanic asked for — match it to the page's exact wording if it "
-    "appears there; NEVER circle a different component.\n"
-    "- Otherwise → search. After a search shows a page, that page becomes the "
-    "CURRENT page, so circle on it or search again.\n"
+    "- The thing they want is on a page ON SCREEN → circle it, and set page to "
+    "the one it is on. The target MUST be what the mechanic asked for — match it "
+    "to that page's exact wording if it appears there; NEVER circle a different "
+    "component.\n"
+    "- Otherwise → search. After a search shows a page, that page is on screen, "
+    "so circle on it or search again.\n"
     "- Use the conversation history only to resolve what they mean (e.g. "
     '"circle the other one"); never restate earlier answers.\n\n'
     "Examples (copy the FORMAT, not the values):\n"
@@ -82,8 +85,8 @@ SYSTEM_PROMPT = (
     '{"tool": "search", "query": "fuel filter replacement"}\n'
     'Mechanic: "the wastegate actuator" (current page is an index reading '
     '"Actuators .... 855") → {"tool": "go_to_page", "page": 855}\n'
-    'Mechanic: "circle the bleeder screw" (it is on this page) → '
-    '{"tool": "circle", "target": "bleeder screw"}'
+    'Mechanic: "circle the bleeder screw" (it is on p.412, which is on screen) → '
+    '{"tool": "circle", "target": "bleeder screw", "page": 412}'
 )
 
 
@@ -94,24 +97,38 @@ def system_message() -> dict:
 def state_message(
     request: str,
     toc: list[dict],
-    page: int | None,
+    shown: list[dict],
     section: str,
-    page_text: str,
 ) -> dict:
     """The user message for the current step: what the mechanic just said, the
     table of contents (numbered, the go_to_section index), and the whole text of
-    the page being viewed. page_text is the parsed page rendered to text (figures
-    and tables as their descriptions) — empty when no page is open or the manual
-    has no parse."""
+    the page(s) currently on the viewer. The viewer shows a two-page spread, so
+    `shown` is [{page, text}] for each page on screen (one or two). Each page's
+    text is the parsed page rendered to text (figures/tables as descriptions) —
+    empty when the manual has no parse. When the agent circles, it names which of
+    these pages the target is on."""
     toc_lines = "\n".join(
         f"{i + 1}. {s['title']} (p.{s['page']})" for i, s in enumerate(toc)
     ) or "(none)"
-    where = f"p.{page}" + (f', section "{section}"' if section else "") if page else "(no page open)"
-    page_block = (
-        f"CURRENT PAGE ({where}) — full text:\n{page_text}"
-        if page_text
-        else f"CURRENT PAGE: {where} (no text available)"
-    )
+    if shown:
+        where = " and ".join(f"p.{s['page']}" for s in shown) + (
+            f' (section "{section}")' if section else ""
+        )
+        blocks = "\n\n".join(
+            f"PAGE {s['page']} — full text:\n{s['text'] or '(no text available)'}"
+            for s in shown
+        )
+        page_block = (
+            f"CURRENTLY ON SCREEN — {where}. You can circle on "
+            + (
+                "either of these pages (say which in the circle call):\n"
+                if len(shown) > 1
+                else "this page:\n"
+            )
+            + blocks
+        )
+    else:
+        page_block = "CURRENTLY ON SCREEN: (no page open)"
     # The request goes LAST (after the long page text) so it stays freshest —
     # otherwise the page block dominates and the agent acts on the page instead
     # of what was asked.
@@ -223,7 +240,17 @@ def _parse_tool(raw: str) -> dict | None:
             return None
     if tool == "circle":
         target = str(obj.get("target") or "").strip()
-        return {"tool": "circle", "target": target} if _real(target) else None
+        if not _real(target):
+            return None
+        out = {"tool": "circle", "target": target}
+        # Optional: which on-screen page the target is on (the pipeline validates
+        # it against the pages actually shown and defaults to the active page).
+        try:
+            if obj.get("page") is not None:
+                out["page"] = int(obj.get("page"))
+        except (TypeError, ValueError):
+            pass
+        return out
     if tool == "done":
         return {"tool": "done", "message": str(obj.get("message") or "").strip()}
     return None

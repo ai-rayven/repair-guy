@@ -99,13 +99,21 @@ def agent_events(
     def page_text(p: int) -> str:
         return page_to_text(page_elements.get(p, []))
 
+    # The page(s) on the viewer — a two-page spread shows the active page plus
+    # the next. The agent sees the text of all of them and may circle on any;
+    # the active page stays first. Falls back to the single current page.
+    shown_pages = [int(p) for p in (viewer.get("pages") or []) if int(p) >= 1] or [cur]
+    if cur in shown_pages:
+        shown_pages = [cur] + [p for p in shown_pages if p != cur]
+    shown_pages = shown_pages[:2]
+    shown = [{"page": p, "text": page_text(p)} for p in shown_pages]
+
     messages = [minicpm_agent.system_message()]
     messages += _history_messages(history)
-    messages.append(
-        minicpm_agent.state_message(request, sections, cur, section, page_text(cur))
-    )
+    messages.append(minicpm_agent.state_message(request, sections, shown, section))
 
-    current_page = cur  # the page circle acts on; moves when search shows one
+    current_page = shown_pages[0]  # the active page circle defaults to
+    circleable = set(shown_pages)  # pages the agent may circle on right now
     yield {"type": "status", "text": "Thinking…"}
 
     for step in range(AGENT_MAX_STEPS):
@@ -194,6 +202,7 @@ def agent_events(
             best_page = hits[0][1]
             yield {"type": "found", "page": best_page}
             current_page = best_page
+            circleable = {best_page}  # search landed here — circle on this page
             messages.append(
                 minicpm_agent.tool_result_message(
                     f"Search showed p.{best_page}. It is now the CURRENT page.\n"
@@ -209,18 +218,25 @@ def agent_events(
 
         if tool["tool"] == "circle":
             target = tool["target"]
-            yield {"type": "step", "tool": "circle", "target": target}
+            # The agent says which shown page the target is on (it has both pages'
+            # text). Default to the active page when it's unspecified or not one of
+            # the pages on screen — so the box is grounded on, and drawn over, the
+            # RIGHT page.
+            page = tool.get("page")
+            if page not in circleable:
+                page = current_page
+            yield {"type": "step", "tool": "circle", "target": target, "page": page}
             yield {"type": "status", "text": "Pinning it down…"}
-            img = render_page(visual_store.pdf_path(doc_id), current_page)
+            img = render_page(visual_store.pdf_path(doc_id), page)
             box, braw = minicpm.ground_box(img, target)
             log.info("ground_box(%r) on p.%d → %s | raw=%r",
-                     target, current_page, box, braw[:200])
+                     target, page, box, braw[:200])
             yield {
                 "type": "done",
                 "kind": "point",
                 "found": True,
                 "target": target,
-                "page": current_page,
+                "page": page,
                 "bbox": [round(v) for v in box] if box is not None else None,
                 # the VLM's raw grounding reply — diagnostic only (helps explain
                 # where/why a box landed); shown in the trace view.

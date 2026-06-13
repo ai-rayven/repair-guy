@@ -158,7 +158,8 @@ class MockAskPipeline:
     def _find_events(self, store, request, doc_id, info, top_k, sections, viewer):
         delay = float(os.environ.get("MOCK_DELAY", "0"))
         cur = max(1, int(viewer.get("page") or 1))
-        prompt = self._mock_prompt(request, sections, cur)
+        shown = [int(p) for p in (viewer.get("pages") or []) if str(p).isdigit()][:2] or [cur]
+        prompt = self._mock_prompt(request, sections, shown)
         yield {"type": "status", "text": "Thinking…"}
         time.sleep(delay)
 
@@ -216,7 +217,7 @@ class MockAskPipeline:
 
     def _circle(self, store, doc_id, page, target, delay):
         """Emit the circle step + terminal point event for a target on a page."""
-        yield {"type": "step", "tool": "circle", "target": target}
+        yield {"type": "step", "tool": "circle", "target": target, "page": page}
         yield {"type": "status", "text": "Pinning it down…"}
         time.sleep(delay)
         box = self._mock_box(store, doc_id, page, target)
@@ -233,18 +234,20 @@ class MockAskPipeline:
                 "raw": json.dumps(tool, separators=(",", ":")), "prompt": prompt}
 
     @staticmethod
-    def _mock_prompt(request: str, sections: list[dict], page: int) -> str:
+    def _mock_prompt(request: str, sections: list[dict], shown: list[int]) -> str:
         """A representative stand-in for the rendered chat prompt, so the
         Diagnostics 'prompt' view is exercisable in MOCK_MODELS=1. Not the real
-        template — just the same shape (system rules + TOC + request)."""
+        template — just the same shape (system rules + the on-screen pages +
+        TOC + request)."""
         toc = "\n".join(
             f"{i + 1}. {s['title']} (p.{s.get('page') or s.get('page_start')})"
             for i, s in enumerate(sections)
         ) or "(none)"
+        where = " and ".join(f"p.{p}" for p in shown) or "(no page open)"
         return (
             "<|im_start|>system\n(mock) You FIND the right page and POINT at "
             "things — reply with ONE tool JSON, no prose.<|im_end|>\n"
-            f"<|im_start|>user\nCURRENT PAGE: p.{page} (mock text omitted)\n\n"
+            f"<|im_start|>user\nCURRENTLY ON SCREEN — {where} (mock text omitted)\n\n"
             f"TABLE OF CONTENTS:\n{toc}\n\n"
             f"The mechanic said: {request!r}\n"
             "Choose ONE tool and reply with ONLY its JSON object."

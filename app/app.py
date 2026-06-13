@@ -266,6 +266,7 @@ def api_find(
     k: int = DEFAULT_TOP_K,
     page: int = 0,
     section: str = "",
+    pages: list = None,
     history: list = None,
 ) -> dict:  # the per-yield type: Server.api infers outputs from this annotation
     """One agent turn (one ZeroGPU call), streamed as events (see
@@ -291,7 +292,13 @@ def api_find(
         }
         return
     start = time.monotonic()
-    viewer = {"page": int(page or 0), "section": str(section or "")}
+    # `pages` = every page currently on the viewer (the two-page spread shows
+    # two); the agent reads them all and may circle on any. Falls back to the
+    # single `page` for older clients.
+    shown = [int(p) for p in (pages or []) if str(p).strip().isdigit()] or (
+        [int(page)] if page else []
+    )
+    viewer = {"page": int(page or 0), "section": str(section or ""), "pages": shown}
     options = _router_options(manual, request)
     log.info(
         "find: manual=%s k=%s viewer=%s hist=%d opts=%d q=%r",
