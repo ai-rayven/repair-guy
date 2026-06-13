@@ -86,6 +86,10 @@ AGENT_MODELS = [
         # Ships custom sparse attention (InfLLM v2) — let its modeling code pick
         # the attn impl instead of forcing sdpa like the standard-arch brains.
         "attn_implementation": None,
+        # Load straight onto the GPU (accelerate) rather than CPU-then-.to("cuda").
+        # Switched in at runtime inside the @spaces.GPU fork, the 16GB host→device
+        # copy otherwise trips an NVML assert in the CUDA caching allocator.
+        "device_map": "cuda",
     },
 ]
 DEFAULT_AGENT_MODEL = AGENT_MODELS[0]["key"]

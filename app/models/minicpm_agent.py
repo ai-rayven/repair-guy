@@ -285,11 +285,19 @@ def use_model(key: str | None = None) -> str:
     attn = spec.get("attn_implementation", "sdpa")
     if attn is not None:
         load_kwargs["attn_implementation"] = attn
-    _MODEL = (
-        AutoModelForCausalLM.from_pretrained(spec["model_id"], **load_kwargs)
-        .to("cuda")
-        .eval()
-    )
+    # A spec can ask accelerate to place weights straight on the GPU
+    # (device_map) instead of the default load-on-CPU-then-.to("cuda"). Big
+    # brains switched in at runtime want this: the bulk host→device copy of a
+    # multi-GB model inside the ephemeral @spaces.GPU fork trips an NVML assert
+    # in the CUDA caching allocator. device_map loads onto CUDA directly, so we
+    # skip the trailing .to("cuda").
+    device_map = spec.get("device_map")
+    if device_map is not None:
+        load_kwargs["device_map"] = device_map
+    model = AutoModelForCausalLM.from_pretrained(spec["model_id"], **load_kwargs)
+    if device_map is None:
+        model = model.to("cuda")
+    _MODEL = model.eval()
     _active_key, _THINKING = spec["key"], spec["thinking"]
     return _active_key
 
