@@ -31,6 +31,7 @@ from core.constants import (
     EMBED_GPU_DURATION,
     SCORE_PAGES_PER_BATCH,
 )
+from core.vram import log_vram
 
 _MODEL = (
     AutoModel.from_pretrained(
@@ -48,6 +49,7 @@ _MODEL = (
 _MODEL._processor = AutoProcessor.from_pretrained(
     COLEMBED_MODEL_ID, revision=COLEMBED_REVISION, trust_remote_code=True
 )
+log_vram("load-colembed")
 
 # The remote code's forward_documents hardcodes DataLoader(num_workers=8), but
 # the ZeroGPU worker is a daemonic process and may not spawn children

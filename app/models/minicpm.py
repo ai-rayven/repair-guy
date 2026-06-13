@@ -34,6 +34,7 @@ from core.constants import (
     MINICPM_MODEL_ID,
     MINICPM_REVISION,
 )
+from core.vram import log_vram
 
 PROMPT = (
     "You are a repair-manual assistant. The images are the manual pages most "
@@ -137,6 +138,7 @@ _TOKENIZER = AutoTokenizer.from_pretrained(
 _MODEL.processor = AutoProcessor.from_pretrained(
     MINICPM_MODEL_ID, revision=MINICPM_REVISION, trust_remote_code=True
 )
+log_vram("load-minicpm-v")
 
 
 def generate_answer(question: str, pages: list[tuple[str, Image.Image]]) -> str:

@@ -54,6 +54,7 @@ from core.constants import (
 )
 from core.page_context import index_pages, page_to_text
 from core.pdf import page_count, render_page
+from core.vram import log_vram, reset_peak, set_enabled
 from models import minicpm, minicpm_agent
 from models.colembed import maxsim_search
 from pipelines.parsed_ask import retrieve_pages
@@ -89,13 +90,26 @@ def agent_events(
     history: list | None = None,
     ground_thinking: bool | None = None,
     agent_model: str | None = None,
+    vram_log: bool = False,
 ):
     """Yield the events of one agent turn (see module docstring). sections is the
     numbered table of contents shown to the agent ([{title, page}]); the agent's
     go_to_section index is 1-based into it. ground_thinking toggles MiniCPM-V's
     reasoning for the circle grounding (None → server default); agent_model picks
     which brain drives the loop (None → default), loaded on switch inside this
-    GPU window."""
+    GPU window. vram_log enables the per-turn VRAM probe (UI setting)."""
+    # Apply the UI's VRAM-logging toggle for this turn. Done here (inside the GPU
+    # worker) rather than in the parent so a reused ZeroGPU worker always honors
+    # the current request's setting. When off, every log_vram/reset_peak below is
+    # a no-op.
+    set_enabled(vram_log)
+    # Snapshot the GPU budget for this turn: reset the peak counter, then log the
+    # resident set (VLM + ColEmbed + embedder + current brain) as it stands
+    # before any swap. use_model() logs its own evict/load deltas; the
+    # after-ground snapshot below captures the activation high-water (peak) of the
+    # heaviest op — the VLM grounding on a full-res page.
+    reset_peak()
+    log_vram("turn-start")
     # Swap in the selected brain (evicts the previous one) before any decide/
     # rerank. Inside this @spaces.GPU window, so the load happens on the GPU.
     active = minicpm_agent.use_model(agent_model)
@@ -279,6 +293,10 @@ def agent_events(
             yield {"type": "status", "text": "Pinning it down…"}
             img = render_page(visual_store.pdf_path(doc_id), page)
             box, braw = minicpm.ground_box(img, target, enable_thinking=ground_thinking)
+            # Heaviest op of the turn — the VLM vision encoder runs on a full-res
+            # page. peak here is the turn's activation high-water (since
+            # turn-start), the number that decides whether a big brain still fits.
+            log_vram("after-ground")
             log.info("ground_box(%r) on p.%d → %s | raw=%r",
                      target, page, box, braw[:200])
             # The VLM couldn't find the target on this page — almost always
@@ -343,8 +361,10 @@ class AgentPipeline:
         history: list | None = None,
         ground_thinking: bool | None = None,
         agent_model: str | None = None,
+        vram_log: bool = False,
     ):
-        """One streamed agent turn (the event generator of agent_events)."""
+        """One streamed agent turn (the event generator of agent_events).
+        vram_log forwards the UI's VRAM-logging toggle to the probe."""
         request = (request or "").strip()
         if not request:
             raise ValueError("Tell me what to find.")
@@ -355,5 +375,5 @@ class AgentPipeline:
         return agent_events(
             request, visual_store, parsed_store, doc_ids or list(names),
             int(top_k), names, sections, viewer, history, ground_thinking,
-            agent_model,
+            agent_model, vram_log,
         )

@@ -47,6 +47,7 @@ from core.constants import (
     AGENT_MODELS,
     DEFAULT_AGENT_MODEL,
 )
+from core.vram import log_vram
 
 log = logging.getLogger("repairguy.agent")
 
@@ -265,10 +266,12 @@ def use_model(key: str | None = None) -> str:
     # Drop the current model first so VRAM holds only one brain at a time.
     if _MODEL is not None:
         log.info("agent model: evicting %s", _active_key)
+        log_vram(f"before-evict-{_active_key}")
         _MODEL = _TOKENIZER = None
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+        log_vram(f"after-evict-{_active_key}")
     log.info("agent model: loading %s (%s)", spec["key"], spec["model_id"])
     trust = spec.get("trust_remote_code", False)
     _TOKENIZER = AutoTokenizer.from_pretrained(
@@ -299,6 +302,7 @@ def use_model(key: str | None = None) -> str:
         model = model.to("cuda")
     _MODEL = model.eval()
     _active_key, _THINKING = spec["key"], spec["thinking"]
+    log_vram(f"after-load-{_active_key}")
     return _active_key
 
 

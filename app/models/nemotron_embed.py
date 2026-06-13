@@ -26,6 +26,7 @@ from core.constants import (
     NEMOTRON_EMBED_MODEL_ID,
     NEMOTRON_EMBED_REVISION,
 )
+from core.vram import log_vram
 
 _MODEL = (
     AutoModel.from_pretrained(
@@ -40,6 +41,7 @@ _MODEL = (
 )
 # Token budget for text-only inputs (the model card's recommended setting).
 _MODEL.processor.p_max_length = EMBED_TEXT_MAX_LENGTH
+log_vram("load-nemotron-embed")
 
 
 def _normalize(emb: torch.Tensor) -> torch.Tensor:

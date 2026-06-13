@@ -299,6 +299,7 @@ def api_find(
     history: list = None,
     think: bool = GROUND_ENABLE_THINKING,
     agent_model: str = DEFAULT_AGENT_MODEL,
+    vram_log: bool = False,
 ) -> dict:  # the per-yield type: Server.api infers outputs from this annotation
     """One agent turn (one ZeroGPU call), streamed as events (see
     pipelines/agent_ask.py for the protocol). page/section are what the viewer
@@ -343,7 +344,7 @@ def api_find(
     try:
         events = PIPELINE.run_find(
             VISUAL_STORE, PARSED_STORE, request, [manual], int(k), options,
-            viewer, history, bool(think), agent_model,
+            viewer, history, bool(think), agent_model, bool(vram_log),
         )
         for ev in events:
             if ev.get("type") == "tool_result" and "gallery" in ev:
