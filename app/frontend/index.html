@@ -576,6 +576,19 @@ function repairGuy() {
       // everything else is a find-and-point turn on the GPU
       this.loading=true; this.status='Working…';
       const find = this.startFindChip();
+      // surface the viewer state we send the model this turn — whatever page the
+      // user is on now (however they got there: toolbar, TOC, typed nav) is read
+      // fresh here, so the prompt always reflects the CURRENT page + its text
+      {
+        const sec = this.sectionTitle(this.viewPage);
+        this.pushTrace({kind:'viewer', badge:'view', cls:'bg-sky-100 text-sky-700',
+          label:`current page ${this.spreadPages.map(p=>'p.'+p).join(' + ')}${sec?` · ${sec}`:''}`});
+      }
+      // surface the compact memory we send the model this turn (the prior
+      // turns are also inside the step-0 prompt block, but call them out here)
+      if(this.history.length) this.pushTrace({kind:'history', badge:'memory', cls:'bg-violet-100 text-violet-700',
+        label:`sending ${this.history.length} prior turn${this.history.length===1?'':'s'} as memory`,
+        mono:this.history.map((h,i)=>`${i+1}. asked: ${h.request}\n   did:   ${h.action}`).join('\n')});
       try{
         const job = this.client.submit('/find', {
           request:q, manual:this.manual, k:this.k,
