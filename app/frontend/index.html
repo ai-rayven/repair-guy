@@ -264,7 +264,7 @@
       <div class="flex-1 min-h-0 overflow-auto scroll-thin bg-brand-50/40 flex justify-center items-stretch gap-3 p-4">
         <template x-for="p in spreadPages" :key="p">
           <div class="relative flex-1 min-w-0 grid place-items-center">
-            <img :src="`/page/${encodeURIComponent(viewDoc)}/${p}`"
+            <img :src="`/page/${encodeURIComponent(viewDoc)}/${p}?v=__PAGE_V__`"
                  @load="nat[p]={w:$event.target.naturalWidth,h:$event.target.naturalHeight}; if(p===viewPage){imgW=$event.target.naturalWidth; imgH=$event.target.naturalHeight;}"
                  class="col-start-1 row-start-1 block max-h-full max-w-full w-auto h-auto select-none rounded-lg shadow-sm ring-1 ring-navy/10"
                  draggable="false" alt="manual page">
@@ -276,8 +276,8 @@
                  shows it. No <template x-if> inside <svg> (HTML templates aren't
                  valid SVG children) — the rect always exists, bindings null-guard. -->
             <svg x-show="circle && circle.page===p"
-                 :style="`aspect-ratio:${natOf(p).w}/${natOf(p).h}`"
-                 :viewBox="`0 0 ${natOf(p).w} ${natOf(p).h}`"
+                 :style="`aspect-ratio:${boxDims(p).w}/${boxDims(p).h}`"
+                 :viewBox="`0 0 ${boxDims(p).w} ${boxDims(p).h}`"
                  class="col-start-1 row-start-1 max-h-full max-w-full w-auto h-auto pointer-events-none">
               <rect :x="boxRect(p).x" :y="boxRect(p).y" :width="boxRect(p).w" :height="boxRect(p).h"
                     rx="14" ry="14" fill="#f59e0b" fill-opacity="0.10"
@@ -375,17 +375,23 @@ function repairGuy() {
     spread:true,           // book-style two-page view (active page + the next)
     nat:{},                // page number -> {w,h} natural size, set on each image load
 
-    get pageUrl(){ return this.viewDoc ? `/page/${encodeURIComponent(this.viewDoc)}/${this.viewPage}` : ''; },
+    get pageUrl(){ return this.viewDoc ? `/page/${encodeURIComponent(this.viewDoc)}/${this.viewPage}?v=__PAGE_V__` : ''; },
     // the page(s) on screen: the active page, plus the next one as context in
     // spread mode (none past the last page). The active page is always LEFT, so
     // the agent's target/circle page stays the first element.
     get spreadPages(){ if(!this.viewDoc) return []; const p=this.viewPage; return (this.spread && p<this.docPages) ? [p, p+1] : [p]; },
     natOf(p){ return this.nat[p] || {w:this.imgW, h:this.imgH}; },
+    // The coordinate space the active circle's bbox lives in: the size of the
+    // image the VLM GROUNDED on (sent by the backend), NOT the browser-loaded
+    // page <img>. Using this for the SVG viewBox keeps the circle aligned even
+    // if the served page PNG is a different/stale resolution. Falls back to the
+    // loaded image's natural size (older events without dims).
+    boxDims(p){ const c=this.circle; return (c && c.page===p && c.dims) ? {w:c.dims[0], h:c.dims[1]} : this.natOf(p); },
     // the overlay rectangle for the active circle on page p: bbox + a small pad,
     // normalized (x1<x2,y1<y2) and clamped to the page so it never runs off.
     boxRect(p){
       if(!this.circle || !this.circle.bbox) return {x:0,y:0,w:0,h:0};
-      const b=this.circle.bbox, n=this.natOf(p), pad=14;
+      const b=this.circle.bbox, n=this.boxDims(p), pad=14;
       const x1=Math.min(b[0],b[2]), y1=Math.min(b[1],b[3]), x2=Math.max(b[0],b[2]), y2=Math.max(b[1],b[3]);
       const x=Math.max(0,x1-pad), y=Math.max(0,y1-pad);
       return {x, y, w:Math.min(n.w,x2+pad)-x, h:Math.min(n.h,y2+pad)-y};
@@ -662,7 +668,7 @@ function repairGuy() {
             this.recordHistory(ev.message||'done');
           }else if(ev.found){  // point
             this.setPage(ev.page);
-            if(ev.bbox){ this.circle={page:ev.page, bbox:ev.bbox}; find.icon='target'; find.label=`Circled “${ev.target}”`; this.recordHistory(`circled “${ev.target}” on p.${ev.page}`); }
+            if(ev.bbox){ this.circle={page:ev.page, bbox:ev.bbox, dims:ev.dims}; find.icon='target'; find.label=`Circled “${ev.target}”`; this.recordHistory(`circled “${ev.target}” on p.${ev.page}`); }
             else { find.icon='file-text'; find.label=`Showed “${ev.target}”`; this.recordHistory(`showed “${ev.target}” on p.${ev.page}`); }  // page found, not pinpointed
             find.detail=`p.${ev.page}${meta}`;
           }else{

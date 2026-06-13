@@ -63,6 +63,7 @@ from core.constants import (
     MOCK_PDF_DIR,
     PARSED_SUBDIR,
     PREINDEXED_DIR,
+    RENDER_DPI,
     VISUAL_SUBDIR,
 )
 from core.pdf import pdf_outline, render_page_png
@@ -345,8 +346,14 @@ def index():
     frontend needs (default/max k) so it needs no extra round-trip on load."""
     with open(os.path.join(_FRONTEND_DIR, "index.html")) as f:
         html = f.read()
-    html = html.replace("__DEFAULT_K__", str(DEFAULT_TOP_K)).replace(
-        "__MAX_K__", str(MAX_TOP_K)
+    html = (
+        html.replace("__DEFAULT_K__", str(DEFAULT_TOP_K))
+        .replace("__MAX_K__", str(MAX_TOP_K))
+        # Cache-bust key for /page images: changing the render DPI changes the
+        # served page size, so it must change the URL too — otherwise a browser
+        # could keep an old-resolution page (cached up to a day) under the same
+        # URL while the grounding render uses the new size.
+        .replace("__PAGE_V__", str(RENDER_DPI))
     )
     return HTMLResponse(html)
 
@@ -375,9 +382,11 @@ def serve_pdf(doc_id: str):
 @app.get("/page/{doc_id}/{page}")
 def serve_page(doc_id: str, page: int):
     """One manual page rendered to PNG at RENDER_DPI — the viewer pane's <img>
-    source. Grounding boxes from the find turn are in this image's pixel
-    coordinates, so the SVG circle overlay maps 1:1. Immutable content → long
-    browser cache, which is what makes page flips instant."""
+    source. Cached long (immutable content → instant page flips); the URL
+    carries a ?v=RENDER_DPI cache key so a render-size change can't leave a
+    stale-resolution page under the same URL. The circle overlay sizes its
+    viewBox from the grounding render's dimensions (sent with the bbox), not
+    this image, so it stays aligned even if a cached page is a different size."""
     path = _pdf_path(doc_id)
     if not path or not os.path.isfile(path):
         return Response(status_code=404)

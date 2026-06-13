@@ -294,6 +294,12 @@ def agent_events(
                 "target": target,
                 "page": page,
                 "bbox": [round(v) for v in box] if box is not None else None,
+                # The pixel size of the image the box was GROUNDED on — the bbox
+                # is in this coordinate space. The frontend sizes its SVG viewBox
+                # from this (not the browser-loaded <img>), so the circle lands
+                # correctly even if the displayed page PNG is served at a
+                # different/stale resolution than this grounding render.
+                "dims": [img.width, img.height],
                 # the VLM's raw grounding reply — diagnostic only (helps explain
                 # where/why a box landed); shown in the trace view.
                 "ground_raw": braw[:300],
