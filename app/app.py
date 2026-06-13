@@ -11,12 +11,22 @@ the pre-indexed library and answers questions):
            MiniCPM-V, section chunks embedded with Llama Nemotron Embed;
            retrieval is dense cosine over chunks with parent-page lookup.
 
-Questions run as a multi-turn agent chat (pipelines/agent_ask.py): MiniCPM-V
-sees the conversation history and calls tools — search_docs (the approach's
-retriever) and show_page (the viewer pane) — before answering grounded in the
-retrieved page images. Each turn is one ZeroGPU call, streamed to the UI as
-events; history is kept client-side and summarized by the model when it
-outgrows its token budget.
+The product is a hands-busy mechanic's assistant: a page viewer driven by
+short requests. Intents are tiered by cost —
+  Tier 0 (client, instant)  next/previous page, "page 412", back, next
+                            section: pure frontend state, no server call.
+  Tier 1 (CPU routes)       "go to <section>" → /navigate fuzzy-matches the
+                            parse-derived section index (core/sections.py);
+                            "circle the <thing>" → /locate matches figure/
+                            table descriptions and returns the parse bbox.
+  Tier 2 (ZeroGPU)          real questions → /ask, one retrieval + one
+                            MiniCPM-V generation grounded in the retrieved
+                            page images (pipelines/chat_ask.py), streamed as
+                            events; "circle ..." with no parse match →
+                            /point, MiniCPM-V visual grounding on the viewed
+                            page. Chat history is kept client-side and
+                            summarized by the model when it outgrows its
+                            token budget.
 
 UI architecture — this is NOT a gr.Blocks app. It runs in Gradio *Server Mode*
 (`gradio.Server`, a FastAPI server with Gradio's engine: queueing, streaming
@@ -32,7 +42,8 @@ Module layout:
   models/minicpm.py         MiniCPM        — shared: answers over page images
   core/visual_store.py      VisualStore    — on-disk per-page token embeddings
   core/parsed_store.py      ParsedStore    — chunks + dense embedding matrix
-  pipelines/agent_ask.py    agent_events — the shared tool-calling chat loop
+  core/sections.py          section index + fuzzy matching (CPU navigation)
+  pipelines/chat_ask.py     chat_events / point_box — the shared GPU turns
   pipelines/visual_ask.py   VisualAskPipeline
   pipelines/parsed_ask.py   ParsedAskPipeline
   pipelines/mock_ask.py     MockAskPipeline — local UI iteration (MOCK_MODELS=1)
@@ -62,6 +73,8 @@ from core.constants import (
     PREINDEXED_DIR,
     VISUAL_SUBDIR,
 )
+from core.pdf import render_page_png
+from core.sections import match_element, match_section, sections_from_chunks
 
 # gradio 6.17.3 (pinned — see README frontmatter) still uses starlette's old
 # 422 constant, so every queue join emits a StarletteDeprecationWarning. Not
@@ -155,18 +168,22 @@ APPROACHES = {
 def _manual_choices() -> list[dict]:
     """The manuals shown in the picker, one shared list across both libraries
     (doc ids are name slugs, so the same manual lands on the same id in both);
-    manuals indexed under only one approach are tagged with it."""
+    manuals indexed under only one approach are tagged with it. pages drives
+    the viewer's page count."""
     docs: dict[str, dict] = {}
     for method, (store, _) in LIBRARIES.items():
         for d in store.list_docs():
-            entry = docs.setdefault(d["doc_id"], {"name": d["name"], "methods": []})
+            entry = docs.setdefault(
+                d["doc_id"], {"name": d["name"], "methods": [], "pages": 0}
+            )
             entry["methods"].append(method)
+            entry["pages"] = max(entry["pages"], d["pages"])
     choices = []
     for doc_id, info in sorted(docs.items(), key=lambda kv: kv[1]["name"].lower()):
         label = info["name"]
         if len(info["methods"]) < len(LIBRARIES):
             label += f" — {info['methods'][0]} only"
-        choices.append({"value": doc_id, "label": label})
+        choices.append({"value": doc_id, "label": label, "pages": info["pages"]})
     return choices
 
 
@@ -177,6 +194,43 @@ def _pdf_path(doc_id: str) -> str | None:
         if store.exists(doc_id):
             return store.pdf_path(doc_id)
     return None
+
+
+# Section/element structure for the CPU navigation routes, derived from the
+# parsed store's chunks (the mock store fakes both). Cached per doc — cleared
+# on library re-sync. Manuals indexed only visually have neither: /navigate
+# and /locate then return no match and the frontend falls back to Q&A.
+_SECTIONS_CACHE: dict[str, list[dict]] = {}
+_ELEMENTS_CACHE: dict[str, list[dict]] = {}
+
+
+def _doc_chunks(doc_id: str) -> list[dict]:
+    store, _ = LIBRARIES["parsed"]
+    if MOCK_MODELS or not store.exists(doc_id):
+        return []
+    return store.chunks(doc_id)
+
+
+def _doc_sections(doc_id: str) -> list[dict]:
+    if doc_id not in _SECTIONS_CACHE:
+        store, _ = LIBRARIES["parsed"]
+        if MOCK_MODELS:
+            _SECTIONS_CACHE[doc_id] = store.sections(doc_id)
+        else:
+            _SECTIONS_CACHE[doc_id] = sections_from_chunks(_doc_chunks(doc_id))
+    return _SECTIONS_CACHE[doc_id]
+
+
+def _doc_elements(doc_id: str) -> list[dict]:
+    if doc_id not in _ELEMENTS_CACHE:
+        store, _ = LIBRARIES["parsed"]
+        if MOCK_MODELS:
+            _ELEMENTS_CACHE[doc_id] = store.elements(doc_id)
+        else:
+            _ELEMENTS_CACHE[doc_id] = [
+                c for c in _doc_chunks(doc_id) if c.get("type") in ("figure", "table")
+            ]
+    return _ELEMENTS_CACHE[doc_id]
 
 
 def _thumb_data_uri(img, width: int = 280) -> str:
@@ -207,6 +261,8 @@ def api_refresh() -> list[dict]:
     """Re-sync the library dataset (incremental) and return the refreshed
     picker options, so manuals indexed after boot show up without a restart."""
     sync_library()
+    _SECTIONS_CACHE.clear()
+    _ELEMENTS_CACHE.clear()
     return _manual_choices()
 
 
@@ -232,9 +288,13 @@ def api_ask(
     approach: str = "visual",
     k: int = DEFAULT_TOP_K,
     history: list | None = None,
+    page: int = 0,
+    section: str = "",
 ) -> dict:  # the per-yield type: Server.api infers outputs from this annotation
-    """One chat turn with the chosen approach (one ZeroGPU call), streamed as
-    events (see pipelines/agent_ask.py for the protocol).
+    """One Q&A turn with the chosen approach (one ZeroGPU call), streamed as
+    events (see pipelines/chat_ask.py for the protocol). page/section are what
+    the viewer currently shows, so the model can answer "what torque is listed
+    here?".
 
     Yields {type: status|tool_call|tool_result|answer|error, ...}; tool_result
     galleries are converted to JSON-able thumbnails here, and the final answer
@@ -260,12 +320,13 @@ def api_ask(
         return
     start = time.monotonic()
     hist = _clean_history(history)
+    viewer = {"page": int(page or 0), "section": str(section or "")}
     log.info(
-        "ask: manual=%s approach=%s k=%s history=%d q=%r",
-        manual, approach, k, len(hist), question[:200],
+        "ask: manual=%s approach=%s k=%s history=%d viewer=%s q=%r",
+        manual, approach, k, len(hist), viewer, question[:200],
     )
     try:
-        events = pipeline.run_agent(store, question, hist, [manual], int(k))
+        events = pipeline.run_chat(store, question, hist, [manual], int(k), viewer)
         for ev in events:
             if ev.get("type") == "tool_result" and "gallery" in ev:
                 pages = [p for _, p in ev["page_refs"]]
@@ -294,6 +355,30 @@ def api_ask(
     except Exception as e:
         log.exception("ask: failed after %.1fs", time.monotonic() - start)
         yield {"type": "error", "error": f"⚠️ Something went wrong: {e}"}
+
+
+@app.api(name="point")
+def api_point(manual: str = "", query: str = "", page: int = 0) -> dict:
+    """Visual grounding for "circle the <thing>" when the parse-bbox match
+    (/locate) came up empty: one short ZeroGPU call that asks MiniCPM-V for
+    the bounding box of the described object on the viewed page. Returns
+    {found, page?, bbox?} with bbox in rendered-page pixels (the /page image's
+    coordinate space)."""
+    page = int(page or 0)
+    if not manual or not query or page < 1:
+        return {"found": False}
+    path = _pdf_path(manual)
+    if not path or not os.path.isfile(path):
+        return {"found": False}
+    log.info("point: manual=%s page=%d query=%r", manual, page, query)
+    if MOCK_MODELS:
+        store, pipeline = LIBRARIES["parsed"]
+        res = pipeline.point(store, manual, page, query)
+    else:
+        from pipelines.chat_ask import point_box  # GPU import chain — lazy
+
+        res = point_box(path, page, query)
+    return {"found": bool(res), **(res or {})}
 
 
 # --- custom FastAPI routes: serve the SPA and the source PDFs ---------------
@@ -329,16 +414,61 @@ def serve_media(filename: str):
 
 @app.get("/pdf/{doc_id}")
 def serve_pdf(doc_id: str):
-    """Stream a manual's source PDF; the frontend points an <iframe> here with
-    a #page=N fragment so the browser viewer opens on the cited page."""
+    """A manual's source PDF (kept for direct download/open-in-tab; the viewer
+    pane shows /page images, not the PDF)."""
     path = _pdf_path(doc_id)
     if not path or not os.path.isfile(path):
         return Response(status_code=404)
-    # inline (not the default "attachment") so the browser renders it in the
-    # <iframe> instead of downloading it when the src / #page fragment changes.
     return FileResponse(
         path, media_type="application/pdf", content_disposition_type="inline"
     )
+
+
+@app.get("/page/{doc_id}/{page}")
+def serve_page(doc_id: str, page: int):
+    """One manual page rendered to PNG at RENDER_DPI — the viewer pane's <img>
+    source. Parse bboxes (/locate) and grounding boxes (/point) are in this
+    image's pixel coordinates, so the SVG circle overlay maps 1:1. Immutable
+    content → long browser cache, which is what makes page flips instant."""
+    path = _pdf_path(doc_id)
+    if not path or not os.path.isfile(path):
+        return Response(status_code=404)
+    try:
+        data = render_page_png(path, page)
+    except ValueError:
+        return Response(status_code=404)
+    return Response(
+        data,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@app.get("/sections/{doc_id}")
+def serve_sections(doc_id: str):
+    """The manual's section index [{title, page_start, page_end}] — drives the
+    breadcrumb and next/previous-section navigation in the frontend."""
+    return {"sections": _doc_sections(doc_id)}
+
+
+@app.get("/navigate/{doc_id}")
+def serve_navigate(doc_id: str, q: str = ""):
+    """Fuzzy-match a "go to <X>" request against the section index. CPU-only;
+    returns {match: {title, page, score} | null} — the frontend applies its
+    acceptance threshold and falls back to Q&A below it."""
+    match = match_section(q, _doc_sections(doc_id)) if q.strip() else None
+    log.info("navigate %s q=%r → %s", doc_id, q, match)
+    return {"match": match}
+
+
+@app.get("/locate/{doc_id}")
+def serve_locate(doc_id: str, q: str = ""):
+    """Fuzzy-match a "circle the <X>" request against the parsed figure/table
+    descriptions. CPU-only; returns {match: {page, bbox, kind, label, score} |
+    null} with bbox in /page pixel coordinates."""
+    match = match_element(q, _doc_elements(doc_id)) if q.strip() else None
+    log.info("locate %s q=%r → %s", doc_id, q, match)
+    return {"match": match}
 
 
 if __name__ == "__main__":

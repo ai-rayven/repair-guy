@@ -2,11 +2,12 @@
 
 - generate_answer: answers a question grounded in retrieved page images
   (one-shot; used by scripts/eval_answers_modal.py).
-- generate_step / parse_tool_call / summarize_history / history_tokens: the
-  agent-chat surface (pipelines/agent_ask.py) — multi-turn generation under a
-  tool-calling system prompt, plus history budgeting. MiniCPM-V has no native
-  function calling, so tools are a prompted protocol: a reply that *starts
-  with* a JSON object is a tool call, anything else is the final answer.
+- generate_chat / summarize_history / history_tokens: the chat surface
+  (pipelines/chat_ask.py) — one grounded answer generation over the text
+  history plus the retrieved pages for the current question, and history
+  budgeting.
+- ground_box: visual grounding for "circle the <thing>" — returns the
+  bounding box of a described object on a page image.
 - describe_batch (+ describe_figure / describe_table wrappers): used only by
   the parsed ingest pipeline (on Modal) to turn Picture crops and Table
   markdown into searchable text, batched through chat()'s batched mode.
@@ -22,7 +23,7 @@ real CUDA process on Modal.
 
 from __future__ import annotations
 
-import json
+import re
 
 import torch
 from PIL import Image
@@ -57,26 +58,17 @@ PROMPT = (
     "Question: {question}"
 )
 
-# Agent chat: same grounding rules as PROMPT, restated for a multi-turn
-# conversation where the model fetches its own pages with tools. The JSON
-# examples use doubled braces because the template is .format()ed.
-AGENT_SYSTEM_PROMPT = (
-    'You are Repair Guy, an assistant helping a user with the repair manual '
-    '"{manual}". You answer ONLY from the manual\'s pages, which you retrieve '
-    "with tools.\n\n"
-    "TOOLS\n"
-    "- search_docs: semantic search over the manual; returns the most "
-    "relevant pages as labeled images.\n"
-    "- show_page: displays a page in the user's PDF viewer (the right side of "
-    "their screen).\n\n"
-    "To call a tool, reply with ONLY one JSON object and nothing else:\n"
-    '{{"tool": "search_docs", "query": "<focused search phrase>"}}\n'
-    '{{"tool": "show_page", "page": <page number>}}\n\n'
+# Chat: same grounding rules as PROMPT, restated for a multi-turn conversation
+# where retrieval happens outside the model — the current question arrives
+# with its retrieved pages attached, and earlier turns are text-only.
+CHAT_SYSTEM_PROMPT = (
+    "You are Repair Guy, an assistant helping a mechanic who is working with "
+    'the repair manual "{manual}". The user\'s current question comes with the '
+    "manual pages most relevant to it, each image preceded by its label "
+    "(manual name and page number).\n\n"
     "RULES\n"
-    "1. For every new question about the manual, FIRST call search_docs with "
-    "a focused query built from the question — never answer from memory. "
-    "Follow-ups about pages already shown in this conversation may be "
-    "answered directly.\n"
+    "1. Answer using ONLY what is printed on the attached pages (and what was "
+    "established earlier in this conversation) — never from memory.\n"
     "2. If the answer is a procedure, reproduce EVERY step in order, numbered "
     "exactly as in the manual. Never skip, merge, or summarize steps. Keep "
     "each step's notes, model exceptions, and specifications (e.g. torque "
@@ -84,19 +76,11 @@ AGENT_SYSTEM_PROMPT = (
     "3. Quote exact values (torques, clearances, part numbers, capacities) as "
     "printed, including units.\n"
     "4. End answers with the page label(s) you used, e.g. (Manual — p.238). "
-    "If a procedure clearly continues on a page you were not given, say so.\n"
-    "5. If the retrieved pages do not contain the answer, you may try ONE "
-    "more search_docs call with a different query; if it still is not there, "
-    "say so instead of guessing.\n"
-    "6. After a successful search, call show_page with the page your answer "
-    "is grounded in BEFORE giving your final answer, so the user sees it in "
-    "their viewer; also use show_page whenever the user asks to see a page.\n"
-    "7. When not calling a tool, reply to the user in plain markdown — never "
-    "output JSON, and start directly with the answer, no preamble.\n"
-    "8. Never claim or narrate a search you did not make — writing something "
-    'like [searched the manual for "..."] does NOT search; only the JSON tool '
-    "call does. Cite only page labels of pages you have actually been shown "
-    "in this conversation."
+    "Cite only pages you were actually shown. If a procedure clearly "
+    "continues on a page you were not given, say so.\n"
+    "5. If the pages do not contain the answer, say so instead of guessing.\n"
+    "6. The mechanic likely has their hands full: be direct, start with the "
+    "answer — no preamble, plain markdown."
 )
 
 SUMMARY_PROMPT = (
@@ -106,11 +90,17 @@ SUMMARY_PROMPT = (
     "and procedures discussed, every exact value mentioned (torques, "
     "clearances, capacities, part numbers), the page numbers cited, and "
     "anything the user said about their situation or vehicle. Plain text, no "
-    "preamble; describe any tool use in prose — do not copy bracketed "
-    "[searched the manual ...] lines.\n\nTranscript:\n{transcript}"
+    "preamble.\n\nTranscript:\n{transcript}"
 )
 
-_TOOLS = ("search_docs", "show_page")
+# Visual grounding for "circle the <thing>". MiniCPM-V grounding replies in
+# <box>x1 y1 x2 y2</box> form with coordinates normalized to 0-1000.
+GROUND_PROMPT = (
+    "This is a page from a repair manual. Locate {query!r} on it. Reply with "
+    "ONLY the bounding box of that region as <box>x1 y1 x2 y2</box>, "
+    "coordinates normalized to 0-1000 relative to the full image. If it is "
+    "not visible on this page, reply NOT FOUND."
+)
 
 FIGURE_PROMPT = (
     "The image is a figure cropped from a page of a repair manual. Context "
@@ -181,44 +171,48 @@ def generate_answer(question: str, pages: list[tuple[str, Image.Image]]) -> str:
     return str(answer).strip()
 
 
-def generate_step(msgs: list[dict], manual_name: str) -> str:
-    """One agent-loop generation: the full conversation so far (text history,
-    current question, tool-call/tool-result exchanges with page images) under
-    the tool-calling system prompt. Must run on GPU."""
+def generate_chat(msgs: list[dict], manual_name: str) -> str:
+    """One chat-turn generation: the text history plus the current question
+    with its retrieved page images, under the grounded chat system prompt.
+    msgs: [{"role", "content": [str | PIL.Image, ...]}]. Must run on GPU."""
     with torch.no_grad():
         out = _MODEL.chat(
             msgs=msgs,
             tokenizer=_TOKENIZER,
-            system_prompt=AGENT_SYSTEM_PROMPT.format(manual=manual_name),
+            system_prompt=CHAT_SYSTEM_PROMPT.format(manual=manual_name),
             enable_thinking=False,
             max_new_tokens=ANSWER_MAX_NEW_TOKENS,
         )
     return str(out).strip()
 
 
-def parse_tool_call(reply: str) -> dict | None:
-    """{"tool": ..., "args": {...}} if the reply is a tool call, else None.
-
-    Only a *leading* JSON object counts (optionally inside a ``` fence) — JSON
-    quoted later inside prose is part of a normal answer. Accepts both the
-    prompted flat shape {"tool", "query"/"page"} and the nested {"tool",
-    "args": {...}} an instruction-tuned model sometimes produces."""
-    text = reply.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else ""
-        text = text.rsplit("```", 1)[0].strip()
-    if not text.startswith("{"):
-        return None
-    try:
-        obj, _ = json.JSONDecoder().raw_decode(text)
-    except ValueError:
-        return None
-    if not isinstance(obj, dict) or obj.get("tool") not in _TOOLS:
-        return None
-    args = obj.get("args")
-    if not isinstance(args, dict):
-        args = {k: v for k, v in obj.items() if k != "tool"}
-    return {"tool": obj["tool"], "args": args}
+def ground_box(
+    image: Image.Image, query: str
+) -> tuple[tuple[float, float, float, float] | None, str]:
+    """(bbox, raw reply): the bounding box of the described object on a page
+    image, in that image's pixel coordinates — or None when the model can't
+    place it (no box in the reply, or a degenerate one). Must run on GPU."""
+    with torch.no_grad():
+        out = _MODEL.chat(
+            msgs=[
+                {
+                    "role": "user",
+                    "content": [image.convert("RGB"), GROUND_PROMPT.format(query=query)],
+                }
+            ],
+            tokenizer=_TOKENIZER,
+            enable_thinking=False,
+            max_new_tokens=64,
+        )
+    raw = str(out).strip()
+    nums = re.findall(r"\d+(?:\.\d+)?", raw)
+    if len(nums) < 4:
+        return None, raw
+    x1, y1, x2, y2 = (min(1000.0, max(0.0, float(n))) for n in nums[:4])
+    if x2 - x1 < 1 or y2 - y1 < 1:
+        return None, raw
+    w, h = image.size
+    return (x1 * w / 1000, y1 * h / 1000, x2 * w / 1000, y2 * h / 1000), raw
 
 
 def history_tokens(history: list[dict]) -> int:

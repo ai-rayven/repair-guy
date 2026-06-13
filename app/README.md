@@ -18,11 +18,28 @@ preload_from_hub:
 license: mit
 ---
 
-# Repair Guy — two local-only RAG approaches over repair manuals
+# Repair Guy — a hands-busy mechanic's manual assistant
 
-Ask questions over repair manuals, answered entirely by models running inside
-the Space (no external endpoints). The project showcases two indexing
-approaches over the same manuals:
+A page viewer over repair manuals driven by short requests — *"go to brake
+bleeding"*, *"next page"*, *"circle the drain plug"* — with grounded Q&A as
+the fallback, everything answered by models running inside the Space (no
+external endpoints). Intents are tiered by cost:
+
+- **Instant (client)** — next/previous page, *page 412*, back, next/previous
+  section: pure frontend state over the rendered page images.
+- **CPU routes** — *go to \<section\>* fuzzy-matches the section index that
+  Nemotron Parse extracted at ingest (`/navigate`); *circle the \<thing\>*
+  matches the parsed figure/table descriptions and draws an SVG circle at the
+  stored bbox (`/locate`). No model, no GPU, milliseconds.
+- **ZeroGPU** — real questions go to `/ask`: one retrieval (the selected
+  approach below) + one MiniCPM-V 4.5 generation grounded in the retrieved
+  page images, streamed as events; the viewer lands on the page the answer
+  cites. A *circle ...* request with no parse match falls back to `/point`:
+  MiniCPM-V visual grounding on the viewed page. Chat history is kept
+  client-side as text and summarized by the model when it outgrows its token
+  budget. See `app/pipelines/chat_ask.py` and `app/core/sections.py`.
+
+The project also showcases two indexing approaches over the same manuals:
 
 - **Visual** — no parsing, no chunking: every page is embedded as an image
   with [Nemotron ColEmbed v2](https://huggingface.co/nvidia/nemotron-colembed-vl-4b-v2)
@@ -37,16 +54,6 @@ approaches over the same manuals:
   Retrieval is dense cosine over chunks with parent-document lookup back to
   the pages they came from.
 
-Questions run as a multi-turn agent chat: MiniCPM-V 4.5 sees the conversation
-history and drives retrieval itself with two prompted tools — `search_docs`
-(the selected approach's retriever, returning page images it then reads) and
-`show_page` (jumps the PDF viewer pane) — before answering grounded in the
-retrieved pages. Each turn is one ZeroGPU call streamed to the UI as events
-(tool calls show up as chips in the chat, with a live status line). Chat
-history is kept client-side as text; when it outgrows its token budget the
-model summarizes the older turns first (the UI shows "Summarizing earlier
-conversation"). See `app/pipelines/agent_ask.py`.
-
 ## Indexing (offline only)
 
 All ingestion runs offline on Modal GPUs — `scripts/index_modal.py` in the
@@ -59,12 +66,12 @@ the stack is on 4.x.
 
 ## Local UI development (mock mode)
 
-To iterate on the Gradio UI without GPUs, model downloads or the HF library
-sync, run with `MOCK_MODELS=1`. Drop any PDF into `app/data/mock_pdfs/` (or set
-`MOCK_PDF_DIR`) and the app serves a canned answer grounded in real, rendered
-pages of that PDF; both approaches are backed by the same mock, and the PDF
-viewer, cited-pages gallery and jump-to-page all work. Only the answer text and
-which pages it "cites" are faked.
+To iterate on the UI without GPUs, model downloads or the HF library sync, run
+with `MOCK_MODELS=1`. Drop any PDF into `app/data/mock_pdfs/` (or set
+`MOCK_PDF_DIR`) and the whole UX works over real rendered pages of that PDF —
+navigation, circling (canned sections/bboxes), the cited-pages gallery and the
+Q&A flow. Only the answer text, the section structure and the page/bbox picks
+are faked.
 
 ```bash
 cd app

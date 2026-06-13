@@ -25,17 +25,16 @@ DEFAULT_TOP_K = 3
 MAX_TOP_K = 5
 
 # ---------------------------------------------------------------------------
-# Agent chat (multi-turn history + tool calls, pipelines/agent_ask.py)
+# Chat (multi-turn Q&A turns, pipelines/chat_ask.py) — navigation and circling
+# are CPU-only (core/sections.py) and never reach the GPU.
 # ---------------------------------------------------------------------------
 
-# Tool-call iterations MiniCPM gets per question before being forced to
-# answer. The expected pattern is search → show_page → answer (3 generations),
-# so 5 leaves room for one retry search.
-AGENT_MAX_STEPS = 5
-# One ZeroGPU call covers a whole chat turn: up to AGENT_MAX_STEPS generations
-# plus retrieval and page rendering between them, and possibly a history
-# summarization pass first.
-AGENT_GPU_DURATION = 240
+# One ZeroGPU call covers a whole Q&A turn: retrieval + page rendering + one
+# answer generation, plus possibly a history summarization pass first.
+CHAT_GPU_DURATION = 180
+# Visual grounding ("circle the drain plug"): render one page + one short
+# generation that returns a bounding box.
+POINT_GPU_DURATION = 90
 
 # chat()'s max_inp_length is 16384 tokens and each retrieved page image costs
 # roughly 600-1000 of them, so past turns are kept as text only and summarized

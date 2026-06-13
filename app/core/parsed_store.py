@@ -75,6 +75,12 @@ class ParsedStore(DocStore):
             shutil.rmtree(doc_dir, ignore_errors=True)
             raise
 
+    def chunks(self, doc_id: str) -> list[dict]:
+        """Just the chunk dicts (no embeddings) — section/element structure
+        for the CPU navigation routes."""
+        with open(os.path.join(self._dir(doc_id), "chunks.json")) as f:
+            return json.load(f)
+
     def load(self, doc_id: str) -> tuple[list[dict], np.ndarray]:
         """Return (chunks, embeddings [n_chunks, dim] float16)."""
         doc_dir = self._dir(doc_id)

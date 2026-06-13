@@ -56,8 +56,6 @@
     @keyframes wrench-turn{0%,100%{transform:rotate(-24deg)}50%{transform:rotate(20deg)}}
     .animate-wrench{animation:wrench-turn 1s ease-in-out infinite;transform-origin:50% 50%}
 
-    iframe{border:0}
-
     /* subtle blueprint cross-hatch behind the chat (scrolls with the messages) */
     .chat-grid{
       background-color:#fff;
@@ -114,8 +112,8 @@
         <div x-show="messages.length===0" class="h-full grid place-items-center text-center px-6">
           <div>
             <i data-lucide="wrench" class="inline-block w-11 h-11 text-brand-300 mb-3"></i>
-            <p class="font-semibold text-navy">Ask about a repair manual</p>
-            <p class="text-sm text-brand-500/80 mt-1 max-w-xs mx-auto">Pick a manual above, then describe the issue or ask a question — answers come with the exact pages they're grounded in.</p>
+            <p class="font-semibold text-navy">Your hands-busy manual assistant</p>
+            <p class="text-sm text-brand-500/80 mt-1 max-w-xs mx-auto">Pick a manual above, then drive the viewer: <em>“go to brake bleeding”</em>, <em>“next page”</em>, <em>“circle the drain plug”</em> — or ask a question and get an answer grounded in the exact pages.</p>
           </div>
         </div>
 
@@ -159,7 +157,7 @@
         <div class="flex items-end gap-2 rounded-2xl border border-brand-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition px-2.5 py-2">
           <textarea x-model="input" @keydown.enter.prevent="send()" rows="1"
             :disabled="!ready"
-            placeholder="Describe the issue you're facing…"
+            placeholder="“go to the brakes section”, “next page”, “circle the drain plug”, or ask a question…"
             class="flex-1 resize-none bg-transparent px-1.5 py-1.5 text-sm text-navy outline-none placeholder:text-brand-400/70 max-h-32"></textarea>
           <button @click="send()" :disabled="loading || !ready || !input.trim()" aria-label="Send"
             class="shrink-0 grid place-items-center w-9 h-9 rounded-xl bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
@@ -169,19 +167,50 @@
       </div>
     </section>
 
-    <!-- RIGHT: PDF + cited pages -->
+    <!-- RIGHT: page viewer (rendered page image + SVG circle overlay) -->
     <section class="min-h-0 flex flex-col bg-white rounded-2xl shadow-panel ring-1 ring-navy/10 overflow-hidden">
-      <div class="flex-1 min-h-0 relative bg-brand-50/40">
-        <!-- keyed on the full URL: PDF viewers only honor the #page fragment at
-             load time and ignore hash-only src changes, so the iframe must be
-             recreated to jump pages (same-origin reload, served from cache) -->
-        <template x-for="u in (pdfDocId ? [pdfUrl] : [])" :key="u">
-          <iframe :src="u" class="absolute inset-0 w-full h-full"></iframe>
+      <!-- toolbar: big targets for shop use -->
+      <div x-show="viewDoc" class="flex items-center gap-1 px-2.5 py-1.5 border-b border-brand-100">
+        <button @click="goRel(-1)" :disabled="viewPage<=1" aria-label="Previous page"
+          class="grid place-items-center w-11 h-11 rounded-xl text-brand-600 hover:bg-brand-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
+          <i data-lucide="chevron-left" class="w-6 h-6"></i>
+        </button>
+        <button @click="goRel(1)" :disabled="viewPage>=docPages" aria-label="Next page"
+          class="grid place-items-center w-11 h-11 rounded-xl text-brand-600 hover:bg-brand-100 disabled:opacity-30 disabled:cursor-not-allowed transition">
+          <i data-lucide="chevron-right" class="w-6 h-6"></i>
+        </button>
+        <div class="text-sm font-semibold text-navy whitespace-nowrap px-1.5">
+          p. <span x-text="viewPage"></span><span class="text-brand-400 font-medium"> / <span x-text="docPages"></span></span>
+        </div>
+        <div class="flex-1 min-w-0 text-[12px] text-brand-500/90 truncate text-right pr-1" x-text="sectionTitle(viewPage)"></div>
+        <button x-show="navStack.length" @click="goBack()" aria-label="Back" title="Back to previous spot"
+          class="grid place-items-center w-11 h-11 rounded-xl text-brand-600 hover:bg-brand-100 transition">
+          <i data-lucide="undo-2" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- the page -->
+      <div class="flex-1 min-h-0 overflow-auto scroll-thin bg-brand-50/40">
+        <template x-if="viewDoc">
+          <div class="relative">
+            <img :src="pageUrl" @load="imgW=$event.target.naturalWidth; imgH=$event.target.naturalHeight"
+                 class="block w-full h-auto select-none" draggable="false" alt="manual page">
+            <!-- circle overlay: bbox coordinates are in the rendered page's
+                 pixel space, identical to the image's natural size -->
+            <svg x-show="circle && circle.page===viewPage" :viewBox="`0 0 ${imgW} ${imgH}`"
+                 class="absolute inset-0 w-full h-full pointer-events-none">
+              <template x-if="circle">
+                <ellipse :cx="(circle.bbox[0]+circle.bbox[2])/2" :cy="(circle.bbox[1]+circle.bbox[3])/2"
+                         :rx="(circle.bbox[2]-circle.bbox[0])/2+16" :ry="(circle.bbox[3]-circle.bbox[1])/2+16"
+                         fill="none" stroke="#f59e0b" stroke-width="9" opacity="0.85"/>
+              </template>
+            </svg>
+          </div>
         </template>
-        <div x-show="!pdfDocId" class="chat-grid absolute inset-0 grid place-items-center text-center px-8">
+        <div x-show="!viewDoc" class="chat-grid h-full grid place-items-center text-center px-8">
           <div>
             <i data-lucide="file-text" class="inline-block w-11 h-11 text-brand-300 mb-3"></i>
-            <p class="text-brand-500/80 text-sm max-w-xs">The cited manual page will appear here once you ask a question.</p>
+            <p class="text-brand-500/80 text-sm max-w-xs">Pick a manual and it opens here — then say things like <em>go to the brakes section</em> or <em>next page</em>.</p>
           </div>
         </div>
       </div>
@@ -192,8 +221,8 @@
           <p class="text-[11px] font-semibold uppercase tracking-wide text-brand-500/80 mb-2">Cited pages</p>
           <div class="flex gap-2.5 overflow-x-auto scroll-thin px-0.5 py-1">
             <template x-for="t in thumbs" :key="t.page">
-              <button @click="pdfPage=t.page" type="button"
-                :class="pdfPage===t.page ? 'border-accent-500' : 'border-brand-100 hover:border-brand-300'"
+              <button @click="jumpTo(t.page)" type="button"
+                :class="viewPage===t.page ? 'border-accent-500' : 'border-brand-100 hover:border-brand-300'"
                 class="shrink-0 rounded-lg overflow-hidden bg-white border-2 transition relative focus:outline-none">
                 <img :src="t.src" class="h-28 w-auto block" :alt="'page '+t.page">
                 <span class="absolute bottom-0 inset-x-0 bg-navy/80 text-white text-[10px] font-medium text-center py-0.5" x-text="'p.'+t.page"></span>
@@ -264,9 +293,13 @@ function repairGuy() {
     approach:'visual', k:__DEFAULT_K__, maxK:__MAX_K__,
     messages:[], history:[], input:'', loading:false, status:'',
     settingsOpen:false,
-    pdfDocId:'', pdfPage:1, thumbs:[], turnFirstSearch:true,
+    // viewer state machine: which page is open, the manual's section index,
+    // a jump history for "back", and the active circle overlay
+    viewDoc:'', viewPage:1, docPages:1, sections:[], navStack:[], circle:null,
+    imgW:1240, imgH:1754,  // replaced by the real natural size on image load
+    thumbs:[], turnFirstSearch:true,
 
-    get pdfUrl(){ return this.pdfDocId ? `/pdf/${encodeURIComponent(this.pdfDocId)}#page=${this.pdfPage}&view=FitH&zoom=page-width` : ''; },
+    get pageUrl(){ return this.viewDoc ? `/page/${encodeURIComponent(this.viewDoc)}/${this.viewPage}` : ''; },
 
     md(t){ return DOMPurify.sanitize(marked.parse(t||'')); },
 
@@ -293,19 +326,131 @@ function repairGuy() {
     // re-run lucide for chips appended after the initial createIcons pass
     scroll(){ this.$nextTick(()=>{ window.lucide?.createIcons(); const el=this.$refs.chat; if(el) el.scrollTop = el.scrollHeight; }); },
 
-    // switching manuals starts a fresh conversation — the history is about
-    // the previous manual's pages
-    newChat(){ this.messages=[]; this.history=[]; this.thumbs=[]; this.pdfDocId=''; this.pdfPage=1; },
+    // switching manuals starts a fresh conversation and opens the manual on
+    // page 1 (viewer-first: the mechanic drives the viewer from word one)
+    async newChat(){
+      this.messages=[]; this.history=[]; this.thumbs=[];
+      this.viewDoc=''; this.viewPage=1; this.navStack=[]; this.circle=null; this.sections=[];
+      const m = this.manuals.find(x=>x.value===this.manual);
+      if(!m) return;
+      this.docPages = m.pages || 1;
+      this.viewDoc = this.manual;
+      try{
+        const r = await fetch(`/sections/${encodeURIComponent(this.manual)}`);
+        this.sections = (await r.json()).sections || [];
+      }catch(e){ console.error(e); }
+      this.scroll();
+    },
+
+    // --- viewer state machine -----------------------------------------
+    sectionTitle(p){ let t=''; for(const s of this.sections){ if(s.page_start<=p) t=s.title; else break; } return t; },
+    sectionIndex(p){ let i=-1; this.sections.forEach((s,j)=>{ if(s.page_start<=p) i=j; }); return i; },
+
+    setPage(p, push=false){
+      p = Math.max(1, Math.min(this.docPages, p));
+      if(push && this.viewDoc && p!==this.viewPage) this.navStack.push(this.viewPage);
+      if(this.circle && this.circle.page!==p) this.circle=null;
+      this.viewPage = p; this.viewDoc = this.manual;
+    },
+    goRel(d){ this.setPage(this.viewPage+d); },
+    jumpTo(p){ this.setPage(p, true); },
+    goBack(){ const p=this.navStack.pop(); if(p) this.setPage(p); },
+
+    chip(icon, label, detail=''){ this.messages.push({role:'tool', tool:'local', icon, label, detail, pending:false}); this.scroll(); },
+    say(t){ this.messages.push({role:'assistant', html:this.md(t)}); this.scroll(); },
+
+    // --- the intent router ---------------------------------------------
+    // tier 0 (pure viewer state) and tier 1 (CPU section/element matching)
+    // never touch the GPU; anything unhandled falls through to /ask.
+    isQuestion(s){ return /\?/.test(s) || /^(what|how|why|when|where|which|who|can|could|does|do|is|are|should|will)\b/.test(s); },
+
+    async route(q){
+      const s = q.toLowerCase().replace(/[.!?]+\s*$/,'').replace(/\s+/g,' ').trim();
+      let m;
+
+      // tier 0 — page flips, jumps, back
+      if(/^(?:go |move )?(?:to )?(?:the )?next(?: page)?$|^forward(?: a page)?$/.test(s)){ this.goRel(1); this.chip('file-text', `Page ${this.viewPage}`, this.sectionTitle(this.viewPage)); return true; }
+      if(/^(?:go |move )?(?:to )?(?:the )?prev(?:ious)? page$|^back (?:a |one )?page$/.test(s)){ this.goRel(-1); this.chip('file-text', `Page ${this.viewPage}`, this.sectionTitle(this.viewPage)); return true; }
+      if(/^(?:go |take me )?back$/.test(s)){ this.goBack(); this.chip('undo-2', `Back to page ${this.viewPage}`); return true; }
+      if(m = s.match(/^(?:go to |open |show me |show |turn to )?(?:page |p\.? ?)(\d+)$/)){ this.setPage(+m[1], true); this.chip('file-text', `Page ${this.viewPage}`, this.sectionTitle(this.viewPage)); return true; }
+      if(m = s.match(/^(?:go to |move to |skip to )?(?:the )?(next|prev(?:ious)?) (?:section|chapter)$/)){
+        const i = this.sectionIndex(this.viewPage), d = m[1]==='next' ? 1 : -1;
+        const t = this.sections[i+d];
+        if(t){ this.setPage(t.page_start, true); this.chip('bookmark', t.title, `p.${t.page_start}`); }
+        else this.say(d>0 ? 'Already at the last section.' : 'Already at the first section.');
+        return true;
+      }
+      if(/^(where am i|what section is this|what section am i in)$/.test(s)){
+        const t = this.sectionTitle(this.viewPage);
+        this.say(t ? `You're on **p. ${this.viewPage}** — *${t}*.` : `You're on **p. ${this.viewPage}**.`);
+        return true;
+      }
+
+      // circling — parse bboxes first (/locate), then VLM grounding (/point)
+      if(m = s.match(/^(?:can you |please )?(?:circle|highlight|mark|point (?:at|to)|show me where)\s+(?:the |a |an )?(.+)$/))
+        return await this.circleTarget(m[1].replace(/\s+(?:is|are)(?:\s+located)?$/,''));
+
+      // tier 1 — "go to <section>"; bare section titles also navigate, but
+      // need a much stronger match so questions never get hijacked
+      const nav = s.match(/^(?:go to|take me to|navigate to|open|bring up|pull up|show me|show|find)\s+(?:the )?(.+?)(?:\s+(?:section|chapter|pages?))?$/);
+      if(nav && await this.navigateTo(nav[1], 0.45)) return true;
+      if(!nav && !this.isQuestion(s) && s.split(' ').length<=6 && await this.navigateTo(s, 0.7)) return true;
+
+      return false;  // a real question — fall through to /ask
+    },
+
+    async navigateTo(target, threshold){
+      try{
+        const r = await fetch(`/navigate/${encodeURIComponent(this.manual)}?q=${encodeURIComponent(target)}`);
+        const match = (await r.json()).match;
+        if(match && match.score>=threshold){
+          this.setPage(match.page, true);
+          this.chip('bookmark', match.title, `p.${match.page}`);
+          return true;
+        }
+      }catch(e){ console.error(e); }
+      return false;
+    },
+
+    async circleTarget(target){
+      try{
+        const r = await fetch(`/locate/${encodeURIComponent(this.manual)}?q=${encodeURIComponent(target)}`);
+        const match = (await r.json()).match;
+        if(match && match.score>=0.5){
+          this.setPage(match.page, true);
+          this.circle = {page:match.page, bbox:match.bbox};
+          this.chip('target', `Circled on p.${match.page}`, match.label||'');
+          return true;
+        }
+      }catch(e){ console.error(e); }
+      // nothing in the parse index — ask the model to find it on the open page
+      if(!this.viewDoc){ this.say('Open a page first — try *go to the brakes section* — then I can circle things on it.'); return true; }
+      this.loading=true; this.status='Looking over the page…'; this.scroll();
+      try{
+        const r = await this.client.predict('/point', {manual:this.manual, query:target, page:this.viewPage});
+        const res = r.data?.[0];
+        if(res?.found){ this.circle={page:res.page, bbox:res.bbox}; this.chip('target', `Circled on p.${res.page}`, target); }
+        else this.say(`I couldn't spot “${target}” on this page.`);
+      }catch(e){ console.error(e); this.say('⚠️ '+e); }
+      this.loading=false; this.status='';
+      return true;
+    },
 
     async send(){
       const q = this.input.trim();
       if(!q || this.loading || !this.ready) return;
       this.messages.push({role:'user', text:q});
       this.input=''; this.scroll();
-      if(!this.manual){ this.messages.push({role:'assistant', html:this.md('Pick a manual first ☝️')}); this.scroll(); return; }
+      if(!this.manual){ this.say('Pick a manual first ☝️'); return; }
+      let handled = false;
+      try{ handled = await this.route(q); }catch(e){ console.error('route failed', e); }
+      if(handled) return;
       this.loading=true; this.status='Thinking…'; this.turnFirstSearch=true; this.scroll();
       try{
-        const job = this.client.submit('/ask', {question:q, manual:this.manual, approach:this.approach, k:this.k, history:this.history});
+        const job = this.client.submit('/ask', {
+          question:q, manual:this.manual, approach:this.approach, k:this.k, history:this.history,
+          page: this.viewDoc ? this.viewPage : 0, section: this.sectionTitle(this.viewPage),
+        });
         // the client re-delivers the generator's last yield in the completion
         // payload, so stop after the first terminal (answer/error) event
         let finished = false;
@@ -314,7 +459,7 @@ function repairGuy() {
           finished = this.handleEvent(msg.data[0]);
           this.scroll();
         }
-      }catch(e){ this.messages.push({role:'assistant', html:this.md('⚠️ '+e)}); }
+      }catch(e){ this.say('⚠️ '+e); }
       this.loading=false; this.status=''; this.scroll();
     },
 
@@ -336,8 +481,6 @@ function repairGuy() {
           if(ev.tool==='search_docs'){
             this.status='Searching the manual…';
             this.messages.push({role:'tool', tool:'search_docs', icon:'search', label:`Searching: “${ev.args?.query||''}”`, detail:'', pending:true});
-          }else if(ev.tool==='show_page'){
-            this.messages.push({role:'tool', tool:'show_page', icon:'file-text', label:`Showing page ${ev.args?.page}`, detail:'', pending:true});
           }
           break;
 
@@ -350,16 +493,8 @@ function repairGuy() {
             if(this.turnFirstSearch){ this.thumbs=[]; this.turnFirstSearch=false; }
             const seen = new Set(this.thumbs.map(t=>t.page));
             for(const t of (ev.thumbnails||[])) if(!seen.has(t.page)) this.thumbs.push(t);
-            this.pdfDocId = this.manual;
-            if(ev.pages?.length) this.pdfPage = ev.pages[0];
+            if(ev.pages?.length) this.setPage(ev.pages[0], true);
             this.status='Reading the retrieved pages…';
-          }else if(ev.tool==='show_page'){
-            let chip = this.pendingChip('show_page');
-            if(chip) chip.pending=false;
-            else this.messages.push({role:'tool', tool:'show_page', icon:'file-text', label:`Showing page ${ev.page}`, detail:'', pending:false});
-            this.pdfDocId = this.manual;
-            if(ev.page>=1) this.pdfPage = ev.page;
-            this.status='Thinking…';
           }
           break;
 
@@ -367,6 +502,7 @@ function repairGuy() {
           const meta = `\n\n<span class="meta">⏱ ${ev.elapsed}s · ${ev.approach} · k=${ev.k}</span>`;
           this.messages.push({role:'assistant', html:this.md(ev.answer + meta)});
           this.history = ev.history || this.history;
+          if(ev.grounded_page>=1) this.setPage(ev.grounded_page);  // land on the cited page
           return true;
         }
       }

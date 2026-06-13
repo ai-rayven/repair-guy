@@ -3,9 +3,10 @@
 Drop any PDF into MOCK_PDF_DIR (default app/data/mock_pdfs/) and app.py serves a
 canned answer grounded in real, rendered pages of that PDF — no GPU, no model
 downloads, no HF library sync. The same MockStore instance backs both
-approaches, so the manual dropdown, the PDF viewer, the cited-pages gallery and
-the jump-to-page behaviour all exercise the real wiring; only the answer text
-and page selection are faked.
+approaches, so the manual dropdown, the page viewer, navigation, circling, the
+cited-pages gallery and the jump-to-page behaviour all exercise the real
+wiring; only the answer text, the section structure and the page/bbox picks
+are faked.
 
 Nothing here imports torch / spaces / the model modules (those load CUDA at
 import), so this module is safe to load on a laptop.
@@ -19,8 +20,23 @@ import os
 import time
 
 from core.constants import MOCK_PDF_DIR
-from core.pdf import page_count, render_pages
+from core.pdf import page_count, page_size, render_pages
 from core.store import slugify
+
+# Canned section titles spread evenly over each PDF's pages, realistic enough
+# to exercise "go to <section>" fuzzy matching in local tests.
+MOCK_SECTION_TITLES = [
+    "General Information",
+    "Engine Mechanical System",
+    "Engine Electrical System",
+    "Fuel System",
+    "Cooling System",
+    "Transmission System",
+    "Brake System — Bleeding and Adjustment",
+    "Steering System",
+    "Suspension System",
+    "Body Electrical System",
+]
 
 MOCK_ANSWER = (
     "🧪 **Mock mode** — canned answer for UI iteration, not a real model "
@@ -69,6 +85,46 @@ class MockStore:
         info = self._docs().get(doc_id)
         return info["path"] if info else None
 
+    def sections(self, doc_id: str) -> list[dict]:
+        """Canned sections spread evenly over the PDF's real pages — same
+        shape as core.sections.sections_from_chunks."""
+        info = self._docs().get(doc_id)
+        if not info:
+            return []
+        n = page_count(info["path"])
+        k = min(len(MOCK_SECTION_TITLES), n)
+        starts = [round(i * n / k) + 1 for i in range(k)]
+        return [
+            {
+                "title": MOCK_SECTION_TITLES[i],
+                "page_start": starts[i],
+                "page_end": (starts[i + 1] - 1) if i + 1 < k else n,
+            }
+            for i in range(k)
+        ]
+
+    def elements(self, doc_id: str) -> list[dict]:
+        """Canned figure/table chunks (one per section, bbox in rendered-page
+        pixels) so /locate works in mock mode."""
+        info = self._docs().get(doc_id)
+        if not info:
+            return []
+        w, h = page_size(info["path"], 1)
+        out = []
+        for i, s in enumerate(self.sections(doc_id)):
+            kind = "figure" if i % 2 == 0 else "table"
+            out.append(
+                {
+                    "type": kind,
+                    "heading": s["title"],
+                    "page": s["page_start"],
+                    "bbox": [w * 0.15, h * 0.25, w * 0.85, h * 0.6],
+                    "text": f"Mock {kind}: exploded view and specifications "
+                    f"for the {s['title'].lower()}.",
+                }
+            )
+        return out
+
 
 class MockAskPipeline:
     """Stateless mock matching the real ask pipelines' contracts: picks a
@@ -93,28 +149,29 @@ class MockAskPipeline:
         page_refs = [(doc_id, p) for p in pages]
         return answer, gallery, page_refs
 
-    def run_agent(
+    def run_chat(
         self,
         store: MockStore,
         question: str,
         history: list[dict],
         doc_ids: list[str] | None,
         top_k: int,
+        viewer: dict | None = None,
     ):
-        """Yield the same event sequence as pipelines/agent_ask.py — status,
-        a fake search_docs call grounded in real rendered pages, a show_page
-        call, then the answer with the updated text history. Every third turn
-        the history is "summarized" so the UI's compaction status can be
-        exercised. MOCK_DELAY (seconds) paces the events."""
+        """Yield the same event sequence as pipelines/chat_ask.py — a search
+        grounded in real rendered pages, then the answer with the updated text
+        history. Every third turn the history is "summarized" so the UI's
+        compaction status can be exercised. MOCK_DELAY (seconds) paces the
+        events."""
         question = (question or "").strip()
         if not question:
             raise ValueError("Please enter a question.")
         doc_id, info = self._pick_doc(store, doc_ids)
-        return self._agent_events(
+        return self._chat_events(
             store, question, list(history or []), doc_id, info, int(top_k)
         )
 
-    def _agent_events(self, store, question, history, doc_id, info, top_k):
+    def _chat_events(self, store, question, history, doc_id, info, top_k):
         delay = float(os.environ.get("MOCK_DELAY", "0"))
 
         summarized = False
@@ -135,11 +192,7 @@ class MockAskPipeline:
             ] + history[-4:]
             summarized = True
 
-        yield {"type": "status", "text": "Thinking…"}
-        time.sleep(delay)
-
-        query = " ".join(question.split()[:6])
-        yield {"type": "tool_call", "tool": "search_docs", "args": {"query": query}}
+        yield {"type": "tool_call", "tool": "search_docs", "args": {"query": question}}
         time.sleep(delay)
         pages = self._pick_pages(question, info["pages"], top_k)
         images = render_pages(store.pdf_path(doc_id), pages)
@@ -150,28 +203,37 @@ class MockAskPipeline:
             "gallery": [(img, f"{label} (mock)") for label, img in zip(labels, images)],
             "page_refs": [(doc_id, p) for p in pages],
         }
-
-        yield {"type": "status", "text": "Thinking…"}
-        time.sleep(delay)
-        yield {"type": "tool_call", "tool": "show_page", "args": {"page": pages[0]}}
-        yield {"type": "tool_result", "tool": "show_page", "page": pages[0], "doc_id": doc_id}
+        yield {"type": "status", "text": "Reading the pages…"}
         time.sleep(delay)
 
         answer = MOCK_ANSWER.format(label=labels[0])
-        trace = (
-            f'[searched the manual for "{query}" → {", ".join(labels)}]\n'
-            f"[displayed page {pages[0]} in the viewer]"
-        )
         yield {
             "type": "answer",
             "answer": answer,
             "history": history
             + [
                 {"role": "user", "content": question},
-                {"role": "assistant", "content": trace + "\n\n" + answer},
+                {"role": "assistant", "content": answer},
             ],
             "summarized": summarized,
+            "grounded_page": pages[0],
         }
+
+    @staticmethod
+    def point(store: MockStore, doc_id: str, page: int, query: str) -> dict | None:
+        """Mock visual grounding: a deterministic, query-dependent box on the
+        requested page, in rendered-page pixels (None for one query in ~8, so
+        the not-found path can be exercised with e.g. 'circle the xyzzy')."""
+        path = store.pdf_path(doc_id)
+        if not path:
+            return None
+        seed = int(hashlib.sha1(query.encode()).hexdigest(), 16)
+        if seed % 8 == 7:
+            return None
+        w, h = page_size(path, page)
+        x1 = w * (0.1 + (seed % 5) * 0.1)
+        y1 = h * (0.15 + (seed // 5 % 5) * 0.12)
+        return {"page": page, "bbox": [round(x1), round(y1), round(x1 + w * 0.3), round(y1 + h * 0.18)]}
 
     @staticmethod
     def _pick_doc(store: MockStore, doc_ids: list[str] | None):

@@ -33,3 +33,29 @@ def render_pages(
 
 def render_page(pdf_path: str, page_num: int, dpi: int = RENDER_DPI) -> Image.Image:
     return render_pages(pdf_path, [page_num], dpi)[0]
+
+
+def render_page_png(pdf_path: str, page_num: int, dpi: int = RENDER_DPI) -> bytes:
+    """Render a 1-based page straight to PNG bytes (for the /page route).
+    Same DPI as the model/parse renders, so parse bboxes map 1:1 onto it."""
+    doc = fitz.open(pdf_path)
+    try:
+        if page_num < 1 or page_num > doc.page_count:
+            raise ValueError(
+                f"Page {page_num} out of range — this PDF has {doc.page_count} pages."
+            )
+        return doc.load_page(page_num - 1).get_pixmap(dpi=dpi).tobytes("png")
+    finally:
+        doc.close()
+
+
+def page_size(pdf_path: str, page_num: int, dpi: int = RENDER_DPI) -> tuple[int, int]:
+    """(width, height) in pixels a 1-based page renders to at this DPI,
+    without rendering it."""
+    doc = fitz.open(pdf_path)
+    try:
+        rect = doc.load_page(page_num - 1).rect
+        scale = dpi / 72
+        return round(rect.width * scale), round(rect.height * scale)
+    finally:
+        doc.close()
