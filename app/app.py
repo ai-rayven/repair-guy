@@ -367,6 +367,36 @@ def serve_media(filename: str):
     return FileResponse(path)
 
 
+# Self-hosted browser assets for the voice mode: Silero VAD (the always-on
+# listener) + onnxruntime-web's wasm runtime, vendored under frontend/vendor/ so
+# nothing on the listening path depends on a CDN. Pinned + immutable → long
+# cache. Only known extensions are served, and the resolved path is confined to
+# the vendor dir (no traversal).
+_VENDOR_DIR = os.path.join(_FRONTEND_DIR, "vendor")
+_VENDOR_MEDIA_TYPES = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".wasm": "application/wasm",
+    ".onnx": "application/octet-stream",
+}
+
+
+@app.get("/vendor/{path:path}")
+def serve_vendor(path: str):
+    """Vendored voice-mode assets (vad worklet/model + ort wasm runtime)."""
+    full = os.path.normpath(os.path.join(_VENDOR_DIR, path))
+    if not full.startswith(_VENDOR_DIR + os.sep) or not os.path.isfile(full):
+        return Response(status_code=404)
+    media_type = _VENDOR_MEDIA_TYPES.get(os.path.splitext(full)[1].lower())
+    if media_type is None:
+        return Response(status_code=404)
+    return FileResponse(
+        full,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @app.get("/pdf/{doc_id}")
 def serve_pdf(doc_id: str):
     """A manual's source PDF (kept for direct download/open-in-tab; the viewer

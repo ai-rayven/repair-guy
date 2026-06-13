@@ -213,17 +213,35 @@
           Try <em>“go to brake bleeding”</em>, <em>“next page”</em>, <em>“circle the brake hoses”</em>.
         </div>
 
-        <!-- input (text now; mic + live transcript later) -->
+        <!-- input — type, or tap the mic to talk (transcript flows into the
+             SAME send() path as typing) -->
         <div class="flex items-end gap-2 rounded-2xl border border-brand-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition px-2.5 py-1.5">
           <textarea x-model="input" @keydown.enter.prevent="send()" rows="1"
             :disabled="!ready"
             placeholder="Type a request…"
             class="flex-1 resize-none bg-transparent px-1.5 py-1.5 text-sm text-navy outline-none placeholder:text-brand-400/70 max-h-24"></textarea>
+          <!-- mic: arms always-on listening (Silero VAD → Moonshine, fully
+               in-browser). The tap also satisfies the mobile mic-permission
+               gesture; the voice stack is lazy-loaded on first use so it never
+               touches initial page load. -->
+          <button @click="toggleVoice()" :disabled="!ready || voice==='loading'"
+            :aria-pressed="listening" aria-label="Voice input"
+            :title="voice==='on' ? 'Listening — tap to stop' : (voice==='loading' ? 'Loading voice…' : (voiceErr || 'Tap to talk'))"
+            class="shrink-0 grid place-items-center w-9 h-9 rounded-xl transition disabled:cursor-not-allowed"
+            :class="voice==='on' ? 'bg-accent-500 text-white animate-pulse'
+                  : voice==='loading' ? 'bg-brand-100 text-brand-500 animate-pulse'
+                  : voice==='error' ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                  : 'text-brand-500 hover:text-navy hover:bg-brand-100'">
+            <i data-lucide="audio-lines" class="w-5 h-5"></i>
+          </button>
           <button @click="send()" :disabled="loading || !ready || !input.trim()" aria-label="Send"
             class="shrink-0 grid place-items-center w-9 h-9 rounded-xl bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
             <i data-lucide="arrow-up" class="w-5 h-5"></i>
           </button>
         </div>
+        <p x-show="voice==='on'" class="text-[11px] text-accent-600 px-1">Listening — just speak. Tap the mic to stop.</p>
+        <p x-show="voice==='loading'" class="text-[11px] text-brand-400 px-1">Loading voice (first time downloads the model)…</p>
+        <p x-show="voice==='error' && voiceErr" class="text-[11px] text-red-500 px-1" x-text="'Voice unavailable: ' + voiceErr"></p>
       </div>
     </section>
 
@@ -364,6 +382,11 @@ function repairGuy() {
     // compact memory of past turns ([{request, action}]) sent with each turn so
     // the agent can resolve references ("circle the other one", "go back").
     lastRequest:'', activity:null, history:[],
+    // voice mode: always-on, fully in-browser (Silero VAD segments speech →
+    // Moonshine transcribes → the transcript is fed into send() like typed
+    // text). Lazy-loaded on first mic tap; `voice` is the state machine
+    // (idle | loading | on | error). vad/asr are the one-time-built singletons.
+    voice:'idle', voiceErr:'', vad:null, asr:null, wakeLock:null,
     // left-rail tabs: 'toc' (the manual's contents) | 'trace' (the agent's full
     // diagnostic trace for the session). `trace` accumulates structured entries;
     // `traceSeen` drives the unseen-activity dot on the Diagnostics tab.
@@ -677,6 +700,20 @@ function repairGuy() {
               console.log('[circle-diag]', {page:ev.page, bbox:ev.bbox,
                 dimsFromBackend:ev.dims, natLoaded:this.nat[ev.page],
                 boxDimsUsed:this.boxDims(ev.page), usingBackendDims:!!ev.dims});
+              // DIAGNOSTIC 2: after Alpine renders, measure the ACTUAL drawn rect.
+              // Tells us if the box is (a) absent from the DOM, (b) zero-size,
+              // (c) rendered but off-screen/clipped, or (d) visible on-screen.
+              this.$nextTick(()=>{ setTimeout(()=>{
+                const rects=[...document.querySelectorAll('svg[viewBox] rect')];
+                const vis=rects.map(rc=>{ const svg=rc.ownerSVGElement;
+                  const shown=svg.checkVisibility ? svg.checkVisibility() : (svg.getClientRects().length>0);
+                  const r=rc.getBoundingClientRect();
+                  const img=svg.parentElement.querySelector('img'); const ir=img&&img.getBoundingClientRect();
+                  return {svgShown:shown, rect:{x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)},
+                    img: ir&&{x:Math.round(ir.x),y:Math.round(ir.y),w:Math.round(ir.width),h:Math.round(ir.height)},
+                    onScreen: r.width>1 && r.height>1 && r.bottom>0 && r.top<innerHeight && r.right>0 && r.left<innerWidth}; });
+                console.log('[circle-render]', {viewPage:this.viewPage, spread:this.spreadPages, rectsFound:rects.length, detail:vis});
+              },50); });
               find.icon='target'; find.label=`Circled “${ev.target}”`; this.recordHistory(`circled “${ev.target}” on p.${ev.page}`); }
             else { find.icon='file-text'; find.label=`Showed “${ev.target}”`; this.recordHistory(`showed “${ev.target}” on p.${ev.page}`); }  // page found, not pinpointed
             find.detail=`p.${ev.page}${meta}`;
@@ -690,6 +727,91 @@ function repairGuy() {
       }
       return false;
     },
+
+    // --- voice mode: always-on listening, fully in-browser ------------
+    // Tap the mic to arm; Silero VAD (vendored, runs on onnxruntime-web's
+    // wasm) listens continuously and fires onSpeechEnd when an utterance
+    // finishes — that's the "send". The clip is transcribed by Moonshine
+    // (transformers.js) and dropped into send() exactly like typed text, so
+    // the find/nav pipeline downstream is untouched. Nothing leaves the
+    // browser. The whole stack is lazy-loaded on first tap, so it never
+    // affects initial page load or the type-only flow.
+    get listening(){ return this.voice==='on'; },
+
+    async toggleVoice(){
+      if(this.voice==='loading') return;
+      if(this.voice==='on'){ await this.voiceStop(); return; }
+      await this.voiceStart();
+    },
+
+    async voiceStart(){
+      this.voice='loading'; this.voiceErr='';
+      try{
+        if(!this.vad) await this.voiceInit();  // one-time: libs + models + mic
+        await this.vad.start();
+        this.acquireWakeLock();                // keep the screen awake while listening (mobile)
+        this.voice='on';
+      }catch(e){
+        console.error('voice start failed', e);
+        this.voiceErr=(e && e.message) || String(e); this.voice='error';
+      }
+    },
+
+    async voiceStop(){
+      try{ this.vad?.pause(); }catch(_){}      // keep the instance warm; re-arm is instant
+      this.releaseWakeLock();
+      this.voice='idle';
+    },
+
+    // one-time heavy setup, run on the first mic tap
+    async voiceInit(){
+      // 1) self-hosted onnxruntime-web (global `ort`) + Silero VAD (global `vad`),
+      //    loaded as injected <script>s so they stay out of initial page load.
+      //    Single-threaded → no SharedArrayBuffer, so no cross-origin isolation
+      //    is needed inside the HF Spaces iframe.
+      await this.loadScript('/vendor/onnx/ort.wasm.min.js');
+      window.ort.env.wasm.numThreads = 1;
+      window.ort.env.wasm.wasmPaths = '/vendor/onnx/';
+      await this.loadScript('/vendor/vad/bundle.min.js');
+
+      // 2) Moonshine ASR (transformers.js from CDN; the tiny model is fetched
+      //    from the HF hub once, then cached in the browser).
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers');
+      this.asr = await pipeline('automatic-speech-recognition', 'onnx-community/moonshine-tiny-ONNX');
+
+      // 3) the mic: Silero VAD segments speech; onSpeechEnd is our send trigger
+      this.vad = await window.vad.MicVAD.new({
+        baseAssetPath: '/vendor/vad/',
+        onnxWASMBasePath: '/vendor/onnx/',
+        model: 'v5',
+        onSpeechEnd: (audio)=> this.onUtterance(audio),
+      });
+    },
+
+    // a finished utterance (Float32Array @16kHz) → transcribe → normal send()
+    async onUtterance(audio){
+      if(this.loading) return;  // a turn is already running; drop this clip (v1)
+      let text='';
+      try{ const out = await this.asr(audio); text=(out?.text||'').trim(); }
+      catch(e){ console.error('transcribe failed', e); return; }
+      if(!text) return;
+      this.input = text;
+      this.send();              // routes locally ("next page") or runs a find turn
+    },
+
+    // inject a <script> once and resolve when it has loaded
+    loadScript(src){
+      return new Promise((resolve, reject)=>{
+        if(document.querySelector(`script[data-src="${src}"]`)) return resolve();
+        const s=document.createElement('script');
+        s.src=src; s.async=true; s.dataset.src=src;
+        s.onload=()=>resolve(); s.onerror=()=>reject(new Error('failed to load '+src));
+        document.head.appendChild(s);
+      });
+    },
+
+    async acquireWakeLock(){ try{ this.wakeLock = await navigator.wakeLock?.request('screen'); }catch(_){} },
+    releaseWakeLock(){ try{ this.wakeLock?.release(); }catch(_){} this.wakeLock=null; },
   }
 }
 </script>
