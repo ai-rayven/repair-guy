@@ -50,24 +50,32 @@ SYSTEM_PROMPT = (
     "a page viewer. You do NOT answer questions or explain — the manual does the "
     "talking. Your only job is to FIND the right page and POINT at things on it.\n\n"
     "Each step, choose exactly ONE tool and reply with ONLY its JSON object — no "
-    "prose, no markdown, nothing else:\n"
-    '- Search the whole manual for a part/topic/procedure:\n'
+    "prose, no markdown, nothing else. Replace every <...> placeholder with the "
+    "real value — NEVER output the angle brackets.\n\n"
+    "Tools:\n"
+    '- Search the manual for a part/topic/procedure:\n'
     '  {"tool": "search", "query": "<focused search phrase>"}\n'
-    "- Jump to a section (use its number from the TABLE OF CONTENTS):\n"
+    "- Jump to a section — use its number from the TABLE OF CONTENTS:\n"
     '  {"tool": "go_to_section", "section": <number>}\n'
     "- Circle something on the CURRENT page (its full text is given to you):\n"
     '  {"tool": "circle", "target": "<short name of the thing to circle>"}\n'
     "- Finish — nothing more to do, or it isn't in the manual:\n"
     '  {"tool": "done", "message": "<one short line for the mechanic>"}\n\n'
-    "Rules:\n"
-    "- Prefer circle when the thing the mechanic wants is plainly on the CURRENT "
-    "page. Prefer go_to_section when they name or describe a section. Otherwise "
-    "search, then circle on the page it shows.\n"
-    "- After a search shows a page, that page becomes the CURRENT page; circle on "
-    "it or search again.\n"
+    "How to choose:\n"
+    '- They say "go to" / "take me to" / name a section → go_to_section.\n'
+    "- The thing they want is on the CURRENT page → circle it. The target MUST "
+    "be what the mechanic asked for — match it to the page's exact wording if it "
+    "appears there; NEVER circle a different component.\n"
+    "- Otherwise → search. After a search shows a page, that page becomes the "
+    "CURRENT page, so circle on it or search again.\n"
     "- Use the conversation history only to resolve what they mean (e.g. "
-    '"circle the other one"); never restate earlier answers.\n'
-    "- Reply with ONLY the JSON object."
+    '"circle the other one"); never restate earlier answers.\n\n'
+    "Examples (copy the FORMAT, not the values):\n"
+    'Mechanic: "go to the cooling system" → {"tool": "go_to_section", "section": 5}\n'
+    'Mechanic: "where do I replace the fuel filter" (not on this page) → '
+    '{"tool": "search", "query": "fuel filter replacement"}\n'
+    'Mechanic: "circle the bleeder screw" (it is on this page) → '
+    '{"tool": "circle", "target": "bleeder screw"}'
 )
 
 
@@ -96,12 +104,16 @@ def state_message(
         if page_text
         else f"CURRENT PAGE: {where} (no text available)"
     )
+    # The request goes LAST (after the long page text) so it stays freshest —
+    # otherwise the page block dominates and the agent acts on the page instead
+    # of what was asked.
     return {
         "role": "user",
         "content": (
-            f"The mechanic said: {request!r}\n\n"
+            f"{page_block}\n\n"
             f"TABLE OF CONTENTS:\n{toc_lines}\n\n"
-            f"{page_block}"
+            f"The mechanic said: {request!r}\n"
+            "Choose ONE tool and reply with ONLY its JSON object."
         ),
     }
 
@@ -177,7 +189,7 @@ def _parse_tool(raw: str) -> dict | None:
     tool = obj.get("tool")
     if tool == "search":
         query = str(obj.get("query") or "").strip()
-        return {"tool": "search", "query": query} if query else None
+        return {"tool": "search", "query": query} if _real(query) else None
     if tool == "go_to_section":
         try:
             return {"tool": "go_to_section", "section": int(obj.get("section"))}
@@ -185,10 +197,17 @@ def _parse_tool(raw: str) -> dict | None:
             return None
     if tool == "circle":
         target = str(obj.get("target") or "").strip()
-        return {"tool": "circle", "target": target} if target else None
+        return {"tool": "circle", "target": target} if _real(target) else None
     if tool == "done":
         return {"tool": "done", "message": str(obj.get("message") or "").strip()}
     return None
+
+
+def _real(value: str) -> bool:
+    """A usable arg, not an echoed placeholder. Small models sometimes copy the
+    schema example verbatim ("<short name of the thing to circle>") — angle
+    brackets are the tell; reject so the loop re-asks for a real value."""
+    return bool(value) and "<" not in value and ">" not in value
 
 
 def decide(messages: list[dict]) -> tuple[dict | None, str]:

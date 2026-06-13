@@ -112,12 +112,16 @@ def agent_events(
         tool, raw = minicpm_agent.decide(messages)
         log.info("step %d: tool=%s | raw=%r", step, tool, raw[:200])
         if tool is None:
-            yield {
-                "type": "done",
-                "kind": "reply",
-                "message": "Sorry, I didn't catch that — try rephrasing.",
-            }
-            return
+            # Unusable reply (bad JSON, or an echoed placeholder target). Correct
+            # it and let the agent try again rather than abandon the turn.
+            messages.append(
+                minicpm_agent.tool_result_message(
+                    "That was not a valid tool call. Reply with ONLY one JSON "
+                    'object like {"tool": "circle", "target": "drain plug"} — '
+                    "fill in the real value."
+                )
+            )
+            continue
         messages.append(minicpm_agent.assistant_action_message(tool))
 
         if tool["tool"] == "go_to_section":
@@ -169,7 +173,11 @@ def agent_events(
                 minicpm_agent.tool_result_message(
                     f"Search showed p.{best_page}. It is now the CURRENT page.\n"
                     f"CURRENT PAGE (p.{best_page}) — full text:\n"
-                    f"{page_text(best_page) or '(no text available)'}"
+                    f"{page_text(best_page) or '(no text available)'}\n\n"
+                    f"The mechanic asked for: {request!r}. If THAT is on this page, "
+                    "circle it (use its exact name as printed on the page). "
+                    "Otherwise search again or go to a section. Do not circle a "
+                    "different component."
                 )
             )
             continue
