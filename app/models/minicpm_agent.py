@@ -19,7 +19,9 @@ tool:
 It never writes answers — the manual does the talking. History is used only to
 resolve references ("circle the other one", "go back to that bolt").
 
-Standard LlamaForCausalLM (no trust_remote_code). Loaded as a module-level CUDA
+The default brain is a standard LlamaForCausalLM (no trust_remote_code); other
+selectable brains may ship custom modeling code (loaded with trust_remote_code
+per their AGENT_MODELS spec — see use_model). Loaded as a module-level CUDA
 global for the same ZeroGPU reason as the other models: module-level CUDA tensors
 are shared with the GPU worker, whereas function arguments are pickled.
 
@@ -243,7 +245,7 @@ _active_key: str | None = None
 _MODEL = None
 _TOKENIZER = None
 # Whether the active model's chat template accepts enable_thinking (Qwen3 /
-# MiniCPM yes, Cohere no) — drives whether we pass the kwarg below.
+# all current brains do) — drives whether we pass the kwarg below.
 _THINKING = False
 
 
@@ -268,16 +270,23 @@ def use_model(key: str | None = None) -> str:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
     log.info("agent model: loading %s (%s)", spec["key"], spec["model_id"])
+    trust = spec.get("trust_remote_code", False)
     _TOKENIZER = AutoTokenizer.from_pretrained(
-        spec["model_id"], revision=spec["revision"]
+        spec["model_id"], revision=spec["revision"], trust_remote_code=trust
     )
+    load_kwargs = dict(
+        revision=spec["revision"],
+        dtype=torch.bfloat16,
+        trust_remote_code=trust,
+    )
+    # attn_implementation defaults to "sdpa" but a spec can override it — None
+    # omits the kwarg entirely so the model's own modeling code picks its default
+    # (MiniCPM4.1-8B ships custom sparse attention that we don't want to force).
+    attn = spec.get("attn_implementation", "sdpa")
+    if attn is not None:
+        load_kwargs["attn_implementation"] = attn
     _MODEL = (
-        AutoModelForCausalLM.from_pretrained(
-            spec["model_id"],
-            revision=spec["revision"],
-            dtype=torch.bfloat16,
-            attn_implementation="sdpa",
-        )
+        AutoModelForCausalLM.from_pretrained(spec["model_id"], **load_kwargs)
         .to("cuda")
         .eval()
     )

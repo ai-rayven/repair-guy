@@ -45,12 +45,13 @@ MINICPM_AGENT_REVISION = os.environ.get("MINICPM_AGENT_REVISION", "") or None
 
 # Selectable agent brains, offered in the UI settings panel. ONE model is
 # resident in VRAM at a time — switching evicts the previous and loads the next
-# (models/minicpm_agent.use_model). All load as a plain AutoModelForCausalLM.
-# `thinking` flags whether the chat template accepts enable_thinking (Qwen3 and
-# MiniCPM do — tool routing passes it False; Cohere's template does not, so the
-# kwarg is omitted there). The FIRST entry is the default at boot and tracks the
-# MINICPM_AGENT_MODEL_ID/REVISION env overrides, so existing config still
-# applies. All four stay well under the hackathon's 32B total-params budget.
+# (models/minicpm_agent.use_model). Each loads as an AutoModelForCausalLM;
+# `trust_remote_code` (default False) flags the ones that ship custom modeling
+# code (MiniCPM4.1-8B). `thinking` flags whether the chat template accepts
+# enable_thinking (Qwen3 and MiniCPM do — tool routing passes it False). The
+# FIRST entry is the default at boot and tracks the MINICPM_AGENT_MODEL_ID/
+# REVISION env overrides, so existing config still applies. Only one is resident
+# at a time, so each stays well under the hackathon's 32B total-params budget.
 AGENT_MODELS = [
     {
         "key": "minicpm5-1b",
@@ -74,11 +75,17 @@ AGENT_MODELS = [
         "thinking": True,
     },
     {
-        "key": "tiny-aya",
-        "label": "Tiny Aya 3.35B (Cohere)",
-        "model_id": "CohereLabs/tiny-aya-global",
+        "key": "minicpm4.1-8b",
+        "label": "MiniCPM4.1 8B",
+        "model_id": "openbmb/MiniCPM4.1-8B",
+        # trust_remote_code model — pin a reviewed commit before a real deploy
+        # (see use_model). Left unpinned here so the entry tracks latest.
         "revision": None,
-        "thinking": False,
+        "thinking": True,
+        "trust_remote_code": True,
+        # Ships custom sparse attention (InfLLM v2) — let its modeling code pick
+        # the attn impl instead of forcing sdpa like the standard-arch brains.
+        "attn_implementation": None,
     },
 ]
 DEFAULT_AGENT_MODEL = AGENT_MODELS[0]["key"]
