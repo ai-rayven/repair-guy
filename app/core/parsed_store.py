@@ -81,6 +81,16 @@ class ParsedStore(DocStore):
         with open(os.path.join(self._dir(doc_id), "chunks.json")) as f:
             return json.load(f)
 
+    def parsed_pages(self, doc_id: str) -> list[dict]:
+        """The raw Nemotron Parse output kept at ingest: [{"page", "elements"}]
+        in reading order. The agent's whole-page context is built from this (see
+        core/page_context). Empty when this doc predates parsed.json being saved."""
+        path = os.path.join(self._dir(doc_id), "parsed.json")
+        if not os.path.isfile(path):
+            return []
+        with open(path) as f:
+            return json.load(f)
+
     def load(self, doc_id: str) -> tuple[list[dict], np.ndarray]:
         """Return (chunks, embeddings [n_chunks, dim] float16)."""
         doc_dir = self._dir(doc_id)

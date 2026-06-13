@@ -15,7 +15,6 @@ from core.pdf import render_page
 from core.visual_store import VisualStore
 from models.colembed import maxsim_search
 from models.minicpm import generate_answer
-from pipelines.find_ask import find_events
 
 
 @spaces.GPU(duration=ASK_GPU_DURATION)
@@ -51,26 +50,3 @@ class VisualAskPipeline:
             raise ValueError("No manuals in this library yet.")
         names = {d["doc_id"]: d["name"] for d in docs}
         return _ask_on_gpu(question, store, doc_ids or None, int(top_k), names)
-
-    def run_find(
-        self,
-        store: VisualStore,
-        request: str,
-        doc_ids: list[str] | None,
-        top_k: int,
-        sections: list[dict],
-        viewer: dict | None = None,
-    ):
-        """One streamed find-and-point turn: the event generator of
-        find_ask.py, with MaxSim as the search step."""
-        request = (request or "").strip()
-        if not request:
-            raise ValueError("Please enter a request.")
-        docs = store.list_docs()
-        if not docs:
-            raise ValueError("No manuals in this library yet.")
-        names = {d["doc_id"]: d["name"] for d in docs}
-        return find_events(
-            request, store, doc_ids or list(names), int(top_k), names,
-            "visual", sections, viewer,
-        )

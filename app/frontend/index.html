@@ -256,21 +256,8 @@
         </button>
       </div>
 
-      <!-- approach -->
-      <label class="block text-xs font-semibold uppercase tracking-wide text-brand-500/80 mb-2">Retrieval approach</label>
-      <div class="grid grid-cols-2 gap-2 mb-1">
-        <template x-for="info in approaches" :key="info.key">
-          <button @click="approach=info.key"
-            :class="approach===info.key ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-brand-100 hover:border-brand-300'"
-            class="text-left rounded-xl border px-3.5 py-3 transition">
-            <div class="font-semibold text-sm text-navy" x-text="info.label"></div>
-            <div class="text-[11px] text-brand-500/80 mt-0.5 leading-snug" x-text="info.blurb"></div>
-          </button>
-        </template>
-      </div>
-
-      <!-- k -->
-      <div class="mt-5">
+      <!-- k: search shortlist size the agent reranks -->
+      <div>
         <div class="flex items-center justify-between mb-1.5">
           <label class="text-xs font-semibold uppercase tracking-wide text-brand-500/80">Pages retrieved (k)</label>
           <span class="text-sm font-bold text-accent-600" x-text="k"></span>
@@ -310,15 +297,16 @@ function repairGuy() {
   return {
     client:null, ready:false,
     manuals:[], manual:'',
-    approaches: __APPROACHES__,
-    approach:'visual', k:__DEFAULT_K__, maxK:__MAX_K__,
+    k:__DEFAULT_K__, maxK:__MAX_K__,
     input:'', loading:false, status:'',
     settingsOpen:false,
     ICONS,
-    // There is NO chat history. The command bar shows only the last request
-    // (the speech-to-text transcript, once voice lands) and `activity`: the
-    // single, evolving indicator of the current tool call / one-line reply.
-    lastRequest:'', activity:null,
+    // The command bar shows only the last request (the speech-to-text
+    // transcript, once voice lands) and `activity`: the single, evolving
+    // indicator of the current tool call / one-line reply. `history` is the
+    // compact memory of past turns ([{request, action}]) sent with each turn so
+    // the agent can resolve references ("circle the other one", "go back").
+    lastRequest:'', activity:null, history:[],
     // viewer state machine: which page is open, the manual's chapter index,
     // a jump history for "back", and the active circle overlay.
     viewDoc:'', viewPage:1, docPages:1, sections:[], navStack:[], circle:null,
@@ -354,7 +342,7 @@ function repairGuy() {
 
     // switching manuals starts fresh and opens the manual on page 1
     async newChat(){
-      this.lastRequest=''; this.activity=null; this.thumbs=[];
+      this.lastRequest=''; this.activity=null; this.thumbs=[]; this.history=[];
       this.viewDoc=''; this.viewPage=1; this.navStack=[]; this.circle=null; this.sections=[];
       const m = this.manuals.find(x=>x.value===this.manual);
       if(!m) return;
@@ -387,18 +375,25 @@ function repairGuy() {
     chip(icon, label, detail=''){ this.activity={icon, label, detail, pending:false}; this.icons(); },
     say(t){ this.activity={icon:'info', label:t, detail:'', pending:false}; this.icons(); },
 
+    // compact memory of past turns sent with each find (last 8 kept)
+    recordHistory(action){
+      if(!this.lastRequest || !action) return;
+      this.history.push({request:this.lastRequest, action});
+      if(this.history.length>8) this.history.shift();
+    },
+
     // --- obvious navigation (handled locally, no server call) ----------
     routeLocal(q){
       const s = q.toLowerCase().replace(/[.!?]+\s*$/,'').replace(/\s+/g,' ').trim();
       let m;
-      if(/^(?:go |move )?(?:to )?(?:the )?next(?: page)?$|^forward(?: a page)?$/.test(s)){ this.goRel(1); this.chip('file-text', `Page ${this.viewPage}`, this.sectionTitle(this.viewPage)); return true; }
-      if(/^(?:go |move )?(?:to )?(?:the )?prev(?:ious)? page$|^back (?:a |one )?page$/.test(s)){ this.goRel(-1); this.chip('file-text', `Page ${this.viewPage}`, this.sectionTitle(this.viewPage)); return true; }
-      if(/^(?:go |take me )?back$/.test(s)){ this.goBack(); this.chip('undo-2', `Back to page ${this.viewPage}`); return true; }
-      if(m = s.match(/^(?:go to |open |show me |show |turn to )?(?:page |p\.? ?)(\d+)$/)){ this.setPage(+m[1], true); this.chip('file-text', `Page ${this.viewPage}`, this.sectionTitle(this.viewPage)); return true; }
+      if(/^(?:go |move )?(?:to )?(?:the )?next(?: page)?$|^forward(?: a page)?$/.test(s)){ this.goRel(1); this.chip('file-text', `Page ${this.viewPage}`, this.sectionTitle(this.viewPage)); this.recordHistory(`turned to p.${this.viewPage}`); return true; }
+      if(/^(?:go |move )?(?:to )?(?:the )?prev(?:ious)? page$|^back (?:a |one )?page$/.test(s)){ this.goRel(-1); this.chip('file-text', `Page ${this.viewPage}`, this.sectionTitle(this.viewPage)); this.recordHistory(`turned to p.${this.viewPage}`); return true; }
+      if(/^(?:go |take me )?back$/.test(s)){ this.goBack(); this.chip('undo-2', `Back to page ${this.viewPage}`); this.recordHistory(`went back to p.${this.viewPage}`); return true; }
+      if(m = s.match(/^(?:go to |open |show me |show |turn to )?(?:page |p\.? ?)(\d+)$/)){ this.setPage(+m[1], true); this.chip('file-text', `Page ${this.viewPage}`, this.sectionTitle(this.viewPage)); this.recordHistory(`went to p.${this.viewPage}`); return true; }
       if(m = s.match(/^(?:go to |move to |skip to )?(?:the )?(next|prev(?:ious)?) (?:section|chapter)$/)){
         const i = this.sectionIndex(this.viewPage), d = m[1]==='next' ? 1 : -1;
         const t = this.sections[i+d];
-        if(t){ this.setPage(t.page_start, true); this.chip('bookmark', t.title, `p.${t.page_start}`); }
+        if(t){ this.setPage(t.page_start, true); this.chip('bookmark', t.title, `p.${t.page_start}`); this.recordHistory(`went to section ${t.title} (p.${t.page_start})`); }
         else this.say(d>0 ? 'Already at the last section.' : 'Already at the first section.');
         return true;
       }
@@ -422,8 +417,9 @@ function repairGuy() {
       const find = this.startFindChip();
       try{
         const job = this.client.submit('/find', {
-          request:q, manual:this.manual, approach:this.approach, k:this.k,
+          request:q, manual:this.manual, k:this.k,
           page: this.viewDoc ? this.viewPage : 0, section: this.sectionTitle(this.viewPage),
+          history: this.history,
         });
         // the client re-delivers the generator's last yield in the completion
         // payload, so stop after the first terminal (done/error) event
@@ -452,10 +448,10 @@ function repairGuy() {
           this.status = ev.text || 'Working…';
           break;
 
-        case 'route':
-          if(ev.route==='section'){ find.icon='bookmark'; find.label=`Going to ${ev.title}`; find.detail=`p.${ev.page}`; this.status=`Opening ${ev.title}…`; }
-          else if(ev.route==='local'){ find.icon='target'; find.label=`Circling “${ev.target}”`; find.detail='on this page'; this.status=`Looking for “${ev.target}” on this page…`; }
-          else { find.icon='search'; find.label=`Searching: “${ev.query}”`; find.detail=''; this.status=`Searching the manual for “${ev.query}”…`; }
+        case 'step':  // the agent picked a tool; evolve the single chip
+          if(ev.tool==='go_to_section'){ find.icon='bookmark'; find.label=`Going to ${ev.title}`; find.detail=`p.${ev.page}`; this.status=`Opening ${ev.title}…`; }
+          else if(ev.tool==='circle'){ find.icon='target'; find.label=`Circling “${ev.target}”`; find.detail=''; this.status=`Looking for “${ev.target}”…`; }
+          else if(ev.tool==='search'){ find.icon='search'; find.label=`Searching: “${ev.query}”`; find.detail=''; this.status=`Searching the manual for “${ev.query}”…`; }
           break;
 
         case 'tool_result':  // search candidates → the page strip
@@ -467,12 +463,6 @@ function repairGuy() {
           }
           break;
 
-        case 'classified': {
-          const yes = (ev.results||[]).filter(r=>r[1]).map(r=>'p.'+r[0]);
-          this.status = yes.length ? `Found on ${yes.join(', ')}` : 'Not on those pages…';
-          break;
-        }
-
         case 'found':
           this.status = `Showing p.${ev.page}…`;
           this.setPage(ev.page, true);  // show the matching page now
@@ -483,13 +473,18 @@ function repairGuy() {
           if(ev.kind==='navigate'){
             this.setPage(ev.page, true);
             find.icon='bookmark'; find.label=ev.title; find.detail=`p.${ev.page}${meta}`;
-          }else if(ev.found){
+            this.recordHistory(`went to section ${ev.title} (p.${ev.page})`);
+          }else if(ev.kind==='reply'){
+            find.icon='info'; find.label=ev.message||'Done'; find.detail=meta.replace(/^ · /,'');
+            this.recordHistory(ev.message||'done');
+          }else if(ev.found){  // point
             this.setPage(ev.page);
-            if(ev.bbox){ this.circle={page:ev.page, bbox:ev.bbox}; find.icon='target'; find.label=`Circled “${ev.target}”`; }
-            else { find.icon='file-text'; find.label=`Showed “${ev.target}”`; }  // page found, not pinpointed
+            if(ev.bbox){ this.circle={page:ev.page, bbox:ev.bbox}; find.icon='target'; find.label=`Circled “${ev.target}”`; this.recordHistory(`circled “${ev.target}” on p.${ev.page}`); }
+            else { find.icon='file-text'; find.label=`Showed “${ev.target}”`; this.recordHistory(`showed “${ev.target}” on p.${ev.page}`); }  // page found, not pinpointed
             find.detail=`p.${ev.page}${meta}`;
           }else{
             find.icon='circle-slash'; find.label=`Couldn't find “${ev.target}”`; find.detail=meta.replace(/^ · /,'');
+            this.recordHistory(`couldn't find “${ev.target}”`);
           }
           find.pending=false;
           return true;

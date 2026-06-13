@@ -8,9 +8,9 @@ Two uses, both CPU-only and cheap:
   heading like "Brake System Bleeding — p.532" is on offer alongside the
   manual's clean PDF-bookmark chapters.
 
-All scoring is 0..1. The router (models/minicpm.route_request) makes the final
-call from the page image plus this shortlist; nothing here navigates on its
-own.
+All scoring is 0..1. The agent (models/minicpm_agent) makes the final call from
+this table of contents plus the current page's text; nothing here navigates on
+its own.
 """
 
 from __future__ import annotations

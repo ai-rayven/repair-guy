@@ -134,52 +134,48 @@ class MockAskPipeline:
 
     def run_find(
         self,
-        store: MockStore,
+        visual_store: MockStore,
+        parsed_store: MockStore,
         request: str,
         doc_ids: list[str] | None,
         top_k: int,
         sections: list[dict],
         viewer: dict | None = None,
+        history: list | None = None,
     ):
-        """Yield the same event sequence as pipelines/find_ask.py, with a
-        keyword-driven stand-in for the router. MOCK_DELAY (seconds) paces the
-        events."""
+        """Yield the same event sequence as pipelines/agent_ask.py, with a
+        keyword-driven stand-in for the agent's tool choice. Both stores are the
+        one MockStore; history is ignored. MOCK_DELAY (seconds) paces events."""
         request = (request or "").strip()
         if not request:
             raise ValueError("Tell me what to find.")
-        doc_id, info = self._pick_doc(store, doc_ids)
+        doc_id, info = self._pick_doc(visual_store, doc_ids)
         return self._find_events(
-            store, request, doc_id, info, int(top_k), sections or [], viewer or {}
+            visual_store, request, doc_id, info, int(top_k), sections or [], viewer or {}
         )
 
     def _find_events(self, store, request, doc_id, info, top_k, sections, viewer):
         delay = float(os.environ.get("MOCK_DELAY", "0"))
         cur = max(1, int(viewer.get("page") or 1))
-        yield {"type": "status", "text": "Looking at your page…"}
+        yield {"type": "status", "text": "Thinking…"}
         time.sleep(delay)
 
         kind, a, b = self._mock_route(request, sections)
 
         if kind == "go_to_section":
-            yield {"type": "route", "route": "section", "title": b, "page": a}
+            yield {"type": "step", "tool": "go_to_section", "title": b, "page": a}
             yield {"type": "done", "kind": "navigate", "page": a, "title": b}
             return
 
         if kind == "point_here":
             target = a
-            yield {"type": "route", "route": "local", "target": target}
-            yield {"type": "status", "text": "Pinning it down…"}
-            time.sleep(delay)
-            box = self._mock_box(store, doc_id, cur, target)
-            if box is not None:
-                yield {"type": "done", "kind": "point", "found": True,
-                       "target": target, "page": cur, "bbox": box}
-                return
-            query = target  # couldn't pin here → fall through to search
-        else:
-            target, query = a, b
+            yield from self._circle(store, doc_id, cur, target, delay)
+            return
 
-        yield {"type": "route", "route": "search", "target": target, "query": query}
+        # search → show the best page → circle the target on it (mirrors the
+        # agent's search-then-circle), unless a magic target hits the give-up path
+        target, query = a, b
+        yield {"type": "step", "tool": "search", "query": query}
         pages = self._pick_pages(request, info["pages"], top_k)
         images = render_pages(store.pdf_path(doc_id), pages)
         yield {
@@ -191,29 +187,25 @@ class MockAskPipeline:
             ],
             "page_refs": [(doc_id, p) for p in pages],
         }
-        yield {"type": "status", "text": f"Checking {len(pages)} pages…"}
+        yield {"type": "status", "text": f"Reading {len(pages)} candidate pages…"}
         time.sleep(delay)
 
-        # a magic target exercises the all-NO give-up path
-        give_up = any(w in target.lower() for w in ("xyzzy", "flux capacitor", "nonexistent"))
-        flags = [False] * len(pages)
-        if not give_up and flags:
-            flags[0] = True
-        yield {
-            "type": "classified",
-            "results": [[p, f] for p, f in zip(pages, flags)],
-        }
-        for p, img, f in zip(pages, images, flags):
-            if not f:
-                continue
-            yield {"type": "found", "page": p}
-            yield {"type": "status", "text": "Pinning it down…"}
-            time.sleep(delay)
-            box = self._mock_box(store, doc_id, p, target)
-            yield {"type": "done", "kind": "point", "found": True,
-                   "target": target, "page": p, "bbox": box}
+        if any(w in target.lower() for w in ("xyzzy", "flux capacitor", "nonexistent")):
+            yield {"type": "done", "kind": "reply",
+                   "message": f"Couldn't find “{target}” in this manual."}
             return
-        yield {"type": "done", "kind": "point", "found": False, "target": target}
+        best = pages[0]
+        yield {"type": "found", "page": best}
+        yield from self._circle(store, doc_id, best, target, delay)
+
+    def _circle(self, store, doc_id, page, target, delay):
+        """Emit the circle step + terminal point event for a target on a page."""
+        yield {"type": "step", "tool": "circle", "target": target}
+        yield {"type": "status", "text": "Pinning it down…"}
+        time.sleep(delay)
+        box = self._mock_box(store, doc_id, page, target)
+        yield {"type": "done", "kind": "point", "found": True,
+               "target": target, "page": page, "bbox": box}
 
     @staticmethod
     def _mock_route(request: str, sections: list[dict]):

@@ -16,6 +16,25 @@ MINICPM_REVISION = os.environ.get(
 )
 ANSWER_MAX_NEW_TOKENS = 2048
 
+# Agent brain: MiniCPM5-1B — a standard LlamaForCausalLM (no trust_remote_code),
+# 131k context. The small TEXT model that drives the find-and-point loop: each
+# step it picks ONE tool from the conversation so far, the manual's table of
+# contents, and the whole text of the page being viewed. The MiniCPM-V VLM above
+# stays the "eyes" (grounding the circle + the ingest figure/table descriptions);
+# this is the "brain". Revision is left unpinned (standard architecture, no
+# remote code to drift) but overridable; pin a commit before a real deploy.
+MINICPM_AGENT_MODEL_ID = os.environ.get("MINICPM_AGENT_MODEL_ID", "openbmb/MiniCPM5-1B")
+MINICPM_AGENT_REVISION = os.environ.get("MINICPM_AGENT_REVISION", "") or None
+# A tool-call decision is short JSON; a rerank reply is a single number.
+AGENT_MAX_NEW_TOKENS = 96
+# Backstop on tool steps within one turn, so a confused loop can't run forever.
+AGENT_MAX_STEPS = 6
+# ColEmbed shortlist size the search tool retrieves (the eval default).
+AGENT_SEARCH_CANDIDATES = 5
+# Past turns of conversation fed back as memory (resolve "the other one", "go
+# back"); the live turn carries the table of contents and full current page.
+AGENT_HISTORY_TURNS = 6
+
 # One ZeroGPU call covers the whole question: query embedding + retrieval +
 # page rendering + answer generation.
 ASK_GPU_DURATION = 120
@@ -25,15 +44,15 @@ DEFAULT_TOP_K = 3
 MAX_TOP_K = 5
 
 # ---------------------------------------------------------------------------
-# Find-and-point (pipelines/find_ask.py) — every non-obvious request is one
-# stateless GPU turn: route against the viewed page, then either circle on it
-# or search + classify candidates + circle. Deterministic navigation is
-# CPU-only (core/sections.py) and never reaches the GPU.
+# Find-and-point (pipelines/agent_ask.py) — every non-obvious request is one
+# GPU turn: the 1B agent loops over tools (search / go_to_section / circle)
+# against the table of contents and the current page's text. Deterministic
+# navigation is CPU-only (core/sections.py) and never reaches the GPU.
 # ---------------------------------------------------------------------------
 
-# One ZeroGPU call covers a whole find turn: the router generation on the
-# viewed page, retrieval + page rendering, one batched classification over the
-# candidates, and one grounding generation.
+# One ZeroGPU call covers a whole agent turn: up to AGENT_MAX_STEPS tool-choice
+# generations, ColEmbed retrieval + page rendering and the 1B rerank inside a
+# search step, and one MiniCPM-V grounding generation for a circle.
 FIND_GPU_DURATION = 180
 
 # ---------------------------------------------------------------------------

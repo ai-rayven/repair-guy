@@ -1,9 +1,7 @@
-"""MiniCPM-V: the local VLM shared by both approaches.
+"""MiniCPM-V: the local VLM — the find-and-point "eyes".
 
-- route_request / classify_pages / ground_box: the find-and-point surface
-  (pipelines/find_ask.py) — route a request against the page being viewed,
-  YES/NO-classify candidate pages in one batched call, and return the
-  bounding box of a described object on a page image.
+- ground_box: return the bounding box of a described object on a page image —
+  the circle the agent (models/minicpm_agent, the text "brain") asks for.
 - generate_answer: answers a question grounded in retrieved page images
   (one-shot; used by scripts/eval_answers_modal.py and the pipelines' .run()).
 - describe_batch (+ describe_figure / describe_table wrappers): used only by
@@ -21,7 +19,6 @@ real CUDA process on Modal.
 
 from __future__ import annotations
 
-import json
 import re
 
 import torch
@@ -55,43 +52,6 @@ PROMPT = (
     "Question: {question}"
 )
 
-# Find-and-point router: the model sees the page the mechanic is viewing plus
-# a numbered list of manual sections, and chooses ONE action — circle on this
-# page, jump to a section, or search the manual. The JSON examples use doubled
-# braces because the template is .format()ed.
-ROUTER_PROMPT = (
-    'The image is the page of the repair manual "{manual}" that a mechanic is '
-    "viewing right now (page {page}{section_part}). The mechanic said: "
-    "{request!r}\n\n"
-    "Choose ONE action and reply with ONLY its JSON object:\n"
-    "- Circle something that is visible on THIS page:\n"
-    '  {{"tool": "point_here", "target": "<short name of the thing to circle>"}}\n'
-    "- Jump to a section (pick its number from the SECTIONS list below):\n"
-    '  {{"tool": "go_to_section", "section": <number>}}\n'
-    "- Search the whole manual for a part/topic, to circle once found:\n"
-    '  {{"tool": "search", "query": "<focused search phrase>", '
-    '"target": "<short name of the thing to circle>"}}\n\n'
-    "Prefer point_here when the thing is plainly on this page; prefer "
-    "go_to_section when they name or describe a section/procedure; otherwise "
-    "search.\n\n"
-    "SECTIONS:\n{sections}\n\n"
-    "Reply with ONLY the JSON object, nothing else."
-)
-
-# Parallel page classification: one batched call, one YES/NO per candidate.
-# Relevance-by-topic, NOT literal containment — the page that helps with a
-# "radiator leak" is the radiator page, which never literally shows a leak.
-# Too strict a test gives up on good retrievals; this still rejects pages about
-# an unrelated system (and truly absent things, so the give-up path survives).
-CLASSIFY_PROMPT = (
-    "The image is one page of a repair manual. A mechanic is looking for "
-    "{target!r}. Is THIS page relevant to that — does it show or cover the "
-    "component, system, or procedure involved (as a diagram, table, "
-    "specification, or steps)? Judge by topic, not exact wording: a page "
-    "about the radiator is relevant to a 'radiator leak'; a page about an "
-    "unrelated system is not. Reply with ONLY YES or NO."
-)
-
 # Visual grounding for "circle the <thing>": the mechanic asks to circle
 # something on the page they are viewing. MiniCPM-V grounding replies in
 # <box>x1 y1 x2 y2</box> form with coordinates normalized to 0-1000.
@@ -107,6 +67,18 @@ GROUND_PROMPT = (
     "Reply with ONLY the box, as <box>x1 y1 x2 y2</box>: four integers "
     "normalized to 0-1000 (x left→right, y top→bottom) over the whole page, "
     "and nothing else. If it is not on this page, reply exactly: NOT FOUND"
+)
+
+# Visual page rerank: score the search shortlist by LOOKING at the page images,
+# instead of re-judging from page text (a 1B text rerank measured worse than raw
+# ColEmbed top-1, because repair pages are figure-heavy and text retrieval
+# surfaces index/spec pages that merely name-drop the part).
+PAGE_RERANK_PROMPT = (
+    "The image is one page of a repair manual. A mechanic wants: {query!r}\n"
+    "How directly does THIS page give them what they need — the procedure, "
+    "component, diagram, table, or value involved (judge by topic, not exact "
+    "wording)? Reply with ONLY one digit 0-5: 5 = this is exactly the page, "
+    "0 = unrelated."
 )
 
 FIGURE_PROMPT = (
@@ -178,97 +150,6 @@ def generate_answer(question: str, pages: list[tuple[str, Image.Image]]) -> str:
     return str(answer).strip()
 
 
-def route_request(
-    image: Image.Image,
-    request: str,
-    manual: str,
-    page: int,
-    section: str,
-    options: list[dict],
-) -> tuple[dict | None, str]:
-    """(route, raw reply). options is the numbered section list shown to the
-    model ([{title, page}]). route is one of:
-        {"tool": "point_here", "target": str}
-        {"tool": "go_to_section", "page": int, "title": str}  (index resolved)
-        {"tool": "search", "query": str, "target": str}
-    or None when the reply isn't usable (caller falls back to a manual-wide
-    search with the raw request). Must run on GPU."""
-    sections = "\n".join(
-        f"{i + 1}. {o['title']} (p.{o['page']})" for i, o in enumerate(options)
-    )
-    prompt = ROUTER_PROMPT.format(
-        manual=manual,
-        page=page,
-        section_part=f', section "{section}"' if section else "",
-        request=request,
-        sections=sections or "(none)",
-    )
-    with torch.no_grad():
-        out = _MODEL.chat(
-            msgs=[{"role": "user", "content": [image.convert("RGB"), prompt]}],
-            tokenizer=_TOKENIZER,
-            enable_thinking=False,
-            max_new_tokens=128,
-        )
-    raw = str(out).strip()
-    text = raw
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else ""
-        text = text.rsplit("```", 1)[0].strip()
-    start = text.find("{")
-    if start < 0:
-        return None, raw
-    try:
-        obj, _ = json.JSONDecoder().raw_decode(text[start:])
-    except ValueError:
-        return None, raw
-    if not isinstance(obj, dict):
-        return None, raw
-    tool = obj.get("tool")
-    if tool == "point_here":
-        target = str(obj.get("target") or request).strip()
-        return {"tool": "point_here", "target": target}, raw
-    if tool == "go_to_section":
-        try:
-            idx = int(obj.get("section")) - 1
-        except (TypeError, ValueError):
-            return None, raw
-        if not 0 <= idx < len(options):
-            return None, raw
-        return {
-            "tool": "go_to_section",
-            "page": int(options[idx]["page"]),
-            "title": options[idx]["title"],
-        }, raw
-    if tool == "search":
-        target = str(obj.get("target") or request).strip()
-        return {
-            "tool": "search",
-            "query": str(obj.get("query") or target).strip(),
-            "target": target,
-        }, raw
-    return None, raw
-
-
-def classify_pages(images: list[Image.Image], target: str) -> list[bool]:
-    """Whether each page shows the target — all pages classified in ONE
-    chat() call (its batched mode: msgs = list of conversations), so the
-    candidates are checked in parallel. Must run on GPU."""
-    prompt = CLASSIFY_PROMPT.format(target=target)
-    msgs = [
-        [{"role": "user", "content": [img.convert("RGB"), prompt]}]
-        for img in images
-    ]
-    with torch.no_grad():
-        out = _MODEL.chat(
-            msgs=msgs,
-            tokenizer=_TOKENIZER,
-            enable_thinking=False,
-            max_new_tokens=8,
-        )
-    return [str(a).strip().upper().startswith("YES") for a in out]
-
-
 def ground_box(
     image: Image.Image, query: str
 ) -> tuple[tuple[float, float, float, float] | None, str]:
@@ -302,6 +183,32 @@ def ground_box(
         return None, raw
     w, h = image.size
     return (x1 * w / 1000, y1 * h / 1000, x2 * w / 1000, y2 * h / 1000), raw
+
+
+def rerank_pages(images: list[Image.Image], query: str) -> tuple[int, list[int]]:
+    """Pick the best of the search shortlist by LOOKING at the page images.
+    Each candidate is scored 0-5 for how directly it answers the query, in ONE
+    batched chat() call; the highest score wins, ties broken by retrieval order
+    (so on a tie it never does worse than ColEmbed). Returns (index into images,
+    the per-page scores; -1 where the reply had no digit). Must run on GPU."""
+    prompt = PAGE_RERANK_PROMPT.format(query=query)
+    msgs = [
+        [{"role": "user", "content": [img.convert("RGB"), prompt]}] for img in images
+    ]
+    with torch.no_grad():
+        out = _MODEL.chat(
+            msgs=msgs,
+            tokenizer=_TOKENIZER,
+            enable_thinking=False,
+            max_new_tokens=4,
+        )
+    scores = []
+    for a in out:
+        m = re.search(r"\d", str(a))
+        scores.append(int(m.group()) if m else -1)
+    # max() returns the FIRST argmax, so equal scores keep ColEmbed's order.
+    best = max(range(len(scores)), key=lambda i: scores[i]) if scores else 0
+    return best, scores
 
 
 def describe_batch(jobs: list[tuple[str, object, str]]) -> list[str]:

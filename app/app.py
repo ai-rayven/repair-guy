@@ -1,31 +1,25 @@
 """Gradio Server Mode backend for the Repair Guy Space.
 
-Showcases two local-only indexing approaches over the same manuals (all
-ingestion happens offline via scripts/index_modal.py; the Space only syncs
-the pre-indexed library and answers questions):
+A hands-busy mechanic's assistant: a page viewer driven by short requests. It
+finds and points — it never writes answers. All ingestion happens offline via
+scripts/index_modal.py; the Space only syncs the pre-indexed library and serves
+turns.
 
-  Visual — every page embedded as an image with Nemotron ColEmbed v2
-           (multi-vector late interaction, no parsing); retrieval is MaxSim
-           over page embeddings streamed from disk.
-  Parsed — pages parsed with Nemotron Parse, figures/tables described by
-           MiniCPM-V, section chunks embedded with Llama Nemotron Embed;
-           retrieval is dense cosine over chunks with parent-page lookup.
-
-The product is a hands-busy mechanic's assistant: a page viewer driven by
-short requests. It finds and points — it never writes answers, and keeps no
-chat history (every request stands alone, grounded in the viewer state).
   Obvious nav (client)  next/previous page, "page 412", back, next/previous
                         section: pure frontend state, no server call.
-  Everything else       → /find, one ZeroGPU call (pipelines/find_ask.py):
-  (ZeroGPU find turn)   MiniCPM-V sees the page being viewed plus a numbered
-                        section list and picks one tool — circle on this page
-                        (visual grounding), jump to a section, or search the
-                        manual then classify every candidate page in parallel
-                        and circle the first match. Streamed as events; the
-                        UI shows tool chips and the resulting page/circle,
-                        never model prose. The section list is the manual's
-                        clean PDF-bookmark chapters plus a per-request fuzzy
-                        shortlist of fine parse headings (core/sections.py).
+  Everything else       → /find, one ZeroGPU call (pipelines/agent_ask.py):
+  (ZeroGPU agent turn)  MiniCPM5-1B (the text "brain") sees the conversation so
+                        far, the table of contents, and the WHOLE text of the
+                        page being viewed, and calls tools in a loop until a page
+                        is shown — circle on the current page (MiniCPM-V grounds
+                        the box), jump to a section, or search. Search is FUSED:
+                        ColEmbed (visual store) shortlists pages, the 1B reranks
+                        by their parsed text. Streamed as events; the UI shows
+                        tool chips and the resulting page/circle, never model
+                        prose. History is kept only to resolve references.
+
+The table of contents is the manual's clean PDF-bookmark chapters plus a
+per-request fuzzy shortlist of fine parse headings (core/sections.py).
 
 UI architecture — this is NOT a gr.Blocks app. It runs in Gradio *Server Mode*
 (`gradio.Server`, a FastAPI server with Gradio's engine: queueing, streaming
@@ -36,22 +30,21 @@ endpoints with @gradio/client so the HF iframe auth headers ZeroGPU needs are
 forwarded. The source PDFs are served straight from FastAPI at /pdf/<doc_id>.
 
 Module layout:
-  models/colembed.py        ColEmbed       — visual: page embeddings + MaxSim
-  models/nemotron_embed.py  NemotronEmbed  — parsed: dense chunk/query embeddings
-  models/minicpm.py         MiniCPM        — shared: answers over page images
+  models/colembed.py        ColEmbed       — search shortlist: page embeddings + MaxSim
+  models/minicpm_agent.py   MiniCPM5-1B    — the agent "brain": tool loop + rerank
+  models/minicpm.py         MiniCPM-V      — the "eyes": grounds the circle
+  models/nemotron_embed.py  NemotronEmbed  — parsed: dense chunk/query embeddings (ingest)
   core/visual_store.py      VisualStore    — on-disk per-page token embeddings
-  core/parsed_store.py      ParsedStore    — chunks + dense embedding matrix
-  core/sections.py          section index + fuzzy matching (router shortlist)
-  pipelines/find_ask.py     find_events — the shared find-and-point GPU turn
-  pipelines/visual_ask.py   VisualAskPipeline
-  pipelines/parsed_ask.py   ParsedAskPipeline
+  core/parsed_store.py      ParsedStore    — chunks, embeddings, raw parsed pages
+  core/page_context.py      whole-page → text for the agent's context
+  core/sections.py          section index + fuzzy matching (TOC shortlist)
+  pipelines/agent_ask.py    AgentPipeline — the agent find-and-point GPU turn
   pipelines/mock_ask.py     MockAskPipeline — local UI iteration (MOCK_MODELS=1)
   frontend/index.html       the custom UI
 """
 
 import base64
 import io
-import json
 import logging
 import os
 import shutil
@@ -89,38 +82,39 @@ logging.getLogger("httpx").setLevel(logging.WARNING)  # logs every hub request
 log = logging.getLogger("repairguy")
 
 
-def _build_libraries() -> dict:
-    """The {approach: (store, pipeline)} map, constructed once at startup.
+def _build_libraries():
+    """(visual_store, parsed_store, agent_pipeline), constructed once at startup.
 
-    In MOCK_MODELS mode a single PDF-folder mock backs both approaches and no
-    GPU/model code is imported (those modules load CUDA at import). Otherwise
-    the real stores and pipelines load — the models onto cuda here, in the main
-    process. Either way both pipelines expose run(store, question, doc_ids, k)."""
+    The agent path is FUSED: ColEmbed (visual store) supplies the search
+    shortlist, the parsed store supplies the page text the 1B reranks with and
+    the agent reasons over — so both stores are live at once.
+
+    In MOCK_MODELS mode a single PDF-folder mock backs both stores and no
+    GPU/model code is imported (those modules load CUDA at import). Otherwise the
+    real stores and the agent pipeline load — the models onto cuda here, in the
+    main process."""
     if MOCK_MODELS:
         from pipelines.mock_ask import MockAskPipeline, MockStore
 
-        store, pipeline = MockStore(), MockAskPipeline()
-        print(f"⚠️  MOCK_MODELS — canned answers over PDFs in {MOCK_PDF_DIR}")
-        return {"visual": (store, pipeline), "parsed": (store, pipeline)}
+        store = MockStore()
+        print(f"⚠️  MOCK_MODELS — fake agent over PDFs in {MOCK_PDF_DIR}")
+        return store, store, MockAskPipeline()
 
     from core.parsed_store import ParsedStore
     from core.visual_store import VisualStore
-    from pipelines.parsed_ask import ParsedAskPipeline
-    from pipelines.visual_ask import VisualAskPipeline
+    from pipelines.agent_ask import AgentPipeline
 
-    return {
-        "visual": (
-            VisualStore(os.path.join(PREINDEXED_DIR, VISUAL_SUBDIR)),
-            VisualAskPipeline(),
-        ),
-        "parsed": (
-            ParsedStore(os.path.join(PREINDEXED_DIR, PARSED_SUBDIR)),
-            ParsedAskPipeline(),
-        ),
-    }
+    return (
+        VisualStore(os.path.join(PREINDEXED_DIR, VISUAL_SUBDIR)),
+        ParsedStore(os.path.join(PREINDEXED_DIR, PARSED_SUBDIR)),
+        AgentPipeline(),
+    )
 
 
-LIBRARIES = _build_libraries()
+VISUAL_STORE, PARSED_STORE, PIPELINE = _build_libraries()
+# method -> store, for the picker / pdf lookups. In mock both keys map to the
+# one MockStore, so every mock manual reads as indexed under both methods.
+_METHOD_STORES = {"visual": VISUAL_STORE, "parsed": PARSED_STORE}
 
 
 def sync_library() -> None:
@@ -151,37 +145,24 @@ def sync_library() -> None:
 sync_library()
 
 
-# Labels for the approach picker shown in the settings panel.
-APPROACHES = {
-    "visual": {
-        "label": "Visual",
-        "blurb": "ColEmbed late interaction — pages stay images, nothing parsed.",
-    },
-    "parsed": {
-        "label": "Parsed",
-        "blurb": "Dense chunks over parsed text + figure / table descriptions.",
-    },
-}
-
-
 def _manual_choices() -> list[dict]:
-    """The manuals shown in the picker, one shared list across both libraries
-    (doc ids are name slugs, so the same manual lands on the same id in both);
-    manuals indexed under only one approach are tagged with it. pages drives
-    the viewer's page count."""
+    """The manuals shown in the picker (doc ids are name slugs, so the same
+    manual lands on the same id in both stores). The fused agent needs BOTH
+    indexes; a manual missing one is tagged and the agent turn rejects it.
+    pages drives the viewer's page count."""
     docs: dict[str, dict] = {}
-    for method, (store, _) in LIBRARIES.items():
+    for method, store in _METHOD_STORES.items():
         for d in store.list_docs():
             entry = docs.setdefault(
-                d["doc_id"], {"name": d["name"], "methods": [], "pages": 0}
+                d["doc_id"], {"name": d["name"], "methods": set(), "pages": 0}
             )
-            entry["methods"].append(method)
+            entry["methods"].add(method)
             entry["pages"] = max(entry["pages"], d["pages"])
     choices = []
     for doc_id, info in sorted(docs.items(), key=lambda kv: kv[1]["name"].lower()):
         label = info["name"]
-        if len(info["methods"]) < len(LIBRARIES):
-            label += f" — {info['methods'][0]} only"
+        if info["methods"] != {"visual", "parsed"}:
+            label += " — needs reindex"
         choices.append({"value": doc_id, "label": label, "pages": info["pages"]})
     return choices
 
@@ -189,7 +170,7 @@ def _manual_choices() -> list[dict]:
 def _pdf_path(doc_id: str) -> str | None:
     """The source PDF for a manual (kept identically in whichever store indexed
     it — both copy doc.pdf at ingest)."""
-    for store, _ in LIBRARIES.values():
+    for store in _METHOD_STORES.values():
         if store.exists(doc_id):
             return store.pdf_path(doc_id)
     return None
@@ -212,8 +193,7 @@ _HEADINGS_CACHE: dict[str, list[dict]] = {}
 def _doc_outline(doc_id: str) -> list[dict]:
     if doc_id not in _OUTLINE_CACHE:
         if MOCK_MODELS:
-            store, _ = LIBRARIES["parsed"]
-            _OUTLINE_CACHE[doc_id] = store.sections(doc_id)
+            _OUTLINE_CACHE[doc_id] = PARSED_STORE.sections(doc_id)
         else:
             path = _pdf_path(doc_id)
             _OUTLINE_CACHE[doc_id] = pdf_outline(path) if path else []
@@ -222,11 +202,10 @@ def _doc_outline(doc_id: str) -> list[dict]:
 
 def _doc_headings(doc_id: str) -> list[dict]:
     if doc_id not in _HEADINGS_CACHE:
-        store, _ = LIBRARIES["parsed"]
         if MOCK_MODELS:
-            _HEADINGS_CACHE[doc_id] = store.sections(doc_id)
-        elif store.exists(doc_id):
-            _HEADINGS_CACHE[doc_id] = sections_from_chunks(store.chunks(doc_id))
+            _HEADINGS_CACHE[doc_id] = PARSED_STORE.sections(doc_id)
+        elif PARSED_STORE.exists(doc_id):
+            _HEADINGS_CACHE[doc_id] = sections_from_chunks(PARSED_STORE.chunks(doc_id))
         else:
             _HEADINGS_CACHE[doc_id] = []
     return _HEADINGS_CACHE[doc_id]
@@ -284,19 +263,19 @@ def api_refresh() -> list[dict]:
 def api_find(
     request: str,
     manual: str = "",
-    approach: str = "visual",
     k: int = DEFAULT_TOP_K,
     page: int = 0,
     section: str = "",
+    history: list = None,
 ) -> dict:  # the per-yield type: Server.api infers outputs from this annotation
-    """One find-and-point turn (one ZeroGPU call), streamed as events (see
-    pipelines/find_ask.py for the protocol). page/section are what the viewer
-    currently shows — the router needs them to decide "is it on this page?".
+    """One agent turn (one ZeroGPU call), streamed as events (see
+    pipelines/agent_ask.py for the protocol). page/section are what the viewer
+    currently shows (the agent's current page); history is the compact memory of
+    past turns ([{request, action}]) for resolving references.
 
-    Yields {type: status|route|tool_result|classified|found|done|error, ...};
-    tool_result galleries are converted to JSON-able thumbnails here, and the
-    terminal `done` carries elapsed/approach/k. Soft errors so the frontend
-    renders them as chips."""
+    Yields {type: status|step|tool_result|found|done|error, ...}; tool_result
+    galleries are converted to JSON-able thumbnails here, and the terminal `done`
+    carries elapsed/k. Soft errors so the frontend renders them as chips."""
     request = (request or "").strip()
     if not request:
         yield {"type": "error", "error": "Tell me what to find."}
@@ -304,26 +283,25 @@ def api_find(
     if not manual:
         yield {"type": "error", "error": "Pick a manual first ☝️"}
         return
-    if approach not in LIBRARIES:
-        approach = "visual"
-    store, pipeline = LIBRARIES[approach]
-    if not store.exists(manual):
-        other = "parsed" if approach == "visual" else "visual"
+    if not (VISUAL_STORE.exists(manual) and PARSED_STORE.exists(manual)):
         yield {
             "type": "error",
-            "error": f"This manual isn't indexed with the **{approach}** approach "
-            f"yet — switch to **{other}** in settings, or pick another manual.",
+            "error": "This manual needs reindexing — the assistant needs both the "
+            "visual and parsed indexes. Pick another manual, or re-run indexing.",
         }
         return
     start = time.monotonic()
     viewer = {"page": int(page or 0), "section": str(section or "")}
     options = _router_options(manual, request)
     log.info(
-        "find: manual=%s approach=%s k=%s viewer=%s opts=%d q=%r",
-        manual, approach, k, viewer, len(options), request[:200],
+        "find: manual=%s k=%s viewer=%s hist=%d opts=%d q=%r",
+        manual, k, viewer, len(history or []), len(options), request[:200],
     )
     try:
-        events = pipeline.run_find(store, request, [manual], int(k), options, viewer)
+        events = PIPELINE.run_find(
+            VISUAL_STORE, PARSED_STORE, request, [manual], int(k), options,
+            viewer, history,
+        )
         for ev in events:
             if ev.get("type") == "tool_result" and "gallery" in ev:
                 pages = [p for _, p in ev["page_refs"]]
@@ -339,7 +317,7 @@ def api_find(
             elif ev.get("type") == "done":
                 elapsed = round(time.monotonic() - start, 1)
                 log.info("find: done in %.1fs (%s)", elapsed, ev.get("kind"))
-                yield {**ev, "elapsed": elapsed, "approach": approach, "k": int(k)}
+                yield {**ev, "elapsed": elapsed, "k": int(k)}
             else:
                 yield ev
     except ValueError as e:
@@ -354,20 +332,14 @@ def api_find(
 _FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
 
 
-_APPROACHES_JS = [{"key": k, **v} for k, v in APPROACHES.items()]
-
-
 @app.get("/")
 def index():
     """Serve the single-page UI, injecting the small bit of server config the
-    frontend needs (approach options, default/max k) so it needs no extra
-    round-trip on load."""
+    frontend needs (default/max k) so it needs no extra round-trip on load."""
     with open(os.path.join(_FRONTEND_DIR, "index.html")) as f:
         html = f.read()
-    html = (
-        html.replace("__APPROACHES__", json.dumps(_APPROACHES_JS))
-        .replace("__DEFAULT_K__", str(DEFAULT_TOP_K))
-        .replace("__MAX_K__", str(MAX_TOP_K))
+    html = html.replace("__DEFAULT_K__", str(DEFAULT_TOP_K)).replace(
+        "__MAX_K__", str(MAX_TOP_K)
     )
     return HTMLResponse(html)
 
