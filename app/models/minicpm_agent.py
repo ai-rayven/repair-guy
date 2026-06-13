@@ -385,10 +385,23 @@ def _parse_tool(raw: str) -> dict | None:
     start = text.find("{")
     if start < 0:
         return None
+    body = text[start:]
     try:
-        obj, _ = json.JSONDecoder().raw_decode(text[start:])
+        obj, _ = json.JSONDecoder().raw_decode(body)
     except ValueError:
-        return None
+        # A 1B greedy-decodes the closing brace away: it emits EOS right after
+        # the query/target string's closing quote, so the object is complete and
+        # correct except for the final "}". Re-close that one case rather than
+        # discard a good reply (this is what turns a right "engine diagram"
+        # search into a thrown-away reply, then a drifted retry). Anything more
+        # broken than a missing brace falls through to the caller's re-ask.
+        body = body.rstrip()
+        if not body.endswith('"'):
+            return None
+        try:
+            obj, _ = json.JSONDecoder().raw_decode(body + "}")
+        except ValueError:
+            return None
     if not isinstance(obj, dict):
         return None
     tool = obj.get("tool")

@@ -220,13 +220,18 @@ def agent_events(
             if tool is None:
                 # Unusable reply (bad JSON, or an echoed placeholder target). Correct
                 # it and let the agent try again rather than abandon the turn.
+                # Re-ask, but RESTATE the request at the end so the most recent
+                # (highest-attention) text is the mechanic's actual ask — not a
+                # generic format scold that lets a 1B drift onto whatever is
+                # printed on the page currently on screen. Deliberately no "copy
+                # from the page text" line here: that guidance is for circling,
+                # and it was steering search queries onto leftover on-screen text.
                 messages.append(
                     minicpm_agent.tool_result_message(
-                        "Your last reply was not one complete JSON object. Reply with "
-                        "ONE complete JSON object and nothing else, e.g. "
-                        '{"tool": "search", "query": "fuel filter"}. If you circle, the '
-                        "target MUST be copied from the page text above — never invent "
-                        "a part that is not printed there."
+                        "That was not one complete JSON object — it must start with "
+                        "{ and end with }. Reply with ONE complete JSON object and "
+                        'nothing else, e.g. {"tool": "search", "query": "fuel '
+                        f'filter"}}. The mechanic asked: {request!r} — answer THAT.'
                     )
                 )
                 continue
