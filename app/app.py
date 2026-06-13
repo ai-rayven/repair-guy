@@ -45,6 +45,7 @@ Module layout:
 
 import base64
 import io
+import json
 import logging
 import os
 import shutil
@@ -56,6 +57,8 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from huggingface_hub import HfApi, snapshot_download
 
 from core.constants import (
+    AGENT_MODELS,
+    DEFAULT_AGENT_MODEL,
     DEFAULT_TOP_K,
     GROUND_ENABLE_THINKING,
     LIBRARY_DATASET_ID,
@@ -114,6 +117,8 @@ def _build_libraries():
 
 
 VISUAL_STORE, PARSED_STORE, PIPELINE = _build_libraries()
+# Valid agent-brain keys, for validating the per-request `agent_model`.
+_AGENT_MODEL_KEYS = {m["key"] for m in AGENT_MODELS}
 # method -> store, for the picker / pdf lookups. In mock both keys map to the
 # one MockStore, so every mock manual reads as indexed under both methods.
 _METHOD_STORES = {"visual": VISUAL_STORE, "parsed": PARSED_STORE}
@@ -293,6 +298,7 @@ def api_find(
     pages: list = None,
     history: list = None,
     think: bool = GROUND_ENABLE_THINKING,
+    agent_model: str = DEFAULT_AGENT_MODEL,
 ) -> dict:  # the per-yield type: Server.api infers outputs from this annotation
     """One agent turn (one ZeroGPU call), streamed as events (see
     pipelines/agent_ask.py for the protocol). page/section are what the viewer
@@ -325,14 +331,19 @@ def api_find(
     )
     viewer = {"page": int(page or 0), "section": str(section or ""), "pages": shown}
     options = _router_options(manual, request)
+    # Unknown model key → default (the pipeline falls back too; validate here so
+    # the log reflects what actually ran).
+    if agent_model not in _AGENT_MODEL_KEYS:
+        agent_model = DEFAULT_AGENT_MODEL
     log.info(
-        "find: manual=%s k=%s think=%s viewer=%s hist=%d opts=%d q=%r",
-        manual, k, bool(think), viewer, len(history or []), len(options), request[:200],
+        "find: manual=%s k=%s think=%s model=%s viewer=%s hist=%d opts=%d q=%r",
+        manual, k, bool(think), agent_model, viewer, len(history or []),
+        len(options), request[:200],
     )
     try:
         events = PIPELINE.run_find(
             VISUAL_STORE, PARSED_STORE, request, [manual], int(k), options,
-            viewer, history, bool(think),
+            viewer, history, bool(think), agent_model,
         )
         for ev in events:
             if ev.get("type") == "tool_result" and "gallery" in ev:
@@ -367,8 +378,8 @@ _FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
 @app.get("/")
 def index():
     """Serve the single-page UI, injecting the small bit of server config the
-    frontend needs (default/max k, default grounding-thinking) so it needs no
-    extra round-trip on load."""
+    frontend needs (default/max k, default grounding-thinking, the agent-model
+    list + default) so it needs no extra round-trip on load."""
     with open(os.path.join(_FRONTEND_DIR, "index.html")) as f:
         html = f.read()
     html = (
@@ -376,6 +387,13 @@ def index():
         .replace("__MAX_K__", str(MAX_TOP_K))
         # Initial state of the settings-panel "thinking" toggle (a JS bool).
         .replace("__GROUND_THINK__", "true" if GROUND_ENABLE_THINKING else "false")
+        # Agent-brain picker: the selectable models (key+label) and the default,
+        # so the settings dropdown needs no extra round-trip on load.
+        .replace(
+            "__AGENT_MODELS_JSON__",
+            json.dumps([{"key": m["key"], "label": m["label"]} for m in AGENT_MODELS]),
+        )
+        .replace("__AGENT_MODEL__", DEFAULT_AGENT_MODEL)
         # Cache-bust key for /page images: changing the render DPI changes the
         # served page size, so it must change the URL too — otherwise a browser
         # could keep an old-resolution page (cached up to a day) under the same

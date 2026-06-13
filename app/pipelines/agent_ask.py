@@ -88,11 +88,18 @@ def agent_events(
     viewer: dict | None = None,
     history: list | None = None,
     ground_thinking: bool | None = None,
+    agent_model: str | None = None,
 ):
     """Yield the events of one agent turn (see module docstring). sections is the
     numbered table of contents shown to the agent ([{title, page}]); the agent's
     go_to_section index is 1-based into it. ground_thinking toggles MiniCPM-V's
-    reasoning for the circle grounding (None → server default)."""
+    reasoning for the circle grounding (None → server default); agent_model picks
+    which brain drives the loop (None → default), loaded on switch inside this
+    GPU window."""
+    # Swap in the selected brain (evicts the previous one) before any decide/
+    # rerank. Inside this @spaces.GPU window, so the load happens on the GPU.
+    active = minicpm_agent.use_model(agent_model)
+    log.info("agent brain: %s", active)
     doc_id = doc_ids[0]
     manual = names[doc_id]
     viewer = viewer or {}
@@ -335,6 +342,7 @@ class AgentPipeline:
         viewer: dict | None = None,
         history: list | None = None,
         ground_thinking: bool | None = None,
+        agent_model: str | None = None,
     ):
         """One streamed agent turn (the event generator of agent_events)."""
         request = (request or "").strip()
@@ -347,4 +355,5 @@ class AgentPipeline:
         return agent_events(
             request, visual_store, parsed_store, doc_ids or list(names),
             int(top_k), names, sections, viewer, history, ground_thinking,
+            agent_model,
         )

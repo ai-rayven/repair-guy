@@ -57,9 +57,9 @@ def pdf_outline(pdf_path: str) -> list[dict]:
     doc = fitz.open(pdf_path)
     try:
         entries = [
-            {"title": " ".join(title.split()), "page_start": max(1, page)}
+            {"title": " ".join(title.split()), "page_start": page}
             for _, title, page in doc.get_toc()
-            if title.strip()
+            if title.strip() and page >= 1
         ]
         for i, e in enumerate(entries):
             e["page_end"] = (

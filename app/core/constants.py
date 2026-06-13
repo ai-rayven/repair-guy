@@ -42,6 +42,46 @@ GROUND_THINK_MAX_NEW_TOKENS = 512
 # remote code to drift) but overridable; pin a commit before a real deploy.
 MINICPM_AGENT_MODEL_ID = os.environ.get("MINICPM_AGENT_MODEL_ID", "openbmb/MiniCPM5-1B")
 MINICPM_AGENT_REVISION = os.environ.get("MINICPM_AGENT_REVISION", "") or None
+
+# Selectable agent brains, offered in the UI settings panel. ONE model is
+# resident in VRAM at a time — switching evicts the previous and loads the next
+# (models/minicpm_agent.use_model). All load as a plain AutoModelForCausalLM.
+# `thinking` flags whether the chat template accepts enable_thinking (Qwen3 and
+# MiniCPM do — tool routing passes it False; Cohere's template does not, so the
+# kwarg is omitted there). The FIRST entry is the default at boot and tracks the
+# MINICPM_AGENT_MODEL_ID/REVISION env overrides, so existing config still
+# applies. All four stay well under the hackathon's 32B total-params budget.
+AGENT_MODELS = [
+    {
+        "key": "minicpm5-1b",
+        "label": "MiniCPM5 1B",
+        "model_id": MINICPM_AGENT_MODEL_ID,
+        "revision": MINICPM_AGENT_REVISION,
+        "thinking": True,
+    },
+    {
+        "key": "qwen3-1.7b",
+        "label": "Qwen3 1.7B",
+        "model_id": "Qwen/Qwen3-1.7B",
+        "revision": None,
+        "thinking": True,
+    },
+    {
+        "key": "qwen3-0.6b",
+        "label": "Qwen3 0.6B",
+        "model_id": "Qwen/Qwen3-0.6B",
+        "revision": None,
+        "thinking": True,
+    },
+    {
+        "key": "tiny-aya",
+        "label": "Tiny Aya 3.35B (Cohere)",
+        "model_id": "CohereLabs/tiny-aya-global",
+        "revision": None,
+        "thinking": False,
+    },
+]
+DEFAULT_AGENT_MODEL = AGENT_MODELS[0]["key"]
 # A tool-call decision is short JSON; a rerank reply is a single number. 96 was
 # too tight — the 1B writes verbose search queries and was getting CUT OFF
 # mid-string (unterminated JSON → parse fail → wasted retry), seen live.

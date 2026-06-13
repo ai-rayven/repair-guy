@@ -32,7 +32,9 @@ and the message builders live here so the wording stays with the model.
 
 from __future__ import annotations
 
+import gc
 import json
+import logging
 import re
 
 import torch
@@ -40,9 +42,11 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from core.constants import (
     AGENT_MAX_NEW_TOKENS,
-    MINICPM_AGENT_MODEL_ID,
-    MINICPM_AGENT_REVISION,
+    AGENT_MODELS,
+    DEFAULT_AGENT_MODEL,
 )
+
+log = logging.getLogger("repairguy.agent")
 
 # The tools the agent may emit, and the JSON shape of each. Kept here so the
 # prompt and the parser can't drift apart.
@@ -228,31 +232,81 @@ def assistant_action_message(tool: dict) -> dict:
     return {"role": "assistant", "content": json.dumps(tool, separators=(",", ":"))}
 
 
-_TOKENIZER = AutoTokenizer.from_pretrained(
-    MINICPM_AGENT_MODEL_ID, revision=MINICPM_AGENT_REVISION
-)
-_MODEL = (
-    AutoModelForCausalLM.from_pretrained(
-        MINICPM_AGENT_MODEL_ID,
-        revision=MINICPM_AGENT_REVISION,
-        dtype=torch.bfloat16,
-        attn_implementation="sdpa",
+# --- the resident brain: ONE model in VRAM, swapped on demand ---------------
+# The agent model is selectable from the UI (core.constants.AGENT_MODELS). Only
+# one is held on the GPU at a time: use_model() evicts the current one before
+# loading the next ("load-on-switch"), so VRAM stays flat as the user A/Bs
+# models. The model/tokenizer live in module globals for the same ZeroGPU reason
+# as the other models — module-level CUDA tensors are shared with the GPU worker.
+_REGISTRY = {m["key"]: m for m in AGENT_MODELS}
+_active_key: str | None = None
+_MODEL = None
+_TOKENIZER = None
+# Whether the active model's chat template accepts enable_thinking (Qwen3 /
+# MiniCPM yes, Cohere no) — drives whether we pass the kwarg below.
+_THINKING = False
+
+
+def _spec(key: str | None) -> dict:
+    return _REGISTRY.get(key or "", _REGISTRY[DEFAULT_AGENT_MODEL])
+
+
+def use_model(key: str | None = None) -> str:
+    """Make `key` the resident agent brain, loading it (and evicting the
+    previous one) when it isn't already active — one model in VRAM at a time.
+    Unknown keys fall back to the default. Called once per turn by the pipeline,
+    inside the GPU context. Returns the active key. Must run on GPU."""
+    global _active_key, _MODEL, _TOKENIZER, _THINKING
+    spec = _spec(key)
+    if spec["key"] == _active_key and _MODEL is not None:
+        return _active_key
+    # Drop the current model first so VRAM holds only one brain at a time.
+    if _MODEL is not None:
+        log.info("agent model: evicting %s", _active_key)
+        _MODEL = _TOKENIZER = None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    log.info("agent model: loading %s (%s)", spec["key"], spec["model_id"])
+    _TOKENIZER = AutoTokenizer.from_pretrained(
+        spec["model_id"], revision=spec["revision"]
     )
-    .to("cuda")
-    .eval()
-)
+    _MODEL = (
+        AutoModelForCausalLM.from_pretrained(
+            spec["model_id"],
+            revision=spec["revision"],
+            dtype=torch.bfloat16,
+            attn_implementation="sdpa",
+        )
+        .to("cuda")
+        .eval()
+    )
+    _active_key, _THINKING = spec["key"], spec["thinking"]
+    return _active_key
+
+
+# Load the default brain eagerly at import — same as the other models, so the
+# ZeroGPU startup packing covers it and the common (no-switch) path pays no
+# load cost on the first turn.
+use_model(DEFAULT_AGENT_MODEL)
+
+
+def _template_kwargs() -> dict:
+    """Extra apply_chat_template kwargs for the active model. Tool routing wants
+    a terse decision, not a reasoning trace, so disable thinking — but only for
+    templates that accept the kwarg (others would ignore or choke on it)."""
+    return {"enable_thinking": False} if _THINKING else {}
 
 
 def _generate(messages: list[dict], max_new_tokens: int) -> str:
-    """Greedy decode the assistant's next message. enable_thinking=False — tool
-    routing wants a terse decision, not a reasoning trace."""
+    """Greedy decode the assistant's next message."""
     inputs = _TOKENIZER.apply_chat_template(
         messages,
         tokenize=True,
         add_generation_prompt=True,
-        enable_thinking=False,
         return_dict=True,
         return_tensors="pt",
+        **_template_kwargs(),
     ).to(_MODEL.device)
     # apply_chat_template emits token_type_ids, which this LlamaForCausalLM's
     # generate() rejects as an unused kwarg.
@@ -274,7 +328,7 @@ def render_prompt(messages: list[dict]) -> str:
         messages,
         tokenize=False,
         add_generation_prompt=True,
-        enable_thinking=False,
+        **_template_kwargs(),
     )
 
 
