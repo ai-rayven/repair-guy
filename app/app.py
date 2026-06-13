@@ -355,7 +355,10 @@ def index():
         # URL while the grounding render uses the new size.
         .replace("__PAGE_V__", str(RENDER_DPI))
     )
-    return HTMLResponse(html)
+    # Never cache the SPA shell: it's tiny and inlines all the app JS, so a
+    # cached copy silently runs stale code after a deploy (which masked an
+    # earlier fix). Versioned assets (/page, /vendor) keep their long caches.
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/media/{filename}")
