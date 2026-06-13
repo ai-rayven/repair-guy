@@ -289,17 +289,15 @@ def use_model(key: str | None = None) -> str:
         trust_remote_code=trust,
     )
     # attn_implementation defaults to "sdpa" but a spec can override it — None
-    # omits the kwarg entirely so the model's own modeling code picks its default
-    # (MiniCPM4.1-8B ships custom sparse attention that we don't want to force).
+    # omits the kwarg entirely so a model's own modeling code picks its default
+    # (e.g. a custom sparse-attention arch we don't want to force to sdpa).
     attn = spec.get("attn_implementation", "sdpa")
     if attn is not None:
         load_kwargs["attn_implementation"] = attn
-    # A spec can ask accelerate to place weights straight on the GPU
-    # (device_map) instead of the default load-on-CPU-then-.to("cuda"). Big
-    # brains switched in at runtime want this: the bulk host→device copy of a
-    # multi-GB model inside the ephemeral @spaces.GPU fork trips an NVML assert
-    # in the CUDA caching allocator. device_map loads onto CUDA directly, so we
-    # skip the trailing .to("cuda").
+    # A spec can ask accelerate to place weights straight on the GPU (device_map)
+    # instead of the default load-on-CPU-then-.to("cuda"). Generic knob, unused by
+    # the current brains (all small enough for the plain path); kept for a future
+    # large brain where the bulk host→device copy would be worth skipping.
     device_map = spec.get("device_map")
     if device_map is not None:
         load_kwargs["device_map"] = device_map

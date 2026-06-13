@@ -43,15 +43,21 @@ GROUND_THINK_MAX_NEW_TOKENS = 512
 MINICPM_AGENT_MODEL_ID = os.environ.get("MINICPM_AGENT_MODEL_ID", "openbmb/MiniCPM5-1B")
 MINICPM_AGENT_REVISION = os.environ.get("MINICPM_AGENT_REVISION", "") or None
 
-# Selectable agent brains, offered in the UI settings panel. ONE model is
-# resident in VRAM at a time — switching evicts the previous and loads the next
-# (models/minicpm_agent.use_model). Each loads as an AutoModelForCausalLM;
-# `trust_remote_code` (default False) flags the ones that ship custom modeling
-# code (MiniCPM4.1-8B). `thinking` flags whether the chat template accepts
-# enable_thinking (Qwen3 and MiniCPM do — tool routing passes it False). The
-# FIRST entry is the default at boot and tracks the MINICPM_AGENT_MODEL_ID/
-# REVISION env overrides, so existing config still applies. Only one is resident
-# at a time, so each stays well under the hackathon's 32B total-params budget.
+# Selectable agent brains, offered in the UI settings panel. ONE model is meant
+# to be resident in VRAM at a time — switching evicts the previous and loads the
+# next (models/minicpm_agent.use_model). NOTE: evicting the FIRST/default brain
+# frees nothing — it's loaded at import (ZeroGPU emulation phase) and materialized
+# into the forked GPU worker, where empty_cache() can't reclaim it; only a brain
+# that was itself switched in at runtime frees on eviction. So a switched-in brain
+# must fit in the headroom ABOVE the resident set + stuck default (~15 GiB free on
+# the 48 GiB `large` slice — see core/vram.py). That's why the 8B brains were
+# dropped (they need ~16 GiB) and the largest option here is 4B.
+# Each loads as an AutoModelForCausalLM; `trust_remote_code` (default False) flags
+# the ones that ship custom modeling code (MiniCPM3-4B). `thinking` flags whether
+# the chat template accepts enable_thinking (Qwen3 and MiniCPM5 do — tool routing
+# passes it False; MiniCPM3 does not). The FIRST entry is the default at boot and
+# tracks the MINICPM_AGENT_MODEL_ID/REVISION env overrides, so existing config
+# still applies. Only one is resident at a time, well under the params budget.
 AGENT_MODELS = [
     {
         "key": "minicpm5-1b",
@@ -75,21 +81,20 @@ AGENT_MODELS = [
         "thinking": True,
     },
     {
-        "key": "minicpm4.1-8b",
-        "label": "MiniCPM4.1 8B",
-        "model_id": "openbmb/MiniCPM4.1-8B",
+        "key": "minicpm3-4b",
+        "label": "MiniCPM3 4B",
+        "model_id": "openbmb/MiniCPM3-4B",
         # trust_remote_code model — pin a reviewed commit before a real deploy
         # (see use_model). Left unpinned here so the entry tracks latest.
         "revision": None,
-        "thinking": True,
+        # MiniCPM3 has no hybrid-reasoning mode; its chat template doesn't take
+        # enable_thinking, so leave it off (the kwarg is then omitted).
+        "thinking": False,
         "trust_remote_code": True,
-        # Ships custom sparse attention (InfLLM v2) — let its modeling code pick
-        # the attn impl instead of forcing sdpa like the standard-arch brains.
-        "attn_implementation": None,
-        # Load straight onto the GPU (accelerate) rather than CPU-then-.to("cuda").
-        # Switched in at runtime inside the @spaces.GPU fork, the 16GB host→device
-        # copy otherwise trips an NVML assert in the CUDA caching allocator.
-        "device_map": "cuda",
+        # ~4B / ~8.6 GiB in bf16: with the resident VLM+ColEmbed+embedder (~28 GiB)
+        # and the un-evictable default brain, it loads into the ~15.6 GiB free at
+        # switch time with ~5 GiB to spare after the grounding spike. The 8B (16
+        # GiB) didn't fit — see core/vram.py / the find-turn VRAM logs.
     },
 ]
 DEFAULT_AGENT_MODEL = AGENT_MODELS[0]["key"]
