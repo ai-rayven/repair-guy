@@ -53,7 +53,7 @@ import warnings
 
 import gradio as gr
 from fastapi.responses import FileResponse, HTMLResponse, Response
-from huggingface_hub import snapshot_download
+from huggingface_hub import HfApi, snapshot_download
 
 from core.constants import (
     DEFAULT_TOP_K,
@@ -127,6 +127,9 @@ def sync_library() -> None:
         snapshot_download(
             LIBRARY_DATASET_ID, repo_type="dataset", local_dir=PREINDEXED_DIR
         )
+        remote_files = HfApi().list_repo_files(
+            LIBRARY_DATASET_ID, repo_type="dataset"
+        )
         log.info("library synced from %s", LIBRARY_DATASET_ID)
     except Exception as e:
         log.warning("library dataset not synced (%s): %s", LIBRARY_DATASET_ID, e)
@@ -141,6 +144,25 @@ def sync_library() -> None:
         if os.path.isdir(path) and os.path.isfile(os.path.join(path, "index.json")):
             print(f"Pruning stale pre-migration doc dir: {entry}")
             shutil.rmtree(path, ignore_errors=True)
+    # snapshot_download only adds/updates; it never removes a local doc dir that
+    # was deleted from the dataset. Prune any method/doc dir absent remotely so
+    # deletions in the library propagate to the Space on the next sync.
+    remote_docs = {
+        (parts[0], parts[1])
+        for f in remote_files
+        if len(parts := f.split("/")) >= 3 and parts[0] in (VISUAL_SUBDIR, PARSED_SUBDIR)
+    }
+    for method in (VISUAL_SUBDIR, PARSED_SUBDIR):
+        method_dir = os.path.join(PREINDEXED_DIR, method)
+        if not os.path.isdir(method_dir):
+            continue
+        for doc_id in os.listdir(method_dir):
+            doc_dir = os.path.join(method_dir, doc_id)
+            if doc_id.startswith(".") or not os.path.isdir(doc_dir):
+                continue
+            if (method, doc_id) not in remote_docs:
+                print(f"Pruning doc removed from library: {method}/{doc_id}")
+                shutil.rmtree(doc_dir, ignore_errors=True)
 
 
 sync_library()
@@ -381,6 +403,7 @@ _VENDOR_MEDIA_TYPES = {
     ".mjs": "text/javascript",
     ".wasm": "application/wasm",
     ".onnx": "application/octet-stream",
+    ".json": "application/json",  # Moonshine config/tokenizer (self-hosted ASR)
 }
 
 

@@ -763,20 +763,20 @@ function repairGuy() {
       window.ort.env.wasm.wasmPaths = '/vendor/onnx/';
       await this.loadScript('/vendor/vad/bundle.min.js');
 
-      // 2) Moonshine ASR (transformers.js from CDN; the tiny model is fetched
-      //    from the HF hub once, then cached in the browser). Pinned to a fixed
-      //    v4 so the import can't silently float to a newer default.
-      //    dtype MUST be a single string, NOT a per-module object: it's applied
-      //    to every session unconditionally. v4's default for this model picks
+      // 2) Moonshine ASR — transformers.js library from CDN (pinned), but the
+      //    MODEL is SELF-HOSTED under /vendor/moonshine-tiny-ONNX/ and remote
+      //    fetching is OFF. This is deliberate: left to the hub, v4 defaults to
       //    the 4-bit (q4) merged decoder, whose MatMulNBits export is malformed
       //    for onnxruntime-web and dies at session creation ("Missing required
-      //    scale … embed_tokens"). A per-module object doesn't help here —
-      //    Moonshine's encoder session key is `model` (not `encoder_model`), so
-      //    a partial object is ignored and the decoder falls back to q4. The q8
-      //    graph is verified MatMulNBits-free. Bump to 'fp32' for best accuracy
-      //    on part numbers (≈4x larger first download).
-      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
-      this.asr = await pipeline('automatic-speech-recognition', 'onnx-community/moonshine-tiny-ONNX', { dtype: 'q8', device: 'wasm' });
+      //    scale … embed_tokens") — and that bad file then sticks in the browser
+      //    cache. We ship ONLY the q8 files (verified MatMulNBits-free), so there
+      //    is no q4 to pick, no hub round-trip, and no cached-q4 ghost. dtype is
+      //    a single string (applied to every session); device defaults to wasm.
+      const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+      env.allowRemoteModels = false;   // never touch the hub — local files only
+      env.allowLocalModels = true;
+      env.localModelPath = '/vendor/'; // model id is appended → /vendor/moonshine-tiny-ONNX/…
+      this.asr = await pipeline('automatic-speech-recognition', 'moonshine-tiny-ONNX', { dtype: 'q8', device: 'wasm' });
 
       // 3) the mic: Silero VAD segments speech; onSpeechEnd is our send trigger
       this.vad = await window.vad.MicVAD.new({
