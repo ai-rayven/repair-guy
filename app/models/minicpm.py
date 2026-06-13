@@ -79,10 +79,17 @@ ROUTER_PROMPT = (
 )
 
 # Parallel page classification: one batched call, one YES/NO per candidate.
+# Relevance-by-topic, NOT literal containment — the page that helps with a
+# "radiator leak" is the radiator page, which never literally shows a leak.
+# Too strict a test gives up on good retrievals; this still rejects pages about
+# an unrelated system (and truly absent things, so the give-up path survives).
 CLASSIFY_PROMPT = (
-    "The image is one page of a repair manual. Does this page contain or "
-    "show {target!r} (as a diagram part, a table entry, a specification, or "
-    "a procedure)? Reply with ONLY YES or NO."
+    "The image is one page of a repair manual. A mechanic is looking for "
+    "{target!r}. Is THIS page relevant to that — does it show or cover the "
+    "component, system, or procedure involved (as a diagram, table, "
+    "specification, or steps)? Judge by topic, not exact wording: a page "
+    "about the radiator is relevant to a 'radiator leak'; a page about an "
+    "unrelated system is not. Reply with ONLY YES or NO."
 )
 
 # Visual grounding for "circle the <thing>": the mechanic asks to circle

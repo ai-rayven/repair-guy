@@ -30,8 +30,6 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 
   <style>
@@ -42,21 +40,11 @@
     .scroll-thin::-webkit-scrollbar-thumb{background:#b6cbe1;border-radius:9999px}
     .scroll-thin::-webkit-scrollbar-track{background:transparent}
 
-    /* assistant markdown */
-    .prose-chat{font-size:.925rem;line-height:1.6;color:#26384f}
-    .prose-chat p{margin:.35rem 0}
-    .prose-chat ol{margin:.35rem 0;padding-left:1.15rem;list-style:decimal}
-    .prose-chat ul{margin:.35rem 0;padding-left:1.15rem;list-style:disc}
-    .prose-chat li{margin:.15rem 0}
-    .prose-chat strong{font-weight:600;color:#1e3553}
-    .prose-chat code{background:#dbe8f4;padding:.05rem .3rem;border-radius:.3rem;font-size:.85em}
-    .prose-chat .meta{display:inline-block;margin-top:.5rem;font-size:.72rem;color:#7d93ad}
-
-    /* wrench "tightening a bolt" wiggle for the loading indicator */
+    /* wrench "tightening a bolt" wiggle for the busy indicator */
     @keyframes wrench-turn{0%,100%{transform:rotate(-24deg)}50%{transform:rotate(20deg)}}
     .animate-wrench{animation:wrench-turn 1s ease-in-out infinite;transform-origin:50% 50%}
 
-    /* subtle blueprint cross-hatch behind the chat (scrolls with the messages) */
+    /* subtle blueprint cross-hatch behind empty states / the page well */
     .chat-grid{
       background-color:#fff;
       background-image:
@@ -86,13 +74,13 @@
     </button>
   </header>
 
-  <!-- Main two-panel layout -->
-  <main class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-5 pb-5">
+  <!-- Main: narrow navigator rail + dominant page viewer -->
+  <main class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(290px,340px)_1fr] gap-5 pb-5">
 
-    <!-- LEFT: chat -->
+    <!-- LEFT: navigator rail — manual picker · table of contents · command bar -->
     <section class="min-h-0 flex flex-col bg-white rounded-2xl shadow-panel ring-1 ring-navy/10 overflow-hidden">
       <!-- manual picker -->
-      <div class="px-4 pt-4 pb-3 border-b border-brand-100">
+      <div class="px-4 pt-4 pb-3 border-b border-brand-100 shrink-0">
         <label class="block text-[11px] font-semibold uppercase tracking-wide text-brand-500/80 mb-1.5">Manual</label>
         <div class="relative">
           <select x-model="manual" @change="newChat()"
@@ -106,59 +94,74 @@
         </div>
       </div>
 
-      <!-- messages -->
-      <div x-ref="chat" class="chat-grid flex-1 min-h-0 overflow-y-auto scroll-thin px-4 py-5 space-y-4">
-        <!-- empty state -->
-        <div x-show="messages.length===0" class="h-full grid place-items-center text-center px-6">
-          <div>
-            <i data-lucide="wrench" class="inline-block w-11 h-11 text-brand-300 mb-3"></i>
-            <p class="font-semibold text-navy">Your hands-busy manual assistant</p>
-            <p class="text-sm text-brand-500/80 mt-1 max-w-xs mx-auto">Pick a manual above, then drive the viewer: <em>“go to brake bleeding”</em>, <em>“next page”</em>, <em>“circle the brake hoses”</em>. I find the right page and point at it.</p>
-          </div>
+      <!-- table of contents (the manual's clean bookmark chapters) -->
+      <div class="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between">
+        <span class="text-[11px] font-semibold uppercase tracking-wide text-brand-500/80">Contents</span>
+        <span x-show="sections.length" class="text-[11px] text-brand-400" x-text="sections.length + ' sections'"></span>
+      </div>
+      <div x-ref="toc" class="flex-1 min-h-0 overflow-y-auto scroll-thin px-2 pb-2">
+        <!-- no manual yet -->
+        <div x-show="!viewDoc" class="h-full grid place-items-center text-center px-4">
+          <p class="text-sm text-brand-400/90">Pick a manual to see its contents.</p>
         </div>
-
-        <template x-for="(m,i) in messages" :key="i">
-          <div>
-            <!-- tool-call chip -->
-            <template x-if="m.role==='tool'">
-              <div class="flex justify-start">
-                <div class="flex items-center gap-2 rounded-full bg-white ring-1 ring-brand-200 pl-2.5 pr-3.5 py-1.5 text-[12px] text-brand-600 shadow-sm">
-                  <i :data-lucide="m.icon" class="w-3.5 h-3.5 text-accent-600 shrink-0"></i>
-                  <span class="font-medium" x-text="m.label"></span>
-                  <span class="text-brand-400" x-show="m.detail" x-text="m.detail"></span>
-                </div>
-              </div>
-            </template>
-            <!-- chat bubble -->
-            <template x-if="m.role!=='tool'">
-              <div :class="m.role==='user' ? 'flex justify-end' : 'flex justify-start'">
-                <div :class="m.role==='user'
-                      ? 'max-w-[82%] rounded-2xl rounded-br-md bg-brand-600 text-white px-4 py-2.5 text-[.925rem] leading-relaxed shadow-sm ring-1 ring-navy/20'
-                      : 'max-w-[88%] rounded-2xl rounded-bl-md bg-brand-50 ring-1 ring-brand-200 px-4 py-3 shadow-sm'">
-                  <div x-show="m.role!=='user'" class="prose-chat" x-html="m.html"></div>
-                  <span x-show="m.role==='user'" x-text="m.text"></span>
-                </div>
-              </div>
-            </template>
-          </div>
+        <!-- manual with no bookmarks -->
+        <div x-show="viewDoc && !sections.length" class="px-2 py-3">
+          <p class="text-sm text-brand-400/90">No table of contents in this PDF — use the page arrows or just ask.</p>
+        </div>
+        <!-- the chapters -->
+        <template x-for="(s,j) in sections" :key="j">
+          <button @click="jumpTo(s.page_start)" type="button"
+            :data-toc-active="tocActive(j) ? 'true' : 'false'"
+            :class="tocActive(j)
+              ? 'bg-brand-50 ring-1 ring-brand-200 text-navy'
+              : 'hover:bg-brand-50/70 text-brand-700'"
+            class="group w-full text-left rounded-lg px-2.5 py-2 flex items-start gap-2.5 transition">
+            <span class="mt-px text-[11px] tabular-nums font-semibold w-5 shrink-0 text-right"
+                  :class="tocActive(j) ? 'text-accent-600' : 'text-brand-300'" x-text="j+1"></span>
+            <span class="flex-1 min-w-0 text-[13px] leading-snug font-medium" x-text="s.title"></span>
+            <span class="text-[11px] tabular-nums text-brand-400 shrink-0 mt-px" x-text="'p.'+s.page_start"></span>
+          </button>
         </template>
-
-        <!-- thinking / live status -->
-        <div x-show="loading" class="flex justify-start">
-          <div class="rounded-2xl rounded-bl-md bg-brand-50 ring-1 ring-brand-200 px-4 py-3 flex items-center gap-2">
-            <i data-lucide="wrench" class="w-4 h-4 animate-wrench text-brand-500"></i>
-            <span class="text-sm text-brand-600" x-text="status || 'Thinking…'"></span>
-          </div>
-        </div>
       </div>
 
-      <!-- input -->
-      <div class="border-t border-brand-100 p-3">
-        <div class="flex items-end gap-2 rounded-2xl border border-brand-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition px-2.5 py-2">
+      <!-- command bar: live transcript + the ONE current tool indicator + input -->
+      <div class="border-t border-brand-100 p-3 shrink-0 space-y-2.5">
+        <!-- last request (what speech-to-text heard, once voice lands) -->
+        <div x-show="lastRequest" class="flex items-center gap-2 text-[12px] text-brand-500">
+          <i data-lucide="quote" class="w-3.5 h-3.5 text-brand-300 shrink-0"></i>
+          <span class="truncate italic" x-text="lastRequest"></span>
+        </div>
+
+        <!-- the single status line: animated wrench + live progress while
+             working, then the outcome icon + label. ALL progress flows here -->
+        <div x-show="activity" class="flex items-center gap-2.5 rounded-2xl bg-brand-50 ring-1 ring-brand-200 px-4 py-3">
+          <!-- working: the blue animated wrench (inline so lucide never swaps
+               this Alpine-bound node out — that detaches it from scope) -->
+          <svg x-show="activity && activity.pending" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               class="w-4 h-4 shrink-0 text-brand-500 animate-wrench">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+          <!-- settled: the outcome icon (x-html so it re-renders on icon change) -->
+          <svg x-show="activity && !activity.pending" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               class="w-4 h-4 shrink-0 text-accent-600"
+               x-html="activity ? (ICONS[activity.icon]||ICONS.info) : ''"></svg>
+          <span class="text-sm text-brand-600 min-w-0 flex-1 truncate">
+            <span x-text="(activity && activity.pending) ? (status || 'Working…') : (activity?.label || '')"></span>
+            <span x-show="activity && !activity.pending && activity.detail" class="text-brand-400" x-text="' · ' + (activity?.detail || '')"></span>
+          </span>
+        </div>
+        <div x-show="!activity" class="text-[12px] text-brand-400/90 px-1 leading-snug">
+          Try <em>“go to brake bleeding”</em>, <em>“next page”</em>, <em>“circle the brake hoses”</em>.
+        </div>
+
+        <!-- input (text now; mic + live transcript later) -->
+        <div class="flex items-end gap-2 rounded-2xl border border-brand-200 bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition px-2.5 py-1.5">
           <textarea x-model="input" @keydown.enter.prevent="send()" rows="1"
             :disabled="!ready"
-            placeholder="“go to the brakes section”, “next page”, “circle the brake hoses”…"
-            class="flex-1 resize-none bg-transparent px-1.5 py-1.5 text-sm text-navy outline-none placeholder:text-brand-400/70 max-h-32"></textarea>
+            placeholder="Type a request…"
+            class="flex-1 resize-none bg-transparent px-1.5 py-1.5 text-sm text-navy outline-none placeholder:text-brand-400/70 max-h-24"></textarea>
           <button @click="send()" :disabled="loading || !ready || !input.trim()" aria-label="Send"
             class="shrink-0 grid place-items-center w-9 h-9 rounded-xl bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
             <i data-lucide="arrow-up" class="w-5 h-5"></i>
@@ -218,7 +221,7 @@
         </div>
       </div>
 
-      <!-- cited pages strip -->
+      <!-- pages-checked strip (search candidates) -->
       <template x-if="thumbs.length">
         <div class="border-t border-brand-100 px-4 py-3">
           <p class="text-[11px] font-semibold uppercase tracking-wide text-brand-500/80 mb-2">Pages checked</p>
@@ -288,27 +291,44 @@
 </div>
 
 <script>
+// Inline Lucide paths for the dynamic tool indicator. lucide.createIcons()
+// replaces an <i> with an <svg> ONCE, after which Alpine can't swap its icon
+// on reactive changes — so the evolving chip renders its icon via x-html into
+// a host <svg> instead, which re-renders every time activity.icon changes.
+const ICONS = {
+  loader: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+  'file-text': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+  'undo-2': '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>',
+  'circle-slash': '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+};
+
 function repairGuy() {
   return {
     client:null, ready:false,
     manuals:[], manual:'',
     approaches: __APPROACHES__,
     approach:'visual', k:__DEFAULT_K__, maxK:__MAX_K__,
-    messages:[], input:'', loading:false, status:'',
+    input:'', loading:false, status:'',
     settingsOpen:false,
+    ICONS,
+    // There is NO chat history. The command bar shows only the last request
+    // (the speech-to-text transcript, once voice lands) and `activity`: the
+    // single, evolving indicator of the current tool call / one-line reply.
+    lastRequest:'', activity:null,
     // viewer state machine: which page is open, the manual's chapter index,
-    // a jump history for "back", and the active circle overlay. There is no
-    // chat history — every request is stateless (grounded in the viewer).
+    // a jump history for "back", and the active circle overlay.
     viewDoc:'', viewPage:1, docPages:1, sections:[], navStack:[], circle:null,
     imgW:1240, imgH:1754,  // replaced by the real natural size on image load
     thumbs:[], turnFirstSearch:true,
 
     get pageUrl(){ return this.viewDoc ? `/page/${encodeURIComponent(this.viewDoc)}/${this.viewPage}` : ''; },
 
-    md(t){ return DOMPurify.sanitize(marked.parse(t||'')); },
-
     async init(){
-      window.lucide?.createIcons();  // swap <i data-lucide> -> clean SVG icons
+      window.lucide?.createIcons();  // swap static <i data-lucide> -> clean SVG icons
       try{
         const mod = await import('https://cdn.jsdelivr.net/npm/@gradio/client/+esm');
         const Client = mod.Client || mod.client;
@@ -327,13 +347,14 @@ function repairGuy() {
       catch(e){ console.error(e); }
     },
 
-    // re-run lucide for chips appended after the initial createIcons pass
-    scroll(){ this.$nextTick(()=>{ window.lucide?.createIcons(); const el=this.$refs.chat; if(el) el.scrollTop = el.scrollHeight; }); },
+    // re-render the static lucide icons that appear after the first pass
+    icons(){ this.$nextTick(()=> window.lucide?.createIcons()); },
+    // keep the active chapter visible as the viewer moves
+    scrollTocActive(){ this.$nextTick(()=>{ this.$refs.toc?.querySelector('[data-toc-active="true"]')?.scrollIntoView({block:'nearest'}); }); },
 
     // switching manuals starts fresh and opens the manual on page 1
-    // (viewer-first: the mechanic drives the viewer from word one)
     async newChat(){
-      this.messages=[]; this.thumbs=[];
+      this.lastRequest=''; this.activity=null; this.thumbs=[];
       this.viewDoc=''; this.viewPage=1; this.navStack=[]; this.circle=null; this.sections=[];
       const m = this.manuals.find(x=>x.value===this.manual);
       if(!m) return;
@@ -343,29 +364,30 @@ function repairGuy() {
         const r = await fetch(`/sections/${encodeURIComponent(this.manual)}`);
         this.sections = (await r.json()).sections || [];
       }catch(e){ console.error(e); }
-      this.scroll();
+      this.icons(); this.scrollTocActive();
     },
 
     // --- viewer state machine -----------------------------------------
     sectionTitle(p){ let t=''; for(const s of this.sections){ if(s.page_start<=p) t=s.title; else break; } return t; },
     sectionIndex(p){ let i=-1; this.sections.forEach((s,j)=>{ if(s.page_start<=p) i=j; }); return i; },
+    tocActive(j){ return j===this.sectionIndex(this.viewPage); },
 
     setPage(p, push=false){
       p = Math.max(1, Math.min(this.docPages, p));
       if(push && this.viewDoc && p!==this.viewPage) this.navStack.push(this.viewPage);
       if(this.circle && this.circle.page!==p) this.circle=null;
       this.viewPage = p; this.viewDoc = this.manual;
+      this.scrollTocActive();
     },
     goRel(d){ this.setPage(this.viewPage+d); },
     jumpTo(p){ this.setPage(p, true); },
     goBack(){ const p=this.navStack.pop(); if(p) this.setPage(p); },
 
-    chip(icon, label, detail=''){ this.messages.push({role:'tool', tool:'local', icon, label, detail, pending:false}); this.scroll(); },
-    say(t){ this.messages.push({role:'assistant', html:this.md(t)}); this.scroll(); },
+    // the single live indicator: a tool chip, or a one-line spoken-style reply
+    chip(icon, label, detail=''){ this.activity={icon, label, detail, pending:false}; this.icons(); },
+    say(t){ this.activity={icon:'info', label:t, detail:'', pending:false}; this.icons(); },
 
     // --- obvious navigation (handled locally, no server call) ----------
-    // Only purely-mechanical viewer commands stay client-side; everything
-    // else is a find-and-point request and goes to the GPU router (/find).
     routeLocal(q){
       const s = q.toLowerCase().replace(/[.!?]+\s*$/,'').replace(/\s+/g,' ').trim();
       let m;
@@ -382,7 +404,7 @@ function repairGuy() {
       }
       if(/^(where am i|what page is this|what section is this|what section am i in)$/.test(s)){
         const t = this.sectionTitle(this.viewPage);
-        this.say(t ? `You're on **p. ${this.viewPage}** — *${t}*.` : `You're on **p. ${this.viewPage}**.`);
+        this.say(t ? `You're on p. ${this.viewPage} — ${t}.` : `You're on p. ${this.viewPage}.`);
         return true;
       }
       return false;
@@ -391,13 +413,12 @@ function repairGuy() {
     async send(){
       const q = this.input.trim();
       if(!q || this.loading || !this.ready) return;
-      this.messages.push({role:'user', text:q});
-      this.input=''; this.scroll();
+      this.lastRequest = q; this.input='';
       if(!this.manual){ this.say('Pick a manual first ☝️'); return; }
       if(this.routeLocal(q)) return;  // obvious nav — done client-side
 
       // everything else is a find-and-point turn on the GPU
-      this.loading=true; this.status='Working…'; this.turnFirstSearch=true; this.scroll();
+      this.loading=true; this.status='Working…'; this.turnFirstSearch=true;
       const find = this.startFindChip();
       try{
         const job = this.client.submit('/find', {
@@ -410,17 +431,17 @@ function repairGuy() {
         for await (const msg of job){
           if(finished || msg.type!=='data' || !msg.data?.[0]) continue;
           finished = this.handleFindEvent(msg.data[0], find);
-          this.scroll();
         }
       }catch(e){ find.icon='circle-slash'; find.label='Something went wrong'; find.detail=String(e); find.pending=false; }
-      this.loading=false; this.status=''; this.scroll();
+      this.loading=false; this.status='';
     },
 
-    // one chip per find turn; its label/icon evolves as events arrive (router
-    // decision → outcome). Returns the reactive proxy so mutations re-render.
+    // seed the single live chip for a find turn; its icon/label evolve as
+    // events arrive. `activity` is a reactive property, so mutating the object
+    // it points at re-renders.
     startFindChip(){
-      this.messages.push({role:'tool', tool:'find', icon:'loader', label:'Working…', detail:'', pending:true});
-      return this.messages[this.messages.length-1];
+      this.activity = {tool:'find', icon:'loader', label:'Working…', detail:'', pending:true};
+      return this.activity;
     },
 
     // returns true on a terminal event (done or error)
@@ -432,9 +453,9 @@ function repairGuy() {
           break;
 
         case 'route':
-          if(ev.route==='section'){ find.icon='bookmark'; find.label=`Going to ${ev.title}`; find.detail=`p.${ev.page}`; }
-          else if(ev.route==='local'){ find.icon='target'; find.label=`Circling “${ev.target}”`; find.detail='on this page'; this.status='Pinning it down…'; }
-          else { find.icon='search'; find.label=`Searching: “${ev.query}”`; find.detail=''; this.status='Searching the manual…'; }
+          if(ev.route==='section'){ find.icon='bookmark'; find.label=`Going to ${ev.title}`; find.detail=`p.${ev.page}`; this.status=`Opening ${ev.title}…`; }
+          else if(ev.route==='local'){ find.icon='target'; find.label=`Circling “${ev.target}”`; find.detail='on this page'; this.status=`Looking for “${ev.target}” on this page…`; }
+          else { find.icon='search'; find.label=`Searching: “${ev.query}”`; find.detail=''; this.status=`Searching the manual for “${ev.query}”…`; }
           break;
 
         case 'tool_result':  // search candidates → the page strip
@@ -442,16 +463,18 @@ function repairGuy() {
             if(this.turnFirstSearch){ this.thumbs=[]; this.turnFirstSearch=false; }
             const seen = new Set(this.thumbs.map(t=>t.page));
             for(const t of (ev.thumbnails||[])) if(!seen.has(t.page)) this.thumbs.push(t);
+            this.status = `Reading ${this.thumbs.length} candidate page${this.thumbs.length===1?'':'s'}…`;
           }
           break;
 
         case 'classified': {
           const yes = (ev.results||[]).filter(r=>r[1]).map(r=>'p.'+r[0]);
-          this.status = yes.length ? `Found on ${yes.join(', ')}` : 'Checking pages…';
+          this.status = yes.length ? `Found on ${yes.join(', ')}` : 'Not on those pages…';
           break;
         }
 
         case 'found':
+          this.status = `Showing p.${ev.page}…`;
           this.setPage(ev.page, true);  // show the matching page now
           break;
 
