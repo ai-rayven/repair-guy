@@ -790,11 +790,25 @@ function repairGuy() {
       //    cache. We ship ONLY the q8 files (verified MatMulNBits-free), so there
       //    is no q4 to pick, no hub round-trip, and no cached-q4 ghost. dtype is
       //    a single string (applied to every session); device defaults to wasm.
+      //
+      //    graphOptimizationLevel:'disabled' is the load-bearing fix. The q8
+      //    decoder ships embed_tokens.weight as a DequantizeLinear weight that
+      //    is TIED (reused as the LM-head MatMul). At session creation ORT's
+      //    extended-level QDQ pass (TransposeDQWeightsForMatMulNBits) tries to
+      //    transpose+fuse that DQ weight into a MatMulNBits op; the transpose
+      //    renames the node to …weight_transposed_DequantizeLinear but the scale
+      //    is still …weight_merged_0_scale, the two no longer match, and create()
+      //    aborts with "Missing required scale". The model is fine — the fusion
+      //    is the bug — so we just turn the optimizer off (DQ runs natively).
       const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
       env.allowRemoteModels = false;   // never touch the hub — local files only
       env.allowLocalModels = true;
       env.localModelPath = '/vendor/'; // model id is appended → /vendor/moonshine-tiny-ONNX/…
-      this.asr = await pipeline('automatic-speech-recognition', 'moonshine-tiny-ONNX', { dtype: 'q8', device: 'wasm' });
+      this.asr = await pipeline('automatic-speech-recognition', 'moonshine-tiny-ONNX', {
+        dtype: 'q8',
+        device: 'wasm',
+        session_options: { graphOptimizationLevel: 'disabled' },
+      });
 
       // 3) the mic: Silero VAD segments speech; onSpeechEnd is our send trigger
       this.vad = await window.vad.MicVAD.new({
