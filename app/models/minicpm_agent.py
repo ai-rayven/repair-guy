@@ -43,7 +43,7 @@ from core.constants import (
 
 # The tools the agent may emit, and the JSON shape of each. Kept here so the
 # prompt and the parser can't drift apart.
-TOOLS = ("search", "go_to_section", "circle", "done")
+TOOLS = ("search", "go_to_section", "go_to_page", "circle", "done")
 
 SYSTEM_PROMPT = (
     "You are the assistant for a hands-busy mechanic reading a repair manual on "
@@ -57,12 +57,18 @@ SYSTEM_PROMPT = (
     '  {"tool": "search", "query": "<focused search phrase>"}\n'
     "- Jump to a section — use its number from the TABLE OF CONTENTS:\n"
     '  {"tool": "go_to_section", "section": <number>}\n'
+    "- Jump straight to a known PHYSICAL page number:\n"
+    '  {"tool": "go_to_page", "page": <number>}\n'
     "- Circle something on the CURRENT page (its full text is given to you):\n"
     '  {"tool": "circle", "target": "<short name of the thing to circle>"}\n'
     "- Finish — nothing more to do, or it isn't in the manual:\n"
     '  {"tool": "done", "message": "<one short line for the mechanic>"}\n\n'
     "How to choose:\n"
     '- They say "go to" / "take me to" / name a section → go_to_section.\n'
+    "- You already KNOW the page number — e.g. the CURRENT page is an index or "
+    'contents that lists the part with a page number ("Actuators .... 855"), or '
+    "history gave one → go_to_page that number. Do NOT circle the index line; "
+    "go to the page it points to.\n"
     "- The thing they want is on the CURRENT page → circle it. The target MUST "
     "be what the mechanic asked for — match it to the page's exact wording if it "
     "appears there; NEVER circle a different component.\n"
@@ -74,6 +80,8 @@ SYSTEM_PROMPT = (
     'Mechanic: "go to the cooling system" → {"tool": "go_to_section", "section": 5}\n'
     'Mechanic: "where do I replace the fuel filter" (not on this page) → '
     '{"tool": "search", "query": "fuel filter replacement"}\n'
+    'Mechanic: "the wastegate actuator" (current page is an index reading '
+    '"Actuators .... 855") → {"tool": "go_to_page", "page": 855}\n'
     'Mechanic: "circle the bleeder screw" (it is on this page) → '
     '{"tool": "circle", "target": "bleeder screw"}'
 )
@@ -167,6 +175,19 @@ def _generate(messages: list[dict], max_new_tokens: int) -> str:
     return text.strip()
 
 
+def render_prompt(messages: list[dict]) -> str:
+    """The exact text fed to the model this step — the chat template applied to
+    the running message list, special tokens and all. Mirrors _generate's
+    template call but returns the string instead of tokenizing, so the
+    Diagnostics view can show precisely what the brain was asked. CPU-only."""
+    return _TOKENIZER.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+        enable_thinking=False,
+    )
+
+
 def _parse_tool(raw: str) -> dict | None:
     """Pull the JSON tool call out of the reply. Tolerant of a ```json fence or
     a stray lead-in. Returns a validated
@@ -193,6 +214,11 @@ def _parse_tool(raw: str) -> dict | None:
     if tool == "go_to_section":
         try:
             return {"tool": "go_to_section", "section": int(obj.get("section"))}
+        except (TypeError, ValueError):
+            return None
+    if tool == "go_to_page":
+        try:
+            return {"tool": "go_to_page", "page": int(obj.get("page"))}
         except (TypeError, ValueError):
             return None
     if tool == "circle":

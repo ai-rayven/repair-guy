@@ -49,7 +49,7 @@ from core.constants import (
     FIND_GPU_DURATION,
 )
 from core.page_context import index_pages, page_to_text
-from core.pdf import render_page
+from core.pdf import page_count, render_page
 from models import minicpm, minicpm_agent
 from models.colembed import maxsim_search
 
@@ -109,12 +109,17 @@ def agent_events(
     yield {"type": "status", "text": "Thinking…"}
 
     for step in range(AGENT_MAX_STEPS):
+        # Render the exact prompt BEFORE deciding so the trace can show what the
+        # brain was asked, not just what it answered.
+        prompt = minicpm_agent.render_prompt(messages)
         tool, raw = minicpm_agent.decide(messages)
         log.info("step %d: tool=%s | raw=%r", step, tool, raw[:200])
-        # Diagnostic event: the raw 1B reply and the parsed tool for this step,
-        # so the UI's trace view shows exactly what the brain decided (and why a
-        # reply was rejected). Not used by the normal chip flow.
-        yield {"type": "trace", "step": step, "tool": tool, "raw": raw}
+        # Diagnostic event: the prompt fed in, the raw 1B reply, and the parsed
+        # tool for this step, so the UI's trace view shows exactly what the brain
+        # was asked and decided (and why a reply was rejected). Not used by the
+        # normal chip flow.
+        yield {"type": "trace", "step": step, "tool": tool, "raw": raw,
+               "prompt": prompt}
         if tool is None:
             # Unusable reply (bad JSON, or an echoed placeholder target). Correct
             # it and let the agent try again rather than abandon the turn.
@@ -141,8 +146,24 @@ def agent_events(
             opt = sections[idx]
             yield {"type": "step", "tool": "go_to_section",
                    "title": opt["title"], "page": int(opt["page"])}
-            yield {"type": "done", "kind": "navigate",
+            yield {"type": "done", "kind": "navigate", "nav": "section",
                    "page": int(opt["page"]), "title": opt["title"]}
+            return
+
+        if tool["tool"] == "go_to_page":
+            page = tool["page"]
+            n = page_count(visual_store.pdf_path(doc_id))
+            if not 1 <= page <= n:
+                messages.append(
+                    minicpm_agent.tool_result_message(
+                        f"There is no page {page}; this manual has pages 1–{n}. "
+                        "Pick a page in range, search, or go to a section."
+                    )
+                )
+                continue
+            yield {"type": "step", "tool": "go_to_page", "page": page}
+            yield {"type": "done", "kind": "navigate", "nav": "page",
+                   "page": page, "title": f"Page {page}"}
             return
 
         if tool["tool"] == "search":

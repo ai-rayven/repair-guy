@@ -170,6 +170,11 @@
                 </div>
                 <div x-show="e.detail" class="pl-[5.4rem] text-brand-500 break-words" x-text="e.detail"></div>
                 <pre x-show="e.mono" class="pl-[5.4rem] mt-0.5 whitespace-pre-wrap break-words text-slate-500" x-text="e.mono"></pre>
+                <!-- the exact prompt fed to the model this step — collapsed by default (it's long) -->
+                <details x-show="e.prompt" class="pl-[5.4rem] mt-0.5">
+                  <summary class="cursor-pointer select-none text-brand-400 hover:text-navy transition" x-text="`prompt sent to model · ${(e.prompt||'').length} chars`"></summary>
+                  <pre class="mt-1 whitespace-pre-wrap break-words text-slate-500 bg-brand-50/60 rounded p-2 ring-1 ring-brand-100" x-text="e.prompt"></pre>
+                </details>
               </div>
             </template>
           </div>
@@ -448,6 +453,7 @@ function repairGuy() {
         let s = `  ${e.t}  ${String(e.badge||'').toUpperCase().padEnd(7)} ${e.label||''}`;
         if(e.detail) s += `\n            ${e.detail}`;
         if(e.mono)   s += `\n            ${String(e.mono).replace(/\n/g,'\n            ')}`;
+        if(e.prompt) s += `\n            ┌─ prompt sent to model ─\n${String(e.prompt).replace(/^/gm,'            │ ')}\n            └─`;
         return s;
       }).join('\n');
       return `Repair Guy trace — ${this.manual||'(no manual)'}\n${body}`.trim()+'\n';
@@ -467,9 +473,9 @@ function repairGuy() {
     recordTrace(ev){
       if(ev.error){ this.pushTrace({kind:'error', badge:'error', cls:'bg-red-100 text-red-700', label:ev.error}); return; }
       switch(ev.type){
-        case 'trace':{  // a decision: raw 1B reply + parsed tool
+        case 'trace':{  // a decision: prompt sent in + raw 1B reply + parsed tool
           const tool = ev.tool ? JSON.stringify(ev.tool) : '(unparseable — retrying)';
-          this.pushTrace({kind:'decision', badge:`step ${ev.step}`, cls:'bg-brand-100 text-brand-700', label:`decided ${tool}`, mono:ev.raw||''});
+          this.pushTrace({kind:'decision', badge:`step ${ev.step}`, cls:'bg-brand-100 text-brand-700', label:`decided ${tool}`, mono:ev.raw||'', prompt:ev.prompt||''});
           break;
         }
         case 'step':{  // the chosen tool, with its args
@@ -477,6 +483,7 @@ function repairGuy() {
           if(ev.tool==='search') label=`search · “${ev.query}”`;
           else if(ev.tool==='circle') label=`circle · “${ev.target}”`;
           else if(ev.tool==='go_to_section') label=`go_to_section · ${ev.title} (p.${ev.page})`;
+          else if(ev.tool==='go_to_page') label=`go_to_page · p.${ev.page}`;
           this.pushTrace({kind:'step', badge:'tool', cls:'bg-brand-600 text-white', label});
           break;
         }
@@ -495,7 +502,7 @@ function repairGuy() {
         case 'done':{
           const meta = ev.elapsed!=null ? `${ev.elapsed}s` : '';
           let label='', detail='';
-          if(ev.kind==='navigate'){ label=`navigate → ${ev.title} (p.${ev.page})`; }
+          if(ev.kind==='navigate'){ label = ev.nav==='page' ? `go to page → p.${ev.page}` : `navigate → ${ev.title} (p.${ev.page})`; }
           else if(ev.kind==='reply'){ label=`reply · ${ev.message||''}`; }
           else {  // point
             label = ev.found ? `point · “${ev.target}” p.${ev.page}` : `not found · “${ev.target}”`;
@@ -578,6 +585,7 @@ function repairGuy() {
 
         case 'step':  // the agent picked a tool; evolve the single chip
           if(ev.tool==='go_to_section'){ find.icon='bookmark'; find.label=`Going to ${ev.title}`; find.detail=`p.${ev.page}`; this.status=`Opening ${ev.title}…`; }
+          else if(ev.tool==='go_to_page'){ find.icon='file-text'; find.label=`Going to page ${ev.page}`; find.detail=''; this.status=`Opening page ${ev.page}…`; }
           else if(ev.tool==='circle'){ find.icon='target'; find.label=`Circling “${ev.target}”`; find.detail=''; this.status=`Looking for “${ev.target}”…`; }
           else if(ev.tool==='search'){ find.icon='search'; find.label=`Searching: “${ev.query}”`; find.detail=''; this.status=`Searching the manual for “${ev.query}”…`; }
           break;
@@ -598,8 +606,13 @@ function repairGuy() {
           const meta = ev.elapsed!=null ? ` · ${ev.elapsed}s` : '';
           if(ev.kind==='navigate'){
             this.setPage(ev.page, true);
-            find.icon='bookmark'; find.label=ev.title; find.detail=`p.${ev.page}${meta}`;
-            this.recordHistory(`went to section ${ev.title} (p.${ev.page})`);
+            if(ev.nav==='page'){
+              find.icon='file-text'; find.label=`Page ${ev.page}`; find.detail=meta.replace(/^ · /,'');
+              this.recordHistory(`went to p.${ev.page}`);
+            }else{
+              find.icon='bookmark'; find.label=ev.title; find.detail=`p.${ev.page}${meta}`;
+              this.recordHistory(`went to section ${ev.title} (p.${ev.page})`);
+            }
           }else if(ev.kind==='reply'){
             find.icon='info'; find.label=ev.message||'Done'; find.detail=meta.replace(/^ · /,'');
             this.recordHistory(ev.message||'done');

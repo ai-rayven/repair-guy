@@ -158,27 +158,37 @@ class MockAskPipeline:
     def _find_events(self, store, request, doc_id, info, top_k, sections, viewer):
         delay = float(os.environ.get("MOCK_DELAY", "0"))
         cur = max(1, int(viewer.get("page") or 1))
+        prompt = self._mock_prompt(request, sections, cur)
         yield {"type": "status", "text": "Thinking…"}
         time.sleep(delay)
 
         kind, a, b = self._mock_route(request, sections)
 
         if kind == "go_to_section":
-            yield self._trace(0, {"tool": "go_to_section", "section": b})
+            yield self._trace(0, {"tool": "go_to_section", "section": b}, prompt)
             yield {"type": "step", "tool": "go_to_section", "title": b, "page": a}
-            yield {"type": "done", "kind": "navigate", "page": a, "title": b}
+            yield {"type": "done", "kind": "navigate", "nav": "section",
+                   "page": a, "title": b}
+            return
+
+        if kind == "go_to_page":
+            page = max(1, min(int(a), info["pages"]))
+            yield self._trace(0, {"tool": "go_to_page", "page": page}, prompt)
+            yield {"type": "step", "tool": "go_to_page", "page": page}
+            yield {"type": "done", "kind": "navigate", "nav": "page",
+                   "page": page, "title": f"Page {page}"}
             return
 
         if kind == "point_here":
             target = a
-            yield self._trace(0, {"tool": "circle", "target": target})
+            yield self._trace(0, {"tool": "circle", "target": target}, prompt)
             yield from self._circle(store, doc_id, cur, target, delay)
             return
 
         # search → show the best page → circle the target on it (mirrors the
         # agent's search-then-circle), unless a magic target hits the give-up path
         target, query = a, b
-        yield self._trace(0, {"tool": "search", "query": query})
+        yield self._trace(0, {"tool": "search", "query": query}, prompt)
         yield {"type": "step", "tool": "search", "query": query}
         pages = self._pick_pages(request, info["pages"], top_k)
         images = render_pages(store.pdf_path(doc_id), pages)
@@ -196,12 +206,12 @@ class MockAskPipeline:
 
         if any(w in target.lower() for w in ("xyzzy", "flux capacitor", "nonexistent")):
             msg = f"Couldn't find “{target}” in this manual."
-            yield self._trace(1, {"tool": "done", "message": msg})
+            yield self._trace(1, {"tool": "done", "message": msg}, prompt)
             yield {"type": "done", "kind": "reply", "message": msg}
             return
         best = pages[0]
         yield {"type": "found", "page": best}
-        yield self._trace(1, {"tool": "circle", "target": target})
+        yield self._trace(1, {"tool": "circle", "target": target}, prompt)
         yield from self._circle(store, doc_id, best, target, delay)
 
     def _circle(self, store, doc_id, page, target, delay):
@@ -215,17 +225,37 @@ class MockAskPipeline:
                "ground_raw": f"(mock) grounding for {target!r} → {box}"}
 
     @staticmethod
-    def _trace(step: int, tool: dict) -> dict:
-        """A mock diagnostic 'trace' event mirroring agent_ask's: the raw model
-        reply (here just the tool JSON) + the parsed tool, for the UI trace view."""
+    def _trace(step: int, tool: dict, prompt: str = "") -> dict:
+        """A mock diagnostic 'trace' event mirroring agent_ask's: the prompt fed
+        in, the raw model reply (here just the tool JSON) + the parsed tool, for
+        the UI trace view."""
         return {"type": "trace", "step": step, "tool": tool,
-                "raw": json.dumps(tool, separators=(",", ":"))}
+                "raw": json.dumps(tool, separators=(",", ":")), "prompt": prompt}
+
+    @staticmethod
+    def _mock_prompt(request: str, sections: list[dict], page: int) -> str:
+        """A representative stand-in for the rendered chat prompt, so the
+        Diagnostics 'prompt' view is exercisable in MOCK_MODELS=1. Not the real
+        template — just the same shape (system rules + TOC + request)."""
+        toc = "\n".join(
+            f"{i + 1}. {s['title']} (p.{s.get('page') or s.get('page_start')})"
+            for i, s in enumerate(sections)
+        ) or "(none)"
+        return (
+            "<|im_start|>system\n(mock) You FIND the right page and POINT at "
+            "things — reply with ONE tool JSON, no prose.<|im_end|>\n"
+            f"<|im_start|>user\nCURRENT PAGE: p.{page} (mock text omitted)\n\n"
+            f"TABLE OF CONTENTS:\n{toc}\n\n"
+            f"The mechanic said: {request!r}\n"
+            "Choose ONE tool and reply with ONLY its JSON object."
+            "<|im_end|>\n<|im_start|>assistant\n"
+        )
 
     @staticmethod
     def _mock_route(request: str, sections: list[dict]):
         """Fake the LLM router with keyword heuristics. Returns one of:
-        ("go_to_section", page, title) / ("point_here", target, None) /
-        ("search", target, query)."""
+        ("go_to_section", page, title) / ("go_to_page", page, None) /
+        ("point_here", target, None) / ("search", target, query)."""
         r = request.lower()
         nav_verb = any(
             v in r for v in ("go to", "take me", "open", "bring up", "pull up",
@@ -235,6 +265,12 @@ class MockAskPipeline:
             v in r for v in ("circle", "point", "highlight", "mark", "show me where")
         )
         here = any(v in r for v in ("here", "this page", "this", "current"))
+        # A bare page number that the client's strict nav regex didn't catch
+        # (extra words around it) → exercise the go_to_page tool, like the agent
+        # reading a page number off an index.
+        pm = re.search(r"\bp(?:age|g|\.)?\s*(\d+)\b", r)
+        if pm and (nav_verb or "index" in r or "contents" in r):
+            return "go_to_page", int(pm.group(1)), None
         secs = [{"title": o["title"], "page_start": o["page"]} for o in sections]
         best = match_section(request, secs) if secs else None
 
