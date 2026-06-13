@@ -283,7 +283,7 @@
         <template x-for="p in spreadPages" :key="p">
           <div class="relative flex-1 min-w-0 grid place-items-center">
             <img :src="`/page/${encodeURIComponent(viewDoc)}/${p}?v=__PAGE_V__`"
-                 @load="nat[p]={w:$event.target.naturalWidth,h:$event.target.naturalHeight}; if(p===viewPage){imgW=$event.target.naturalWidth; imgH=$event.target.naturalHeight;} console.log('[page-load]', p, $event.target.naturalWidth+'x'+$event.target.naturalHeight, $event.target.currentSrc)"
+                 @load="nat[p]={w:$event.target.naturalWidth,h:$event.target.naturalHeight}; if(p===viewPage){imgW=$event.target.naturalWidth; imgH=$event.target.naturalHeight;}"
                  class="col-start-1 row-start-1 block max-h-full max-w-full w-auto h-auto select-none rounded-lg shadow-sm ring-1 ring-navy/10"
                  draggable="false" alt="manual page">
             <!-- box overlay: a rounded rectangle hugging the grounded region,
@@ -690,32 +690,16 @@ function repairGuy() {
             find.icon='info'; find.label=ev.message||'Done'; find.detail=meta.replace(/^ · /,'');
             this.recordHistory(ev.message||'done');
           }else if(ev.found){  // point
-            this.setPage(ev.page);
-            if(ev.bbox){ this.circle={page:ev.page, bbox:ev.bbox, dims:ev.dims};
-              // DIAGNOSTIC: is the live overlay using the backend grounding dims?
-              // dimsFromBackend null  -> server not sending dims (restart it).
-              // natLoaded ≠ dimsFromBackend -> displayed page PNG is a different
-              // (e.g. stale/half) resolution than what the box was grounded on;
-              // boxDimsUsed is what the SVG viewBox actually uses to place the box.
-              console.log('[circle-diag]', {page:ev.page, bbox:ev.bbox,
-                dimsFromBackend:ev.dims, natLoaded:this.nat[ev.page],
-                boxDimsUsed:this.boxDims(ev.page), usingBackendDims:!!ev.dims});
-              // DIAGNOSTIC 2: after Alpine renders, measure the ACTUAL drawn rect.
-              // Tells us if the box is (a) absent from the DOM, (b) zero-size,
-              // (c) rendered but off-screen/clipped, or (d) visible on-screen.
-              this.$nextTick(()=>{ setTimeout(()=>{
-                const rects=[...document.querySelectorAll('svg[viewBox] rect')];
-                const vis=rects.map(rc=>{ const svg=rc.ownerSVGElement;
-                  const shown=svg.checkVisibility ? svg.checkVisibility() : (svg.getClientRects().length>0);
-                  const r=rc.getBoundingClientRect();
-                  const img=svg.parentElement.querySelector('img'); const ir=img&&img.getBoundingClientRect();
-                  return {svgShown:shown, rect:{x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)},
-                    img: ir&&{x:Math.round(ir.x),y:Math.round(ir.y),w:Math.round(ir.width),h:Math.round(ir.height)},
-                    onScreen: r.width>1 && r.height>1 && r.bottom>0 && r.top<innerHeight && r.right>0 && r.left<innerWidth}; });
-                console.log('[circle-render]', {viewPage:this.viewPage, spread:this.spreadPages, rectsFound:rects.length, detail:vis});
-              },50); });
+            // Set the circle BEFORE navigating: setPage(ev.page) changes
+            // viewPage, which rebuilds the x-for page slots; if circle isn't set
+            // yet, the freshly-built overlay <svg> can miss the circle state and
+            // intermittently not render. setPage only clears the circle when its
+            // page differs (here it's the same), so setting it first is safe.
+            if(ev.bbox){
+              this.circle={page:ev.page, bbox:ev.bbox, dims:ev.dims};
+              this.setPage(ev.page);
               find.icon='target'; find.label=`Circled “${ev.target}”`; this.recordHistory(`circled “${ev.target}” on p.${ev.page}`); }
-            else { find.icon='file-text'; find.label=`Showed “${ev.target}”`; this.recordHistory(`showed “${ev.target}” on p.${ev.page}`); }  // page found, not pinpointed
+            else { this.setPage(ev.page); find.icon='file-text'; find.label=`Showed “${ev.target}”`; this.recordHistory(`showed “${ev.target}” on p.${ev.page}`); }  // page found, not pinpointed
             find.detail=`p.${ev.page}${meta}`;
           }else{
             find.icon='circle-slash'; find.label=`Couldn't find “${ev.target}”`; find.detail=meta.replace(/^ · /,'');
