@@ -347,6 +347,7 @@ const ICONS = {
   'undo-2': '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>',
   'circle-slash': '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  'help-circle': '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
 };
 
 function repairGuy() {
@@ -508,6 +509,7 @@ function repairGuy() {
         case 'step':{  // the chosen tool, with its args
           let label='';
           if(ev.tool==='search') label=`search · “${ev.query}”`;
+          else if(ev.tool==='find_answer') label=`find_answer · “${ev.query}”`;
           else if(ev.tool==='circle') label=`circle · “${ev.target}”`;
           else if(ev.tool==='go_to_section') label=`go_to_section · ${ev.title} (p.${ev.page})`;
           else if(ev.tool==='go_to_page') label=`go_to_page · p.${ev.page}`;
@@ -629,6 +631,7 @@ function repairGuy() {
           else if(ev.tool==='go_to_page'){ find.icon='file-text'; find.label=`Going to page ${ev.page}`; find.detail=''; this.status=`Opening page ${ev.page}…`; }
           else if(ev.tool==='circle'){ find.icon='target'; find.label=`Circling “${ev.target}”`; find.detail=''; this.status=`Looking for “${ev.target}”…`; }
           else if(ev.tool==='search'){ find.icon='search'; find.label=`Searching: “${ev.query}”`; find.detail=''; this.status=`Searching the manual for “${ev.query}”…`; }
+          else if(ev.tool==='find_answer'){ find.icon='help-circle'; find.label=`Looking up: “${ev.query}”`; find.detail=''; this.status=`Looking up “${ev.query}” in the manual…`; }
           break;
 
         case 'tool_result':  // search candidates (no longer shown — keep status only)

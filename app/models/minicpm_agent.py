@@ -8,6 +8,9 @@ tool:
 
     search(query)            semantic-search the manual; the best page is shown
                              and its text added to the conversation
+    find_answer(query)       dense TEXT search of the parsed chunks for a
+                             spec/value/fact; the page that states it is shown,
+                             its text added so the agent can circle the answer
     go_to_section(section)   jump to a numbered table-of-contents section
     circle(target)           circle something on the CURRENT page (its text is
                              in context); the VLM grounds the box
@@ -43,7 +46,7 @@ from core.constants import (
 
 # The tools the agent may emit, and the JSON shape of each. Kept here so the
 # prompt and the parser can't drift apart.
-TOOLS = ("search", "go_to_section", "go_to_page", "circle", "done")
+TOOLS = ("search", "find_answer", "go_to_section", "go_to_page", "circle", "done")
 
 SYSTEM_PROMPT = (
     "You are the assistant for a hands-busy mechanic reading a repair manual on "
@@ -55,6 +58,11 @@ SYSTEM_PROMPT = (
     "Tools:\n"
     '- Search the manual for a part/topic/procedure:\n'
     '  {"tool": "search", "query": "<focused search phrase>"}\n'
+    "- Look up the ANSWER to a question — a spec, value, or fact (fuel type, a "
+    "torque, an oil/coolant capacity). This searches the manual TEXT, so it "
+    "finds the page that STATES the answer when a topic search would miss the "
+    "plain specs page:\n"
+    '  {"tool": "find_answer", "query": "<the spec or fact being asked for>"}\n'
     "- Jump to a section — use its number from the TABLE OF CONTENTS:\n"
     '  {"tool": "go_to_section", "section": <number>}\n'
     "- Jump straight to a known PHYSICAL page number:\n"
@@ -81,6 +89,11 @@ SYSTEM_PROMPT = (
     'a value, or a line (e.g. "what fuel does it take" answered by "Engine fuel '
     '- Gasoline") → circle that spot, using the printed words as the target. '
     "Point at the answer; do NOT keep searching for a better page.\n"
+    "- They ask a QUESTION for a spec/value/fact that is NOT on screen yet "
+    '("what fuel does it take", "engine oil capacity", "drain-plug torque") → '
+    "find_answer with the fact as the query; it searches the manual text and "
+    "shows the page that states it, which you then circle. Use find_answer for "
+    "fact questions; use search to find a part, diagram, or procedure.\n"
     "- Otherwise → search. After a search shows a page, that page is on screen, "
     "so circle on it or search again — but NEVER repeat a search that did not "
     "move you; act on the page instead.\n"
@@ -95,7 +108,9 @@ SYSTEM_PROMPT = (
     'Mechanic: "circle the bleeder screw" (it is on p.412, which is on screen) → '
     '{"tool": "circle", "target": "bleeder screw", "page": 412}\n'
     'Mechanic: "what fuel does it take" (p.5 on screen shows "Engine fuel - '
-    'Gasoline") → {"tool": "circle", "target": "Engine fuel - Gasoline", "page": 5}'
+    'Gasoline") → {"tool": "circle", "target": "Engine fuel - Gasoline", "page": 5}\n'
+    'Mechanic: "what\'s the engine oil capacity" (not on this page) → '
+    '{"tool": "find_answer", "query": "engine oil capacity"}'
 )
 
 
@@ -286,6 +301,9 @@ def _parse_tool(raw: str) -> dict | None:
     if tool == "search":
         query = str(obj.get("query") or "").strip()
         return {"tool": "search", "query": query} if _real(query) else None
+    if tool == "find_answer":
+        query = str(obj.get("query") or "").strip()
+        return {"tool": "find_answer", "query": query} if _real(query) else None
     if tool == "go_to_section":
         try:
             return {"tool": "go_to_section", "section": int(obj.get("section"))}

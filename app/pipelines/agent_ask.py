@@ -13,6 +13,10 @@ Flow (one @spaces.GPU call, streamed as events):
       search(query)      ColEmbed top-N → 1B rerank by page text → show
                          the best page; its text is fed back so the agent
                          can then circle on it                            (continues)
+      find_answer(query) dense TEXT retrieval over the parsed chunks → show
+                         the page that STATES the answer (where a visual
+                         search would miss the plain specs page); its text
+                         is fed back so the agent can circle it           (continues)
       circle(target)     ground the target on the CURRENT page (VLM) and
                          circle it                                        (terminal)
       done(message)      nothing to do / not in the manual                (terminal)
@@ -52,6 +56,7 @@ from core.page_context import index_pages, page_to_text
 from core.pdf import page_count, render_page
 from models import minicpm, minicpm_agent
 from models.colembed import maxsim_search
+from pipelines.parsed_ask import retrieve_pages
 
 log = logging.getLogger("repairguy.agent")
 
@@ -118,6 +123,41 @@ def agent_events(
     tried_queries = set()  # normalized search queries already issued this turn
     ground_failed = set()  # (page, normalized target) the VLM already missed
     yield {"type": "status", "text": "Thinking…"}
+
+    def present_hits(hits, qkey):
+        """Shared tail for the two retrieval tools (search / find_answer): show
+        the shortlist, land on the top page, and feed its text back — FORCING a
+        decision when the landing is a no-op (the same query again, or a page
+        already shown this turn), so a greedy 1B can't loop the identical lookup
+        forever. The only thing that differs between the tools is the retriever
+        that produced `hits`; everything downstream is identical."""
+        nonlocal current_page, circleable
+        rendered = [
+            (p, render_page(visual_store.pdf_path(doc_id), p)) for _, p, _ in hits
+        ]
+        yield {
+            "type": "tool_result",
+            "tool": "search_docs",
+            "gallery": [
+                (img, f"{manual} — p.{p} (score {s:.3g})")
+                for (p, img), (_, _, s) in zip(rendered, hits)
+            ],
+            "page_refs": [(doc_id, p) for _, p, _ in hits],
+        }
+        best_page = hits[0][1]
+        yield {"type": "found", "page": best_page}
+        current_page = best_page
+        circleable = {best_page}  # the lookup landed here — circle on this page
+        stuck = qkey in tried_queries or best_page in seen_pages
+        tried_queries.add(qkey)
+        seen_pages.add(best_page)
+        messages.append(
+            minicpm_agent.tool_result_message(
+                minicpm_agent.search_result_message(
+                    request, best_page, page_text(best_page), stuck
+                )
+            )
+        )
 
     for step in range(AGENT_MAX_STEPS):
         # Render the exact prompt BEFORE deciding so the trace can show what the
@@ -194,35 +234,27 @@ def agent_events(
                     minicpm_agent.tool_result_message(f"Search for {query!r} found nothing.")
                 )
                 continue
-            pages = [(p, render_page(visual_store.pdf_path(doc_id), p)) for _, p, _ in hits]
-            yield {
-                "type": "tool_result",
-                "tool": "search_docs",
-                "gallery": [
-                    (img, f"{manual} — p.{p} (score {s:.3g})")
-                    for (p, img), (_, _, s) in zip(pages, hits)
-                ],
-                "page_refs": [(doc_id, p) for _, p, _ in hits],
-            }
-            best_page = hits[0][1]
-            yield {"type": "found", "page": best_page}
-            current_page = best_page
-            circleable = {best_page}  # search landed here — circle on this page
-            # A no-op search — the same query again, or it lands on a page already
-            # shown this turn — means the agent is stuck. Feed back a FORCING
-            # message (no "search again") so a greedy 1B can't loop the identical
-            # search forever; otherwise the normal "circle or search again" prompt.
-            qkey = " ".join(query.lower().split())
-            stuck = qkey in tried_queries or best_page in seen_pages
-            tried_queries.add(qkey)
-            seen_pages.add(best_page)
-            messages.append(
-                minicpm_agent.tool_result_message(
-                    minicpm_agent.search_result_message(
-                        request, best_page, page_text(best_page), stuck
-                    )
+            yield from present_hits(hits, "search:" + " ".join(query.lower().split()))
+            continue
+
+        if tool["tool"] == "find_answer":
+            query = tool["query"]
+            yield {"type": "step", "tool": "find_answer", "query": query}
+            yield {"type": "status", "text": f"Looking up “{query}”…"}
+            # Dense retrieval over the PARSED chunks (text/semantic) — the index
+            # the parsed store was built for. A fact lookup ("what fuel does it
+            # take") is a TEXT match: ColEmbed ranks pages by VISUAL similarity
+            # and misses the plain specs page, so fact questions route here. Same
+            # (doc_id, page, score) shape as maxsim_search; the agent then circles
+            # the answering line on the page shown.
+            hits = retrieve_pages(query, parsed_store, doc_ids, top_k)
+            log.info("find_answer(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
+            if not hits:
+                messages.append(
+                    minicpm_agent.tool_result_message(f"Looking up {query!r} found nothing.")
                 )
-            )
+                continue
+            yield from present_hits(hits, "answer:" + " ".join(query.lower().split()))
             continue
 
         if tool["tool"] == "circle":
