@@ -1,12 +1,14 @@
-"""Mock store + ask pipeline for local UI iteration (MOCK_MODELS=1).
+"""Mock store + find-and-point pipeline for local UI iteration (MOCK_MODELS=1).
 
-Drop any PDF into MOCK_PDF_DIR (default app/data/mock_pdfs/) and app.py serves a
-canned answer grounded in real, rendered pages of that PDF — no GPU, no model
-downloads, no HF library sync. The same MockStore instance backs both
-approaches, so the manual dropdown, the page viewer, navigation, circling, the
-cited-pages gallery and the jump-to-page behaviour all exercise the real
-wiring; only the answer text, the section structure and the page/bbox picks
-are faked.
+Drop any PDF into MOCK_PDF_DIR (default app/data/mock_pdfs/) and the whole
+find-and-point UX runs over real, rendered pages of that PDF — no GPU, no
+model downloads, no HF library sync. The same MockStore instance backs both
+approaches, so the manual dropdown, the page viewer, navigation, the three
+router branches (go_to_section / point_here / search→classify→circle), the
+circle overlay and the candidate-pages strip all exercise the real wiring;
+only the router's tool choice, the page/bbox picks and the page classification
+are faked (by simple keyword heuristics, so the branches are predictable in
+tests).
 
 Nothing here imports torch / spaces / the model modules (those load CUDA at
 import), so this module is safe to load on a laptop.
@@ -17,10 +19,12 @@ from __future__ import annotations
 import glob
 import hashlib
 import os
+import re
 import time
 
 from core.constants import MOCK_PDF_DIR
 from core.pdf import page_count, page_size, render_pages
+from core.sections import match_section
 from core.store import slugify
 
 # Canned section titles spread evenly over each PDF's pages, realistic enough
@@ -103,27 +107,6 @@ class MockStore:
             for i in range(k)
         ]
 
-    def elements(self, doc_id: str) -> list[dict]:
-        """Canned figure/table chunks (one per section, bbox in rendered-page
-        pixels) so /locate works in mock mode."""
-        info = self._docs().get(doc_id)
-        if not info:
-            return []
-        w, h = page_size(info["path"], 1)
-        out = []
-        for i, s in enumerate(self.sections(doc_id)):
-            kind = "figure" if i % 2 == 0 else "table"
-            out.append(
-                {
-                    "type": kind,
-                    "heading": s["title"],
-                    "page": s["page_start"],
-                    "bbox": [w * 0.15, h * 0.25, w * 0.85, h * 0.6],
-                    "text": f"Mock {kind}: exploded view and specifications "
-                    f"for the {s['title'].lower()}.",
-                }
-            )
-        return out
 
 
 class MockAskPipeline:
@@ -149,91 +132,145 @@ class MockAskPipeline:
         page_refs = [(doc_id, p) for p in pages]
         return answer, gallery, page_refs
 
-    def run_chat(
+    def run_find(
         self,
         store: MockStore,
-        question: str,
-        history: list[dict],
+        request: str,
         doc_ids: list[str] | None,
         top_k: int,
+        sections: list[dict],
         viewer: dict | None = None,
     ):
-        """Yield the same event sequence as pipelines/chat_ask.py — a search
-        grounded in real rendered pages, then the answer with the updated text
-        history. Every third turn the history is "summarized" so the UI's
-        compaction status can be exercised. MOCK_DELAY (seconds) paces the
+        """Yield the same event sequence as pipelines/find_ask.py, with a
+        keyword-driven stand-in for the router. MOCK_DELAY (seconds) paces the
         events."""
-        question = (question or "").strip()
-        if not question:
-            raise ValueError("Please enter a question.")
+        request = (request or "").strip()
+        if not request:
+            raise ValueError("Tell me what to find.")
         doc_id, info = self._pick_doc(store, doc_ids)
-        return self._chat_events(
-            store, question, list(history or []), doc_id, info, int(top_k)
+        return self._find_events(
+            store, request, doc_id, info, int(top_k), sections or [], viewer or {}
         )
 
-    def _chat_events(self, store, question, history, doc_id, info, top_k):
+    def _find_events(self, store, request, doc_id, info, top_k, sections, viewer):
         delay = float(os.environ.get("MOCK_DELAY", "0"))
-
-        summarized = False
-        if len(history) >= 6:  # 3 stored turns: mimic the token-budget trigger
-            yield {
-                "type": "status",
-                "kind": "summarizing",
-                "text": "Summarizing earlier conversation…",
-            }
-            time.sleep(delay)
-            history = [
-                {
-                    "role": "user",
-                    "content": "Summary of our conversation so far (for your "
-                    f"reference):\n(mock summary of {len(history) - 4} earlier messages)",
-                },
-                {"role": "assistant", "content": "Got it — I'll keep that context in mind."},
-            ] + history[-4:]
-            summarized = True
-
-        yield {"type": "tool_call", "tool": "search_docs", "args": {"query": question}}
+        cur = max(1, int(viewer.get("page") or 1))
+        yield {"type": "status", "text": "Looking at your page…"}
         time.sleep(delay)
-        pages = self._pick_pages(question, info["pages"], top_k)
+
+        kind, a, b = self._mock_route(request, sections)
+
+        if kind == "go_to_section":
+            yield {"type": "route", "route": "section", "title": b, "page": a}
+            yield {"type": "done", "kind": "navigate", "page": a, "title": b}
+            return
+
+        if kind == "point_here":
+            target = a
+            yield {"type": "route", "route": "local", "target": target}
+            yield {"type": "status", "text": "Pinning it down…"}
+            time.sleep(delay)
+            box = self._mock_box(store, doc_id, cur, target)
+            if box is not None:
+                yield {"type": "done", "kind": "point", "found": True,
+                       "target": target, "page": cur, "bbox": box}
+                return
+            query = target  # couldn't pin here → fall through to search
+        else:
+            target, query = a, b
+
+        yield {"type": "route", "route": "search", "target": target, "query": query}
+        pages = self._pick_pages(request, info["pages"], top_k)
         images = render_pages(store.pdf_path(doc_id), pages)
-        labels = [f"{info['name']} — p.{p}" for p in pages]
         yield {
             "type": "tool_result",
             "tool": "search_docs",
-            "gallery": [(img, f"{label} (mock)") for label, img in zip(labels, images)],
+            "gallery": [
+                (img, f"{info['name']} — p.{p} (mock)")
+                for p, img in zip(pages, images)
+            ],
             "page_refs": [(doc_id, p) for p in pages],
         }
-        yield {"type": "status", "text": "Reading the pages…"}
+        yield {"type": "status", "text": f"Checking {len(pages)} pages…"}
         time.sleep(delay)
 
-        answer = MOCK_ANSWER.format(label=labels[0])
+        # a magic target exercises the all-NO give-up path
+        give_up = any(w in target.lower() for w in ("xyzzy", "flux capacitor", "nonexistent"))
+        flags = [False] * len(pages)
+        if not give_up and flags:
+            flags[0] = True
         yield {
-            "type": "answer",
-            "answer": answer,
-            "history": history
-            + [
-                {"role": "user", "content": question},
-                {"role": "assistant", "content": answer},
-            ],
-            "summarized": summarized,
-            "grounded_page": pages[0],
+            "type": "classified",
+            "results": [[p, f] for p, f in zip(pages, flags)],
         }
+        for p, img, f in zip(pages, images, flags):
+            if not f:
+                continue
+            yield {"type": "found", "page": p}
+            yield {"type": "status", "text": "Pinning it down…"}
+            time.sleep(delay)
+            box = self._mock_box(store, doc_id, p, target)
+            yield {"type": "done", "kind": "point", "found": True,
+                   "target": target, "page": p, "bbox": box}
+            return
+        yield {"type": "done", "kind": "point", "found": False, "target": target}
 
     @staticmethod
-    def point(store: MockStore, doc_id: str, page: int, query: str) -> dict | None:
-        """Mock visual grounding: a deterministic, query-dependent box on the
-        requested page, in rendered-page pixels (None for one query in ~8, so
-        the not-found path can be exercised with e.g. 'circle the xyzzy')."""
+    def _mock_route(request: str, sections: list[dict]):
+        """Fake the LLM router with keyword heuristics. Returns one of:
+        ("go_to_section", page, title) / ("point_here", target, None) /
+        ("search", target, query)."""
+        r = request.lower()
+        nav_verb = any(
+            v in r for v in ("go to", "take me", "open", "bring up", "pull up",
+                             "navigate", "jump to")
+        )
+        is_circle = any(
+            v in r for v in ("circle", "point", "highlight", "mark", "show me where")
+        )
+        here = any(v in r for v in ("here", "this page", "this", "current"))
+        secs = [{"title": o["title"], "page_start": o["page"]} for o in sections]
+        best = match_section(request, secs) if secs else None
+
+        if (nav_verb or "section" in r or "chapter" in r) and best and best["score"] >= 0.4:
+            return "go_to_section", best["page"], best["title"]
+        target = MockAskPipeline._clean_target(request)
+        if is_circle and here:
+            return "point_here", target, None
+        if is_circle:
+            return "search", target, request
+        if best and best["score"] >= 0.6:
+            return "go_to_section", best["page"], best["title"]
+        return "search", target, request
+
+    @staticmethod
+    def _clean_target(request: str) -> str:
+        r = re.sub(
+            r"^(?:can you |please )?(?:circle|point (?:at|to)|highlight|mark|"
+            r"show me where)\s+",
+            "", request.strip(), flags=re.I,
+        )
+        r = re.sub(r"^(the |a |an )", "", r, flags=re.I)
+        r = re.sub(r"\b(?:on |in )?(?:this|the current) page\b", "", r, flags=re.I)
+        r = re.sub(r"\bhere\b", "", r, flags=re.I)
+        r = re.sub(r"\s+(?:is|are)(?:\s+located)?$", "", r, flags=re.I)
+        return " ".join(r.split()) or request
+
+    @staticmethod
+    def _mock_box(store: MockStore, doc_id: str, page: int, target: str):
+        """A deterministic, target-dependent bbox in rendered-page pixels;
+        None for ~1 in 8 targets so the "located but not pinpointed" path is
+        exercised too."""
         path = store.pdf_path(doc_id)
         if not path:
             return None
-        seed = int(hashlib.sha1(query.encode()).hexdigest(), 16)
+        seed = int(hashlib.sha1(target.encode()).hexdigest(), 16)
         if seed % 8 == 7:
             return None
         w, h = page_size(path, page)
         x1 = w * (0.1 + (seed % 5) * 0.1)
         y1 = h * (0.15 + (seed // 5 % 5) * 0.12)
-        return {"page": page, "bbox": [round(x1), round(y1), round(x1 + w * 0.3), round(y1 + h * 0.18)]}
+        return [round(x1), round(y1), round(x1 + w * 0.3), round(y1 + h * 0.18)]
 
     @staticmethod
     def _pick_doc(store: MockStore, doc_ids: list[str] | None):

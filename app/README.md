@@ -21,25 +21,31 @@ license: mit
 # Repair Guy — a hands-busy mechanic's manual assistant
 
 A page viewer over repair manuals driven by short requests — *"go to brake
-bleeding"*, *"next page"*, *"circle the drain plug"* — with grounded Q&A as
-the fallback, everything answered by models running inside the Space (no
-external endpoints). Intents are tiered by cost:
+bleeding"*, *"next page"*, *"circle the brake hoses"*. It **finds the right
+page and points at it**; it never writes answers and keeps no chat history
+(every request is stateless, grounded in the page being viewed). Everything
+runs inside the Space (no external endpoints).
 
-- **Instant (client)** — next/previous page, *page 412*, back, next/previous
-  section: pure frontend state over the rendered page images.
-- **CPU routes** — *go to \<section\>* fuzzy-matches the section index that
-  Nemotron Parse extracted at ingest (`/navigate`); *circle the \<thing\>*
-  matches the parsed figure/table descriptions and draws an SVG circle at the
-  stored bbox (`/locate`). No model, no GPU, milliseconds.
-- **ZeroGPU** — real questions go to `/ask`: one retrieval (the selected
-  approach below) + one MiniCPM-V 4.5 generation grounded in the retrieved
-  page images, streamed as events; the viewer lands on the page the answer
-  cites. A *circle ...* request with no parse match falls back to `/point`:
-  MiniCPM-V visual grounding on the viewed page. Chat history is kept
-  client-side as text and summarized by the model when it outgrows its token
-  budget. See `app/pipelines/chat_ask.py` and `app/core/sections.py`.
+- **Obvious nav (client, instant)** — next/previous page, *page 412*, back,
+  next/previous section: pure frontend state over the rendered page images.
+- **Everything else → `/find`, one ZeroGPU call** (`app/pipelines/find_ask.py`):
+  MiniCPM-V 4.5 sees the page being viewed plus a numbered section list and
+  picks one tool —
+  - **point_here** — circle something on this page (visual grounding → bbox →
+    SVG circle);
+  - **go_to_section** — jump to a section's first page;
+  - **search** — retrieve candidates (the selected approach below), then **one
+    batched generation classifies every candidate page in parallel** (*does
+    this page show X?*); the first match is shown and the target circled, or
+    all-no gives up.
 
-The project also showcases two indexing approaches over the same manuals:
+  Streamed as events; the UI shows tool chips and the resulting page/circle,
+  never model prose. The section list is the manual's clean PDF-bookmark
+  chapters plus a per-request fuzzy shortlist of fine parse headings
+  (`app/core/sections.py`).
+
+The project also showcases two indexing approaches over the same manuals
+(used by the search tool, and by the offline answer eval):
 
 - **Visual** — no parsing, no chunking: every page is embedded as an image
   with [Nemotron ColEmbed v2](https://huggingface.co/nvidia/nemotron-colembed-vl-4b-v2)
@@ -68,10 +74,11 @@ the stack is on 4.x.
 
 To iterate on the UI without GPUs, model downloads or the HF library sync, run
 with `MOCK_MODELS=1`. Drop any PDF into `app/data/mock_pdfs/` (or set
-`MOCK_PDF_DIR`) and the whole UX works over real rendered pages of that PDF —
-navigation, circling (canned sections/bboxes), the cited-pages gallery and the
-Q&A flow. Only the answer text, the section structure and the page/bbox picks
-are faked.
+`MOCK_PDF_DIR`) and the whole find-and-point UX works over real rendered pages
+of that PDF — navigation, and all three router branches (go-to-section,
+circle-on-this-page, search→classify→circle, plus the give-up path). A
+keyword heuristic stands in for the LLM router; the section structure, page
+classification and bboxes are faked.
 
 ```bash
 cd app

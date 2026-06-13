@@ -1,13 +1,16 @@
-"""Section index + fuzzy matching for hands-busy navigation.
+"""Section index + fuzzy matching for the find-and-point router.
 
-The mechanic-facing flow is "go to <section>" / "circle the <thing>": no model,
-no GPU — just the section structure Nemotron Parse already extracted at ingest
-(headings on the section chunks, bboxes on the figure/table chunks) matched
-against the request with plain string similarity. app.py exposes these through
-the CPU-only /sections, /navigate and /locate routes.
+Two uses, both CPU-only and cheap:
+- sections_from_chunks: turn the parsed store's section chunks into a clean
+  [{title, page_start, page_end}] index.
+- top_sections: the per-request shortlist of fine-grained headings shown to
+  the LLM router (the full index is far too large for a prompt), so a precise
+  heading like "Brake System Bleeding — p.532" is on offer alongside the
+  manual's clean PDF-bookmark chapters.
 
-All scoring is 0..1; the frontend applies the acceptance thresholds (an
-explicit "go to X" tolerates a looser match than a bare "brake bleeding").
+All scoring is 0..1. The router (models/minicpm.route_request) makes the final
+call from the page image plus this shortlist; nothing here navigates on its
+own.
 """
 
 from __future__ import annotations
@@ -76,25 +79,14 @@ def match_section(query: str, sections: list[dict]) -> dict | None:
     return {"title": best["title"], "page": best["page_start"], "score": round(best_score, 3)}
 
 
-def match_element(query: str, elements: list[dict]) -> dict | None:
-    """The best-matching figure/table as {page, bbox, kind, label, score}, or
-    None. elements are parsed-store chunks of type figure/table: their text is
-    the MiniCPM search description, their bbox is in rendered-page pixels (the
-    same space the /page route serves)."""
-    best, best_score = None, 0.0
-    for el in elements:
-        if el.get("type") not in ("figure", "table") or not el.get("bbox"):
-            continue
-        sc = score(query, f"{el.get('heading') or ''} {el.get('text') or ''}")
-        if sc > best_score:
-            best, best_score = el, sc
-    if best is None:
-        return None
-    label = " ".join((best.get("text") or best.get("heading") or "").split())
-    return {
-        "page": best["page"],
-        "bbox": [round(v) for v in best["bbox"]],
-        "kind": best["type"],
-        "label": label[:140],
-        "score": round(best_score, 3),
-    }
+def top_sections(
+    query: str, sections: list[dict], n: int = 8, floor: float = 0.3
+) -> list[dict]:
+    """The n best-matching sections as [{title, page}], best first, dropping
+    anything below floor — the per-request shortlist of fine-grained headings
+    shown to the router so a precise heading ("Brake System Bleeding") is on
+    offer even when the full index is far too large to put in the prompt."""
+    scored = [(score(query, s["title"]), s) for s in sections]
+    scored = [(sc, s) for sc, s in scored if sc >= floor]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [{"title": s["title"], "page": s["page_start"]} for _, s in scored[:n]]

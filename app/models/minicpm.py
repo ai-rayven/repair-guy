@@ -1,13 +1,11 @@
 """MiniCPM-V: the local VLM shared by both approaches.
 
-- generate_answer: answers a question grounded in retrieved page images
-  (one-shot; used by scripts/eval_answers_modal.py).
-- generate_chat / summarize_history / history_tokens: the chat surface
-  (pipelines/chat_ask.py) — one grounded answer generation over the text
-  history plus the retrieved pages for the current question, and history
-  budgeting.
-- ground_box: visual grounding for "circle the <thing>" — returns the
+- route_request / classify_pages / ground_box: the find-and-point surface
+  (pipelines/find_ask.py) — route a request against the page being viewed,
+  YES/NO-classify candidate pages in one batched call, and return the
   bounding box of a described object on a page image.
+- generate_answer: answers a question grounded in retrieved page images
+  (one-shot; used by scripts/eval_answers_modal.py and the pipelines' .run()).
 - describe_batch (+ describe_figure / describe_table wrappers): used only by
   the parsed ingest pipeline (on Modal) to turn Picture crops and Table
   markdown into searchable text, batched through chat()'s batched mode.
@@ -23,6 +21,7 @@ real CUDA process on Modal.
 
 from __future__ import annotations
 
+import json
 import re
 
 import torch
@@ -32,10 +31,8 @@ from transformers import AutoModel, AutoProcessor, AutoTokenizer
 from core.constants import (
     ANSWER_MAX_NEW_TOKENS,
     DESCRIBE_MAX_NEW_TOKENS,
-    HISTORY_KEEP_MESSAGES,
     MINICPM_MODEL_ID,
     MINICPM_REVISION,
-    SUMMARY_MAX_NEW_TOKENS,
 )
 
 PROMPT = (
@@ -58,48 +55,48 @@ PROMPT = (
     "Question: {question}"
 )
 
-# Chat: same grounding rules as PROMPT, restated for a multi-turn conversation
-# where retrieval happens outside the model — the current question arrives
-# with its retrieved pages attached, and earlier turns are text-only.
-CHAT_SYSTEM_PROMPT = (
-    "You are Repair Guy, an assistant helping a mechanic who is working with "
-    'the repair manual "{manual}". The user\'s current question comes with the '
-    "manual pages most relevant to it, each image preceded by its label "
-    "(manual name and page number).\n\n"
-    "RULES\n"
-    "1. Answer using ONLY what is printed on the attached pages (and what was "
-    "established earlier in this conversation) — never from memory.\n"
-    "2. If the answer is a procedure, reproduce EVERY step in order, numbered "
-    "exactly as in the manual. Never skip, merge, or summarize steps. Keep "
-    "each step's notes, model exceptions, and specifications (e.g. torque "
-    "values) with that step, exactly as printed.\n"
-    "3. Quote exact values (torques, clearances, part numbers, capacities) as "
-    "printed, including units.\n"
-    "4. End answers with the page label(s) you used, e.g. (Manual — p.238). "
-    "Cite only pages you were actually shown. If a procedure clearly "
-    "continues on a page you were not given, say so.\n"
-    "5. If the pages do not contain the answer, say so instead of guessing.\n"
-    "6. The mechanic likely has their hands full: be direct, start with the "
-    "answer — no preamble, plain markdown."
+# Find-and-point router: the model sees the page the mechanic is viewing plus
+# a numbered list of manual sections, and chooses ONE action — circle on this
+# page, jump to a section, or search the manual. The JSON examples use doubled
+# braces because the template is .format()ed.
+ROUTER_PROMPT = (
+    'The image is the page of the repair manual "{manual}" that a mechanic is '
+    "viewing right now (page {page}{section_part}). The mechanic said: "
+    "{request!r}\n\n"
+    "Choose ONE action and reply with ONLY its JSON object:\n"
+    "- Circle something that is visible on THIS page:\n"
+    '  {{"tool": "point_here", "target": "<short name of the thing to circle>"}}\n'
+    "- Jump to a section (pick its number from the SECTIONS list below):\n"
+    '  {{"tool": "go_to_section", "section": <number>}}\n'
+    "- Search the whole manual for a part/topic, to circle once found:\n"
+    '  {{"tool": "search", "query": "<focused search phrase>", '
+    '"target": "<short name of the thing to circle>"}}\n\n'
+    "Prefer point_here when the thing is plainly on this page; prefer "
+    "go_to_section when they name or describe a section/procedure; otherwise "
+    "search.\n\n"
+    "SECTIONS:\n{sections}\n\n"
+    "Reply with ONLY the JSON object, nothing else."
 )
 
-SUMMARY_PROMPT = (
-    "Below is the transcript of an ongoing conversation between a user and a "
-    "repair-manual assistant. Summarize it in at most 200 words so the "
-    "assistant can seamlessly continue the conversation: keep the components "
-    "and procedures discussed, every exact value mentioned (torques, "
-    "clearances, capacities, part numbers), the page numbers cited, and "
-    "anything the user said about their situation or vehicle. Plain text, no "
-    "preamble.\n\nTranscript:\n{transcript}"
+# Parallel page classification: one batched call, one YES/NO per candidate.
+CLASSIFY_PROMPT = (
+    "The image is one page of a repair manual. Does this page contain or "
+    "show {target!r} (as a diagram part, a table entry, a specification, or "
+    "a procedure)? Reply with ONLY YES or NO."
 )
 
-# Visual grounding for "circle the <thing>". MiniCPM-V grounding replies in
+# Visual grounding for "circle the <thing>": the mechanic asks to circle
+# something on the page they are viewing. MiniCPM-V grounding replies in
 # <box>x1 y1 x2 y2</box> form with coordinates normalized to 0-1000.
 GROUND_PROMPT = (
-    "This is a page from a repair manual. Locate {query!r} on it. Reply with "
-    "ONLY the bounding box of that region as <box>x1 y1 x2 y2</box>, "
-    "coordinates normalized to 0-1000 relative to the full image. If it is "
-    "not visible on this page, reply NOT FOUND."
+    "The image is one page of a repair manual. A mechanic asked to circle "
+    "{query!r} on this page. Find it: it may be a component in a diagram "
+    "(use the callout letters/numbers and leader lines to locate the right "
+    "part), a table or a row in one, a specification value, or a heading. "
+    "Reply with ONLY the bounding box of that region as "
+    "<box>x1 y1 x2 y2</box>, coordinates normalized to 0-1000 (x across, y "
+    "down) relative to the full page. If it is not on this page, reply "
+    "exactly: NOT FOUND"
 )
 
 FIGURE_PROMPT = (
@@ -171,19 +168,95 @@ def generate_answer(question: str, pages: list[tuple[str, Image.Image]]) -> str:
     return str(answer).strip()
 
 
-def generate_chat(msgs: list[dict], manual_name: str) -> str:
-    """One chat-turn generation: the text history plus the current question
-    with its retrieved page images, under the grounded chat system prompt.
-    msgs: [{"role", "content": [str | PIL.Image, ...]}]. Must run on GPU."""
+def route_request(
+    image: Image.Image,
+    request: str,
+    manual: str,
+    page: int,
+    section: str,
+    options: list[dict],
+) -> tuple[dict | None, str]:
+    """(route, raw reply). options is the numbered section list shown to the
+    model ([{title, page}]). route is one of:
+        {"tool": "point_here", "target": str}
+        {"tool": "go_to_section", "page": int, "title": str}  (index resolved)
+        {"tool": "search", "query": str, "target": str}
+    or None when the reply isn't usable (caller falls back to a manual-wide
+    search with the raw request). Must run on GPU."""
+    sections = "\n".join(
+        f"{i + 1}. {o['title']} (p.{o['page']})" for i, o in enumerate(options)
+    )
+    prompt = ROUTER_PROMPT.format(
+        manual=manual,
+        page=page,
+        section_part=f', section "{section}"' if section else "",
+        request=request,
+        sections=sections or "(none)",
+    )
+    with torch.no_grad():
+        out = _MODEL.chat(
+            msgs=[{"role": "user", "content": [image.convert("RGB"), prompt]}],
+            tokenizer=_TOKENIZER,
+            enable_thinking=False,
+            max_new_tokens=128,
+        )
+    raw = str(out).strip()
+    text = raw
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+        text = text.rsplit("```", 1)[0].strip()
+    start = text.find("{")
+    if start < 0:
+        return None, raw
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(text[start:])
+    except ValueError:
+        return None, raw
+    if not isinstance(obj, dict):
+        return None, raw
+    tool = obj.get("tool")
+    if tool == "point_here":
+        target = str(obj.get("target") or request).strip()
+        return {"tool": "point_here", "target": target}, raw
+    if tool == "go_to_section":
+        try:
+            idx = int(obj.get("section")) - 1
+        except (TypeError, ValueError):
+            return None, raw
+        if not 0 <= idx < len(options):
+            return None, raw
+        return {
+            "tool": "go_to_section",
+            "page": int(options[idx]["page"]),
+            "title": options[idx]["title"],
+        }, raw
+    if tool == "search":
+        target = str(obj.get("target") or request).strip()
+        return {
+            "tool": "search",
+            "query": str(obj.get("query") or target).strip(),
+            "target": target,
+        }, raw
+    return None, raw
+
+
+def classify_pages(images: list[Image.Image], target: str) -> list[bool]:
+    """Whether each page shows the target — all pages classified in ONE
+    chat() call (its batched mode: msgs = list of conversations), so the
+    candidates are checked in parallel. Must run on GPU."""
+    prompt = CLASSIFY_PROMPT.format(target=target)
+    msgs = [
+        [{"role": "user", "content": [img.convert("RGB"), prompt]}]
+        for img in images
+    ]
     with torch.no_grad():
         out = _MODEL.chat(
             msgs=msgs,
             tokenizer=_TOKENIZER,
-            system_prompt=CHAT_SYSTEM_PROMPT.format(manual=manual_name),
             enable_thinking=False,
-            max_new_tokens=ANSWER_MAX_NEW_TOKENS,
+            max_new_tokens=8,
         )
-    return str(out).strip()
+    return [str(a).strip().upper().startswith("YES") for a in out]
 
 
 def ground_box(
@@ -213,40 +286,6 @@ def ground_box(
         return None, raw
     w, h = image.size
     return (x1 * w / 1000, y1 * h / 1000, x2 * w / 1000, y2 * h / 1000), raw
-
-
-def history_tokens(history: list[dict]) -> int:
-    """Token count of a text-only chat history ([{role, content}])."""
-    return sum(
-        len(_TOKENIZER.encode(m.get("content") or "", add_special_tokens=False))
-        for m in history
-    )
-
-
-def summarize_history(history: list[dict]) -> list[dict]:
-    """Collapse all but the last HISTORY_KEEP_MESSAGES messages into one
-    summary exchange, keeping role alternation intact (turns are appended in
-    user/assistant pairs, so the kept tail starts with a user message).
-    Must run on GPU."""
-    if len(history) <= HISTORY_KEEP_MESSAGES:
-        return history
-    old, kept = history[:-HISTORY_KEEP_MESSAGES], history[-HISTORY_KEEP_MESSAGES:]
-    transcript = "\n\n".join(f"{m['role'].upper()}: {m['content']}" for m in old)
-    with torch.no_grad():
-        summary = _MODEL.chat(
-            msgs=[{"role": "user", "content": SUMMARY_PROMPT.format(transcript=transcript)}],
-            tokenizer=_TOKENIZER,
-            enable_thinking=False,
-            max_new_tokens=SUMMARY_MAX_NEW_TOKENS,
-        )
-    return [
-        {
-            "role": "user",
-            "content": "Summary of our conversation so far (for your reference):\n"
-            + str(summary).strip(),
-        },
-        {"role": "assistant", "content": "Got it — I'll keep that context in mind."},
-    ] + kept
 
 
 def describe_batch(jobs: list[tuple[str, object, str]]) -> list[str]:

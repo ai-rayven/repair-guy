@@ -25,24 +25,16 @@ DEFAULT_TOP_K = 3
 MAX_TOP_K = 5
 
 # ---------------------------------------------------------------------------
-# Chat (multi-turn Q&A turns, pipelines/chat_ask.py) — navigation and circling
-# are CPU-only (core/sections.py) and never reach the GPU.
+# Find-and-point (pipelines/find_ask.py) — every non-obvious request is one
+# stateless GPU turn: route against the viewed page, then either circle on it
+# or search + classify candidates + circle. Deterministic navigation is
+# CPU-only (core/sections.py) and never reaches the GPU.
 # ---------------------------------------------------------------------------
 
-# One ZeroGPU call covers a whole Q&A turn: retrieval + page rendering + one
-# answer generation, plus possibly a history summarization pass first.
-CHAT_GPU_DURATION = 180
-# Visual grounding ("circle the drain plug"): render one page + one short
-# generation that returns a bounding box.
-POINT_GPU_DURATION = 90
-
-# chat()'s max_inp_length is 16384 tokens and each retrieved page image costs
-# roughly 600-1000 of them, so past turns are kept as text only and summarized
-# once they grow past this budget (counted with the MiniCPM tokenizer).
-HISTORY_TOKEN_BUDGET = 6000
-# Most recent messages kept verbatim when the older history is summarized.
-HISTORY_KEEP_MESSAGES = 4
-SUMMARY_MAX_NEW_TOKENS = 512
+# One ZeroGPU call covers a whole find turn: the router generation on the
+# viewed page, retrieval + page rendering, one batched classification over the
+# candidates, and one grounding generation.
+FIND_GPU_DURATION = 180
 
 # ---------------------------------------------------------------------------
 # Visual approach: ColEmbed late-interaction page embeddings + MaxSim

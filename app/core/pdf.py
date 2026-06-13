@@ -49,6 +49,29 @@ def render_page_png(pdf_path: str, page_num: int, dpi: int = RENDER_DPI) -> byte
         doc.close()
 
 
+def pdf_outline(pdf_path: str) -> list[dict]:
+    """The PDF's bookmark outline as [{title, page_start, page_end}] — the
+    manual's own clean chapter structure (e.g. 16 entries for a 1151-page
+    Hyundai manual), unlike the noisy parse-derived headings. Empty when the
+    PDF has no bookmarks."""
+    doc = fitz.open(pdf_path)
+    try:
+        entries = [
+            {"title": " ".join(title.split()), "page_start": max(1, page)}
+            for _, title, page in doc.get_toc()
+            if title.strip()
+        ]
+        for i, e in enumerate(entries):
+            e["page_end"] = (
+                max(e["page_start"], entries[i + 1]["page_start"] - 1)
+                if i + 1 < len(entries)
+                else doc.page_count
+            )
+        return entries
+    finally:
+        doc.close()
+
+
 def page_size(pdf_path: str, page_num: int, dpi: int = RENDER_DPI) -> tuple[int, int]:
     """(width, height) in pixels a 1-based page renders to at this DPI,
     without rendering it."""
