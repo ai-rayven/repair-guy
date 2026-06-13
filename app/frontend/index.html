@@ -219,7 +219,7 @@
           <textarea x-model="input" @keydown.enter.prevent="send()" rows="1"
             :disabled="!ready"
             placeholder="Type a request…"
-            class="flex-1 resize-none bg-transparent px-1.5 py-1.5 text-sm text-navy outline-none placeholder:text-brand-400/70 max-h-24"></textarea>
+            class="flex-1 min-w-0 resize-none bg-transparent px-1.5 py-1.5 text-sm text-navy outline-none placeholder:text-brand-400/70 max-h-24"></textarea>
           <!-- mic: arms always-on listening (Silero VAD → Moonshine, fully
                in-browser). The tap also satisfies the mobile mic-permission
                gesture; the voice stack is lazy-loaded on first use so it never
@@ -455,8 +455,13 @@ function repairGuy() {
     boxDims(p){ const c=this.circle; return (c && c.page===p && c.dims) ? {w:c.dims[0], h:c.dims[1]} : this.natOf(p); },
     // the overlay rectangle for the active circle on page p: bbox + a small pad,
     // normalized (x1<x2,y1<y2) and clamped to the page so it never runs off.
+    // Gate on page match too (not just the <svg>'s x-show): when the spread
+    // shifts as the circle lands (e.g. [614,615] → [615,616]), Alpine's keyed
+    // x-for can leave the OTHER page's overlay <svg> at display:block, and an
+    // ungated boxRect would then draw this same bbox on BOTH pages. Returning an
+    // empty rect for the non-matching page keeps the box on its page regardless.
     boxRect(p){
-      if(!this.circle || !this.circle.bbox) return {x:0,y:0,w:0,h:0};
+      if(!this.circle || !this.circle.bbox || this.circle.page!==p) return {x:0,y:0,w:0,h:0};
       const b=this.circle.bbox, n=this.boxDims(p), pad=14;
       const x1=Math.min(b[0],b[2]), y1=Math.min(b[1],b[3]), x2=Math.max(b[0],b[2]), y2=Math.max(b[1],b[3]);
       const x=Math.max(0,x1-pad), y=Math.max(0,y1-pad);
