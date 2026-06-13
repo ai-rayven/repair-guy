@@ -775,9 +775,9 @@ function repairGuy() {
       await this.loadScript('/vendor/vad/bundle.min.js');
 
       // 2) Moonshine ASR (transformers.js from CDN; the tiny model is fetched
-      //    from the HF hub once, then cached in the browser).
+      //    from the HF hub once, then cached in the browser). 
       const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers');
-      this.asr = await pipeline('automatic-speech-recognition', 'onnx-community/moonshine-tiny-ONNX');
+      this.asr = await pipeline('automatic-speech-recognition', 'onnx-community/moonshine-tiny-ONNX', { dtype: 'q8' });
 
       // 3) the mic: Silero VAD segments speech; onSpeechEnd is our send trigger
       this.vad = await window.vad.MicVAD.new({
