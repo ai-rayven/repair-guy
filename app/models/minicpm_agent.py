@@ -60,8 +60,9 @@ SYSTEM_PROMPT = (
     "- Jump straight to a known PHYSICAL page number:\n"
     '  {"tool": "go_to_page", "page": <number>}\n'
     "- Circle something on a page CURRENTLY ON SCREEN (their full text is given "
-    "to you). When two pages are shown, set page to the one whose text has it:\n"
-    '  {"tool": "circle", "target": "<short name of the thing to circle>", '
+    "to you) — a part, OR the line/value that answers their question. When two "
+    "pages are shown, set page to the one whose text has it:\n"
+    '  {"tool": "circle", "target": "<short name or printed words to circle>", '
     '"page": <the on-screen page number it is on>}\n'
     "- Finish — nothing more to do, or it isn't in the manual:\n"
     '  {"tool": "done", "message": "<one short line for the mechanic>"}\n\n'
@@ -73,10 +74,16 @@ SYSTEM_PROMPT = (
     "go to the page it points to.\n"
     "- The thing they want is on a page ON SCREEN → circle it, and set page to "
     "the one it is on. The target MUST be what the mechanic asked for — match it "
-    "to that page's exact wording if it appears there; NEVER circle a different "
+    "to that page's wording if it appears there (a part named inside a figure or "
+    "diagram description still counts as on the page); NEVER circle a different "
     "component.\n"
+    "- They ask a QUESTION whose answer is printed on a page on screen — a spec, "
+    'a value, or a line (e.g. "what fuel does it take" answered by "Engine fuel '
+    '- Gasoline") → circle that spot, using the printed words as the target. '
+    "Point at the answer; do NOT keep searching for a better page.\n"
     "- Otherwise → search. After a search shows a page, that page is on screen, "
-    "so circle on it or search again.\n"
+    "so circle on it or search again — but NEVER repeat a search that did not "
+    "move you; act on the page instead.\n"
     "- Use the conversation history only to resolve what they mean (e.g. "
     '"circle the other one"); never restate earlier answers.\n\n'
     "Examples (copy the FORMAT, not the values):\n"
@@ -86,7 +93,9 @@ SYSTEM_PROMPT = (
     'Mechanic: "the wastegate actuator" (current page is an index reading '
     '"Actuators .... 855") → {"tool": "go_to_page", "page": 855}\n'
     'Mechanic: "circle the bleeder screw" (it is on p.412, which is on screen) → '
-    '{"tool": "circle", "target": "bleeder screw", "page": 412}'
+    '{"tool": "circle", "target": "bleeder screw", "page": 412}\n'
+    'Mechanic: "what fuel does it take" (p.5 on screen shows "Engine fuel - '
+    'Gasoline") → {"tool": "circle", "target": "Engine fuel - Gasoline", "page": 5}'
 )
 
 
@@ -147,6 +156,38 @@ def tool_result_message(text: str) -> dict:
     """A tool's outcome fed back into the loop as the next observation (e.g. the
     page a search landed on, with its text, so the agent can circle on it)."""
     return {"role": "user", "content": text}
+
+
+def search_result_message(request: str, page: int, text: str, stuck: bool) -> str:
+    """The observation fed back after a search shows a page. `stuck` is set by the
+    pipeline when the search was a no-op — the same query again, or it landed on a
+    page already shown this turn. Then the message FORCES a decision and DROPS the
+    "search again" option, because a 1B on greedy decoding will otherwise re-issue
+    the same search and loop on the same page forever (seen live: 5x the identical
+    search, all landing on p.876, never circling)."""
+    body = (
+        f"Search showed p.{page}. It is now the CURRENT page.\n"
+        f"CURRENT PAGE (p.{page}) — full text:\n"
+        f"{text or '(no text available)'}\n\n"
+    )
+    if stuck:
+        return body + (
+            f"You are still on p.{page}; that search did not move you, and "
+            "repeating it will NOT help. Decide now — do not search again:\n"
+            f"- If this page shows {request!r} OR the line/value that answers it "
+            "(it counts even when named inside a figure or diagram description), "
+            'circle that spot: {"tool": "circle", "target": "<the printed words>", '
+            f'"page": {page}}}.\n'
+            "- If it belongs on a different page, use go_to_section or go_to_page.\n"
+            "- Only if it is truly not in this manual, use done."
+        )
+    return body + (
+        f"The mechanic asked for: {request!r}. If this page shows THAT — or the "
+        "line/value that answers it, including when named inside a figure or "
+        "diagram description — circle that spot (use the words as printed on the "
+        "page). Otherwise search again or go to a section. Do not circle a "
+        "different component."
+    )
 
 
 def assistant_action_message(tool: dict) -> dict:

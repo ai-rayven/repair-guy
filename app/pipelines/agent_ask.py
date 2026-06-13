@@ -114,6 +114,8 @@ def agent_events(
 
     current_page = shown_pages[0]  # the active page circle defaults to
     circleable = set(shown_pages)  # pages the agent may circle on right now
+    seen_pages = set(shown_pages)  # pages already put on screen this turn
+    tried_queries = set()  # normalized search queries already issued this turn
     yield {"type": "status", "text": "Thinking…"}
 
     for step in range(AGENT_MAX_STEPS):
@@ -133,9 +135,11 @@ def agent_events(
             # it and let the agent try again rather than abandon the turn.
             messages.append(
                 minicpm_agent.tool_result_message(
-                    "That was not a valid tool call. Reply with ONLY one JSON "
-                    'object like {"tool": "circle", "target": "drain plug"} — '
-                    "fill in the real value."
+                    "Your last reply was not one complete JSON object. Reply with "
+                    "ONE complete JSON object and nothing else, e.g. "
+                    '{"tool": "search", "query": "fuel filter"}. If you circle, the '
+                    "target MUST be copied from the page text above — never invent "
+                    "a part that is not printed there."
                 )
             )
             continue
@@ -203,15 +207,19 @@ def agent_events(
             yield {"type": "found", "page": best_page}
             current_page = best_page
             circleable = {best_page}  # search landed here — circle on this page
+            # A no-op search — the same query again, or it lands on a page already
+            # shown this turn — means the agent is stuck. Feed back a FORCING
+            # message (no "search again") so a greedy 1B can't loop the identical
+            # search forever; otherwise the normal "circle or search again" prompt.
+            qkey = " ".join(query.lower().split())
+            stuck = qkey in tried_queries or best_page in seen_pages
+            tried_queries.add(qkey)
+            seen_pages.add(best_page)
             messages.append(
                 minicpm_agent.tool_result_message(
-                    f"Search showed p.{best_page}. It is now the CURRENT page.\n"
-                    f"CURRENT PAGE (p.{best_page}) — full text:\n"
-                    f"{page_text(best_page) or '(no text available)'}\n\n"
-                    f"The mechanic asked for: {request!r}. If THAT is on this page, "
-                    "circle it (use its exact name as printed on the page). "
-                    "Otherwise search again or go to a section. Do not circle a "
-                    "different component."
+                    minicpm_agent.search_result_message(
+                        request, best_page, page_text(best_page), stuck
+                    )
                 )
             )
             continue

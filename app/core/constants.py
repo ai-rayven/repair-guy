@@ -25,8 +25,10 @@ ANSWER_MAX_NEW_TOKENS = 2048
 # remote code to drift) but overridable; pin a commit before a real deploy.
 MINICPM_AGENT_MODEL_ID = os.environ.get("MINICPM_AGENT_MODEL_ID", "openbmb/MiniCPM5-1B")
 MINICPM_AGENT_REVISION = os.environ.get("MINICPM_AGENT_REVISION", "") or None
-# A tool-call decision is short JSON; a rerank reply is a single number.
-AGENT_MAX_NEW_TOKENS = 96
+# A tool-call decision is short JSON; a rerank reply is a single number. 96 was
+# too tight — the 1B writes verbose search queries and was getting CUT OFF
+# mid-string (unterminated JSON → parse fail → wasted retry), seen live.
+AGENT_MAX_NEW_TOKENS = 128
 # Backstop on tool steps within one turn, so a confused loop can't run forever.
 AGENT_MAX_STEPS = 6
 # ColEmbed shortlist size the search tool retrieves (the eval default).
