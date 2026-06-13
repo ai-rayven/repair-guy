@@ -87,10 +87,12 @@ def agent_events(
     sections: list[dict],
     viewer: dict | None = None,
     history: list | None = None,
+    ground_thinking: bool | None = None,
 ):
     """Yield the events of one agent turn (see module docstring). sections is the
     numbered table of contents shown to the agent ([{title, page}]); the agent's
-    go_to_section index is 1-based into it."""
+    go_to_section index is 1-based into it. ground_thinking toggles MiniCPM-V's
+    reasoning for the circle grounding (None → server default)."""
     doc_id = doc_ids[0]
     manual = names[doc_id]
     viewer = viewer or {}
@@ -269,7 +271,7 @@ def agent_events(
             yield {"type": "step", "tool": "circle", "target": target, "page": page}
             yield {"type": "status", "text": "Pinning it down…"}
             img = render_page(visual_store.pdf_path(doc_id), page)
-            box, braw = minicpm.ground_box(img, target)
+            box, braw = minicpm.ground_box(img, target, enable_thinking=ground_thinking)
             log.info("ground_box(%r) on p.%d → %s | raw=%r",
                      target, page, box, braw[:200])
             # The VLM couldn't find the target on this page — almost always
@@ -332,6 +334,7 @@ class AgentPipeline:
         sections: list[dict],
         viewer: dict | None = None,
         history: list | None = None,
+        ground_thinking: bool | None = None,
     ):
         """One streamed agent turn (the event generator of agent_events)."""
         request = (request or "").strip()
@@ -343,5 +346,5 @@ class AgentPipeline:
         names = {d["doc_id"]: d["name"] for d in docs}
         return agent_events(
             request, visual_store, parsed_store, doc_ids or list(names),
-            int(top_k), names, sections, viewer, history,
+            int(top_k), names, sections, viewer, history, ground_thinking,
         )

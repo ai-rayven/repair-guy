@@ -345,6 +345,20 @@
                class="w-full accent-brand-600">
       </div>
 
+      <!-- think: let the VLM reason before committing to a circle box -->
+      <div class="mt-5 flex items-start justify-between gap-3">
+        <div>
+          <label class="text-xs font-semibold uppercase tracking-wide text-brand-500/80">Careful pointing</label>
+          <p class="mt-0.5 text-xs text-brand-400">VLM reasons before circling — more accurate on diagrams, but slower.</p>
+        </div>
+        <button type="button" role="switch" :aria-checked="think" @click="think=!think"
+                :class="think ? 'bg-brand-600' : 'bg-brand-200'"
+                class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition mt-0.5">
+          <span :class="think ? 'translate-x-5' : 'translate-x-1'"
+                class="inline-block h-4 w-4 rounded-full bg-white shadow transition"></span>
+        </button>
+      </div>
+
       <div class="flex gap-2 mt-6">
         <button @click="refresh()" class="flex-1 rounded-xl border border-brand-200 px-4 py-2.5 text-sm font-medium text-navy hover:bg-brand-50 transition flex items-center justify-center gap-1.5">
           <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -378,6 +392,10 @@ function repairGuy() {
     client:null, ready:false,
     manuals:[], manual:'',
     k:__DEFAULT_K__, maxK:__MAX_K__,
+    // When on, MiniCPM-V reasons before committing to a circle box (slower,
+    // helps diagram-callout targets). Sent as `think` with each /find turn;
+    // initialized from the server default.
+    think:__GROUND_THINK__,
     input:'', loading:false, status:'',
     settingsOpen:false,
     ICONS,
@@ -627,7 +645,7 @@ function repairGuy() {
         mono:this.history.map((h,i)=>`${i+1}. asked: ${h.request}\n   did:   ${h.action}`).join('\n')});
       try{
         const job = this.client.submit('/find', {
-          request:q, manual:this.manual, k:this.k,
+          request:q, manual:this.manual, k:this.k, think:this.think,
           page: this.viewDoc ? this.viewPage : 0, section: this.sectionTitle(this.viewPage),
           pages: this.spreadPages,  // every page currently on screen — the agent may circle on any
           history: this.history,

@@ -16,6 +16,23 @@ MINICPM_REVISION = os.environ.get(
 )
 ANSWER_MAX_NEW_TOKENS = 2048
 
+# Let MiniCPM-V reason (legend → callout-number → leader-line → part) before
+# committing to a grounding box for "circle the <thing>". This is only the
+# DEFAULT — the UI settings panel sends a per-request override (see api_find's
+# `think`). Off by default: it roughly multiplies grounding latency (64 → ~512
+# generated tokens) and mainly helps exploded-diagram callouts, not the
+# dense-table wrong-row misses.
+GROUND_ENABLE_THINKING = os.environ.get("GROUND_ENABLE_THINKING", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+# Token budgets for one grounding generation. A bare <box> fits in 64; a think
+# trace does not (it gets cut off before the box), so the budget tracks whether
+# thinking is on for that call.
+GROUND_BOX_MAX_NEW_TOKENS = 64
+GROUND_THINK_MAX_NEW_TOKENS = 512
+
 # Agent brain: MiniCPM5-1B — a standard LlamaForCausalLM (no trust_remote_code),
 # 131k context. The small TEXT model that drives the find-and-point loop: each
 # step it picks ONE tool from the conversation so far, the manual's table of

@@ -28,6 +28,9 @@ from transformers import AutoModel, AutoProcessor, AutoTokenizer
 from core.constants import (
     ANSWER_MAX_NEW_TOKENS,
     DESCRIBE_MAX_NEW_TOKENS,
+    GROUND_BOX_MAX_NEW_TOKENS,
+    GROUND_ENABLE_THINKING,
+    GROUND_THINK_MAX_NEW_TOKENS,
     MINICPM_MODEL_ID,
     MINICPM_REVISION,
 )
@@ -155,11 +158,17 @@ def generate_answer(question: str, pages: list[tuple[str, Image.Image]]) -> str:
 
 
 def ground_box(
-    image: Image.Image, query: str
+    image: Image.Image, query: str, enable_thinking: bool | None = None
 ) -> tuple[tuple[float, float, float, float] | None, str]:
     """(bbox, raw reply): the bounding box of the described object on a page
     image, in that image's pixel coordinates — or None when the model can't
-    place it (no box in the reply, or a degenerate one). Must run on GPU."""
+    place it (no box in the reply, or a degenerate one). Must run on GPU.
+
+    enable_thinking lets the model reason (legend → callout-number →
+    leader-line → part) before committing to a box. None defers to the
+    GROUND_ENABLE_THINKING default; the UI settings panel passes an explicit
+    bool per request."""
+    think = GROUND_ENABLE_THINKING if enable_thinking is None else enable_thinking
     with torch.no_grad():
         out = _MODEL.chat(
             msgs=[
@@ -169,17 +178,28 @@ def ground_box(
                 }
             ],
             tokenizer=_TOKENIZER,
-            enable_thinking=False,
-            max_new_tokens=64,
+            # The think trace needs room (a bare box fits in 64 tokens; a think
+            # trace does not) or it gets cut off before emitting the box — so
+            # the token budget tracks the flag.
+            enable_thinking=think,
+            max_new_tokens=(
+                GROUND_THINK_MAX_NEW_TOKENS if think else GROUND_BOX_MAX_NEW_TOKENS
+            ),
         )
     raw = str(out).strip()
-    if "NOT FOUND" in raw.upper():
+    # The thinking trace can mention "not found" mid-reasoning ("at first this
+    # looked not found, but…"), so test only the FINAL answer after </think>,
+    # not the whole reply.
+    final = raw.rsplit("</think>", 1)[-1]
+    if "NOT FOUND" in final.upper():
         return None, raw
     # Read the coordinates from the <box>…</box> tag specifically. MiniCPM-V
     # may prefix a <ref>…</ref> (e.g. echoing "5. Rod"); that digit would
     # otherwise be grabbed as the first coordinate and shift the whole box.
-    m = re.search(r"<box>(.*?)</box>", raw, re.IGNORECASE | re.DOTALL)
-    nums = re.findall(r"\d+(?:\.\d+)?", m.group(1) if m else raw)
+    # Search `final` so digits inside the reasoning can't be mistaken for
+    # coordinates.
+    m = re.search(r"<box>(.*?)</box>", final, re.IGNORECASE | re.DOTALL)
+    nums = re.findall(r"\d+(?:\.\d+)?", m.group(1) if m else final)
     if len(nums) < 4:
         return None, raw
     x1, y1, x2, y2 = (min(1000.0, max(0.0, float(n))) for n in nums[:4])

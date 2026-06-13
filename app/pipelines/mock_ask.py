@@ -143,10 +143,12 @@ class MockAskPipeline:
         sections: list[dict],
         viewer: dict | None = None,
         history: list | None = None,
+        ground_thinking: bool | None = None,
     ):
         """Yield the same event sequence as pipelines/agent_ask.py, with a
         keyword-driven stand-in for the agent's tool choice. Both stores are the
-        one MockStore; history is ignored. MOCK_DELAY (seconds) paces events."""
+        one MockStore; history and ground_thinking are ignored. MOCK_DELAY
+        (seconds) paces events."""
         request = (request or "").strip()
         if not request:
             raise ValueError("Tell me what to find.")

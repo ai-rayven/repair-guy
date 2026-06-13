@@ -57,6 +57,7 @@ from huggingface_hub import HfApi, snapshot_download
 
 from core.constants import (
     DEFAULT_TOP_K,
+    GROUND_ENABLE_THINKING,
     LIBRARY_DATASET_ID,
     MAX_TOP_K,
     MOCK_MODELS,
@@ -291,6 +292,7 @@ def api_find(
     section: str = "",
     pages: list = None,
     history: list = None,
+    think: bool = GROUND_ENABLE_THINKING,
 ) -> dict:  # the per-yield type: Server.api infers outputs from this annotation
     """One agent turn (one ZeroGPU call), streamed as events (see
     pipelines/agent_ask.py for the protocol). page/section are what the viewer
@@ -324,13 +326,13 @@ def api_find(
     viewer = {"page": int(page or 0), "section": str(section or ""), "pages": shown}
     options = _router_options(manual, request)
     log.info(
-        "find: manual=%s k=%s viewer=%s hist=%d opts=%d q=%r",
-        manual, k, viewer, len(history or []), len(options), request[:200],
+        "find: manual=%s k=%s think=%s viewer=%s hist=%d opts=%d q=%r",
+        manual, k, bool(think), viewer, len(history or []), len(options), request[:200],
     )
     try:
         events = PIPELINE.run_find(
             VISUAL_STORE, PARSED_STORE, request, [manual], int(k), options,
-            viewer, history,
+            viewer, history, bool(think),
         )
         for ev in events:
             if ev.get("type") == "tool_result" and "gallery" in ev:
@@ -365,12 +367,15 @@ _FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
 @app.get("/")
 def index():
     """Serve the single-page UI, injecting the small bit of server config the
-    frontend needs (default/max k) so it needs no extra round-trip on load."""
+    frontend needs (default/max k, default grounding-thinking) so it needs no
+    extra round-trip on load."""
     with open(os.path.join(_FRONTEND_DIR, "index.html")) as f:
         html = f.read()
     html = (
         html.replace("__DEFAULT_K__", str(DEFAULT_TOP_K))
         .replace("__MAX_K__", str(MAX_TOP_K))
+        # Initial state of the settings-panel "thinking" toggle (a JS bool).
+        .replace("__GROUND_THINK__", "true" if GROUND_ENABLE_THINKING else "false")
         # Cache-bust key for /page images: changing the render DPI changes the
         # served page size, so it must change the URL too — otherwise a browser
         # could keep an old-resolution page (cached up to a day) under the same
