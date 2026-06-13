@@ -759,9 +759,20 @@ function repairGuy() {
       await this.loadScript('/vendor/vad/bundle.min.js');
 
       // 2) Moonshine ASR (transformers.js from CDN; the tiny model is fetched
-      //    from the HF hub once, then cached in the browser). 
-      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers');
-      this.asr = await pipeline('automatic-speech-recognition', 'onnx-community/moonshine-tiny-ONNX', { dtype: 'q8' });
+      //    from the HF hub once, then cached in the browser). Pinned to a fixed
+      //    v4 so the import can't silently float to a newer default.
+      //    dtype is PER-MODULE on purpose: Moonshine is a multi-session
+      //    encoder-decoder, and a bare dtype string isn't reliably applied to
+      //    decoder_model_merged — leaving it on v4's q4 default, whose 4-bit
+      //    (MatMulNBits) export is malformed for onnxruntime-web and dies at
+      //    session creation ("Missing required scale … embed_tokens"). Forcing
+      //    the modules avoids q4 entirely: fp32 encoder (encoders are
+      //    quant-sensitive) + q8 decoder (the bigger half, kept small).
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+      this.asr = await pipeline('automatic-speech-recognition', 'onnx-community/moonshine-tiny-ONNX', {
+        dtype: { encoder_model: 'fp32', decoder_model_merged: 'q8' },
+        device: 'wasm',
+      });
 
       // 3) the mic: Silero VAD segments speech; onSpeechEnd is our send trigger
       this.vad = await window.vad.MicVAD.new({
