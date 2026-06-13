@@ -374,6 +374,20 @@
         </button>
       </div>
 
+      <!-- speak back: read each turn's one-line reply aloud (browser TTS) -->
+      <div class="mt-5 flex items-start justify-between gap-3">
+        <div>
+          <label class="text-xs font-semibold uppercase tracking-wide text-brand-500/80">Speak responses</label>
+          <p class="mt-0.5 text-xs text-brand-400">Reads each reply aloud for hands-free feedback. Voice varies by device.</p>
+        </div>
+        <button type="button" role="switch" :aria-checked="speakBack" @click="toggleSpeak()"
+                :class="speakBack ? 'bg-brand-600' : 'bg-brand-200'"
+                class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition mt-0.5">
+          <span :class="speakBack ? 'translate-x-5' : 'translate-x-1'"
+                class="inline-block h-4 w-4 rounded-full bg-white shadow transition"></span>
+        </button>
+      </div>
+
       <div class="flex gap-2 mt-6">
         <button @click="refresh()" class="flex-1 rounded-xl border border-brand-200 px-4 py-2.5 text-sm font-medium text-navy hover:bg-brand-50 transition flex items-center justify-center gap-1.5">
           <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -418,6 +432,11 @@ function repairGuy() {
     agentModels:__AGENT_MODELS_JSON__, agentModel:'__AGENT_MODEL__',
     input:'', loading:false, status:'',
     settingsOpen:false,
+    // When on, the terminal one-liner for each turn (the activity label) is read
+    // aloud via the browser's built-in speechSynthesis — no deps, no server cost,
+    // fully client-side like the STT. In voice mode the mic is paused while we
+    // talk so the VAD never transcribes our own voice. Off by default.
+    speakBack:false,
     ICONS,
     // The command bar shows only the last request (the speech-to-text
     // transcript, once voice lands) and `activity`: the single, evolving
@@ -526,8 +545,31 @@ function repairGuy() {
     goBack(){ const p=this.navStack.pop(); if(p) this.setPage(p); },
 
     // the single live indicator: a tool chip, or a one-line spoken-style reply
-    chip(icon, label, detail=''){ this.activity={icon, label, detail, pending:false}; this.icons(); },
-    say(t){ this.activity={icon:'info', label:t, detail:'', pending:false}; this.icons(); },
+    chip(icon, label, detail=''){ this.activity={icon, label, detail, pending:false}; this.icons(); this.speak(label); },
+    say(t){ this.activity={icon:'info', label:t, detail:'', pending:false}; this.icons(); this.speak(t); },
+
+    // flip the toggle; turning it off cuts any in-flight utterance immediately.
+    toggleSpeak(){ this.speakBack=!this.speakBack; if(!this.speakBack && window.speechSynthesis) speechSynthesis.cancel(); },
+
+    // read a short phrase aloud via the browser's built-in speechSynthesis.
+    // No-op unless the toggle is on. In voice mode the mic is paused for the
+    // duration so the always-on VAD doesn't hear (and transcribe) our own voice
+    // — re-armed on end/error. Emoji are stripped (TTS reads them as junk).
+    speak(text){
+      if(!this.speakBack || !text) return;
+      const synth = window.speechSynthesis;
+      if(!synth) return;
+      const clean = String(text).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{FE0F}]/gu,'').trim();
+      if(!clean) return;
+      synth.cancel();  // drop any stale phrase before re-arming the mic
+      const live = this.voice==='on';
+      if(live){ try{ this.vad?.pause(); }catch(_){} }
+      const resume = ()=>{ if(live && this.voice==='on'){ try{ this.vad?.start(); }catch(_){} } };
+      const u = new SpeechSynthesisUtterance(clean);
+      u.rate = 1.05;            // a touch brisk reads as responsive
+      u.onend = resume; u.onerror = resume;
+      synth.speak(u);
+    },
 
     // compact memory of past turns sent with each find (last 8 kept)
     recordHistory(action){
@@ -684,6 +726,7 @@ function repairGuy() {
           finished = this.handleFindEvent(msg.data[0], find);
         }
       }catch(e){ this.pushTrace({kind:'error', badge:'error', cls:'bg-red-100 text-red-700', label:String(e)}); find.icon='circle-slash'; find.label='Something went wrong'; find.detail=String(e); find.pending=false; }
+      this.speak(find.label);  // read the turn's terminal one-liner aloud (if enabled)
       this.loading=false; this.status='';
     },
 
