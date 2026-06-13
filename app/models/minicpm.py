@@ -97,13 +97,16 @@ CLASSIFY_PROMPT = (
 # <box>x1 y1 x2 y2</box> form with coordinates normalized to 0-1000.
 GROUND_PROMPT = (
     "The image is one page of a repair manual. A mechanic asked to circle "
-    "{query!r} on this page. Find it: it may be a component in a diagram "
-    "(use the callout letters/numbers and leader lines to locate the right "
-    "part), a table or a row in one, a specification value, or a heading. "
-    "Reply with ONLY the bounding box of that region as "
-    "<box>x1 y1 x2 y2</box>, coordinates normalized to 0-1000 (x across, y "
-    "down) relative to the full page. If it is not on this page, reply "
-    "exactly: NOT FOUND"
+    "{query!r} on this page. Locate it precisely:\n"
+    "- In an exploded or assembly diagram, parts carry callout numbers/letters "
+    "on leader lines, and a legend lists what each number is. Find {query!r} in "
+    "the legend to get its number, then follow that number's leader line to the "
+    "part in the drawing and box THAT part (not the legend text).\n"
+    "- Otherwise it may be a row in a table, a specification value, or a "
+    "heading — box that.\n"
+    "Reply with ONLY the box, as <box>x1 y1 x2 y2</box>: four integers "
+    "normalized to 0-1000 (x left→right, y top→bottom) over the whole page, "
+    "and nothing else. If it is not on this page, reply exactly: NOT FOUND"
 )
 
 FIGURE_PROMPT = (
@@ -285,7 +288,13 @@ def ground_box(
             max_new_tokens=64,
         )
     raw = str(out).strip()
-    nums = re.findall(r"\d+(?:\.\d+)?", raw)
+    if "NOT FOUND" in raw.upper():
+        return None, raw
+    # Read the coordinates from the <box>…</box> tag specifically. MiniCPM-V
+    # may prefix a <ref>…</ref> (e.g. echoing "5. Rod"); that digit would
+    # otherwise be grabbed as the first coordinate and shift the whole box.
+    m = re.search(r"<box>(.*?)</box>", raw, re.IGNORECASE | re.DOTALL)
+    nums = re.findall(r"\d+(?:\.\d+)?", m.group(1) if m else raw)
     if len(nums) < 4:
         return None, raw
     x1, y1, x2, y2 = (min(1000.0, max(0.0, float(n))) for n in nums[:4])
