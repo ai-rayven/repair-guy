@@ -4,7 +4,7 @@ Drop any PDF into MOCK_PDF_DIR (default app/data/mock_pdfs/) and the whole
 find-and-point UX runs over real, rendered pages of that PDF — no GPU, no
 model downloads, no HF library sync. The same MockStore instance backs both
 approaches, so the manual dropdown, the page viewer, navigation, the three
-router branches (go_to_section / point_here / search→classify→circle), the
+router branches (go_to_page / point_here / search→classify→circle), the
 circle overlay and the candidate-pages strip all exercise the real wiring;
 only the router's tool choice, the page/bbox picks and the page classification
 are faked (by simple keyword heuristics, so the branches are predictable in
@@ -25,11 +25,10 @@ import time
 
 from core.constants import MOCK_PDF_DIR
 from core.pdf import page_count, page_size, render_pages
-from core.sections import match_section
 from core.store import slugify
 
-# Canned section titles spread evenly over each PDF's pages, realistic enough
-# to exercise "go to <section>" fuzzy matching in local tests.
+# Canned section titles spread evenly over each PDF's pages — the table of
+# contents shown to the router for orientation in local tests.
 MOCK_SECTION_TITLES = [
     "General Information",
     "Engine Mechanical System",
@@ -91,8 +90,8 @@ class MockStore:
         return info["path"] if info else None
 
     def sections(self, doc_id: str) -> list[dict]:
-        """Canned sections spread evenly over the PDF's real pages — same
-        shape as core.sections.sections_from_chunks."""
+        """Canned sections spread evenly over the PDF's real pages, for the
+        frontend's breadcrumb / section navigation in local runs."""
         info = self._docs().get(doc_id)
         if not info:
             return []
@@ -140,7 +139,6 @@ class MockAskPipeline:
         request: str,
         doc_ids: list[str] | None,
         top_k: int,
-        sections: list[dict],
         viewer: dict | None = None,
         history: list | None = None,
         ground_thinking: bool | None = None,
@@ -157,25 +155,18 @@ class MockAskPipeline:
             raise ValueError("Tell me what to find.")
         doc_id, info = self._pick_doc(visual_store, doc_ids)
         return self._find_events(
-            visual_store, request, doc_id, info, int(top_k), sections or [], viewer or {}
+            visual_store, request, doc_id, info, int(top_k), viewer or {}
         )
 
-    def _find_events(self, store, request, doc_id, info, top_k, sections, viewer):
+    def _find_events(self, store, request, doc_id, info, top_k, viewer):
         delay = float(os.environ.get("MOCK_DELAY", "0"))
         cur = max(1, int(viewer.get("page") or 1))
         shown = [int(p) for p in (viewer.get("pages") or []) if str(p).isdigit()][:2] or [cur]
-        prompt = self._mock_prompt(request, sections, shown)
+        prompt = self._mock_prompt(request, shown)
         yield {"type": "status", "text": "Thinking…"}
         time.sleep(delay)
 
-        kind, a, b = self._mock_route(request, sections)
-
-        if kind == "go_to_section":
-            yield self._trace(0, {"tool": "go_to_section", "section": b}, prompt)
-            yield {"type": "step", "tool": "go_to_section", "title": b, "page": a}
-            yield {"type": "done", "kind": "navigate", "nav": "section",
-                   "page": a, "title": b}
-            return
+        kind, a, b = self._mock_route(request)
 
         if kind == "go_to_page":
             page = max(1, min(int(a), info["pages"]))
@@ -239,31 +230,26 @@ class MockAskPipeline:
                 "raw": json.dumps(tool, separators=(",", ":")), "prompt": prompt}
 
     @staticmethod
-    def _mock_prompt(request: str, sections: list[dict], shown: list[int]) -> str:
+    def _mock_prompt(request: str, shown: list[int]) -> str:
         """A representative stand-in for the rendered chat prompt, so the
         Diagnostics 'prompt' view is exercisable in MOCK_MODELS=1. Not the real
         template — just the same shape (system rules + the on-screen pages +
-        TOC + request)."""
-        toc = "\n".join(
-            f"{i + 1}. {s['title']} (p.{s.get('page') or s.get('page_start')})"
-            for i, s in enumerate(sections)
-        ) or "(none)"
+        request; no table of contents, matching the real prompt)."""
         where = " and ".join(f"p.{p}" for p in shown) or "(no page open)"
         return (
             "<|im_start|>system\n(mock) You FIND the right page and POINT at "
             "things — reply with ONE tool JSON, no prose.<|im_end|>\n"
             f"<|im_start|>user\nCURRENTLY ON SCREEN — {where} (mock text omitted)\n\n"
-            f"TABLE OF CONTENTS:\n{toc}\n\n"
             f"The mechanic said: {request!r}\n"
             "Choose ONE tool and reply with ONLY its JSON object."
             "<|im_end|>\n<|im_start|>assistant\n"
         )
 
     @staticmethod
-    def _mock_route(request: str, sections: list[dict]):
+    def _mock_route(request: str):
         """Fake the LLM router with keyword heuristics. Returns one of:
-        ("go_to_section", page, title) / ("go_to_page", page, None) /
-        ("point_here", target, None) / ("search", target, query)."""
+        ("go_to_page", page, None) / ("point_here", target, None) /
+        ("search", target, query)."""
         r = request.lower()
         nav_verb = any(
             v in r for v in ("go to", "take me", "open", "bring up", "pull up",
@@ -279,18 +265,11 @@ class MockAskPipeline:
         pm = re.search(r"\bp(?:age|g|\.)?\s*(\d+)\b", r)
         if pm and (nav_verb or "index" in r or "contents" in r):
             return "go_to_page", int(pm.group(1)), None
-        secs = [{"title": o["title"], "page_start": o["page"]} for o in sections]
-        best = match_section(request, secs) if secs else None
-
-        if (nav_verb or "section" in r or "chapter" in r) and best and best["score"] >= 0.4:
-            return "go_to_section", best["page"], best["title"]
         target = MockAskPipeline._clean_target(request)
         if is_circle and here:
             return "point_here", target, None
         if is_circle:
             return "search", target, request
-        if best and best["score"] >= 0.6:
-            return "go_to_section", best["page"], best["title"]
         return "search", target, request
 
     @staticmethod

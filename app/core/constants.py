@@ -107,7 +107,7 @@ AGENT_MAX_STEPS = 6
 # ColEmbed shortlist size the search tool retrieves (the eval default).
 AGENT_SEARCH_CANDIDATES = 5
 # Past turns of conversation fed back as memory (resolve "the other one", "go
-# back"); the live turn carries the table of contents and full current page.
+# back"); the live turn carries the full current page text (no table of contents).
 AGENT_HISTORY_TURNS = 6
 
 # One ZeroGPU call covers the whole question: query embedding + retrieval +
@@ -120,9 +120,9 @@ MAX_TOP_K = 5
 
 # ---------------------------------------------------------------------------
 # Find-and-point (pipelines/agent_ask.py) — every non-obvious request is one
-# GPU turn: the 1B agent loops over tools (search / go_to_section / circle)
-# against the table of contents and the current page's text. Deterministic
-# navigation is CPU-only (core/sections.py) and never reaches the GPU.
+# GPU turn: the 1B agent loops over tools (search / find_answer / go_to_page /
+# circle) against the current page's text — no table of contents is injected.
+# The frontend's breadcrumb section nav is client-side and never reaches the GPU.
 # ---------------------------------------------------------------------------
 
 # One ZeroGPU call covers a whole agent turn: up to AGENT_MAX_STEPS tool-choice

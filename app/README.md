@@ -37,7 +37,8 @@ Space (no external endpoints).
   a loop until a page is shown:
   - **search** — semantic-search the manual; the best page is shown and its text
     fed back so the agent can then circle on it;
-  - **go_to_section** — jump to a table-of-contents section's first page;
+  - **go_to_page** — jump straight to a known physical page number (e.g. one
+    read off an index/contents line);
   - **circle** — circle something on the current page: **MiniCPM-V 4.5** grounds
     the target visually (→ bbox → SVG circle);
   - **done** — nothing to do, or it isn't in the manual.

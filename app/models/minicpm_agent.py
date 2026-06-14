@@ -2,16 +2,15 @@
 
 Where models/minicpm.py is the MiniCPM-V VLM — the "eyes" that ground the circle
 and write the ingest figure/table descriptions — this is the small TEXT model
-that decides what to do. Each step it sees the conversation so far, the manual's
-table of contents, and the WHOLE text of the page being viewed, and picks ONE
-tool:
+that decides what to do. Each step it sees the conversation so far and the WHOLE
+text of the page being viewed (no table of contents — it navigates by retrieval,
+not a chapter index), and picks ONE tool:
 
     search(query)            semantic-search the manual; the best page is shown
                              and its text added to the conversation
     find_answer(query)       dense TEXT search of the parsed chunks for a
                              spec/value/fact; the page that states it is shown,
                              its text added so the agent can circle the answer
-    go_to_section(section)   jump to a numbered table-of-contents section
     circle(target)           circle something on the CURRENT page (its text is
                              in context); the VLM grounds the box
     done(message)            nothing more to do, or it can't be found
@@ -54,7 +53,7 @@ log = logging.getLogger("repairguy.agent")
 
 # The tools the agent may emit, and the JSON shape of each. Kept here so the
 # prompt and the parser can't drift apart.
-TOOLS = ("search", "find_answer", "go_to_section", "go_to_page", "circle", "done")
+TOOLS = ("search", "find_answer", "go_to_page", "circle", "done")
 
 SYSTEM_PROMPT = (
     "You are the assistant for a hands-busy mechanic reading a repair manual on "
@@ -71,8 +70,6 @@ SYSTEM_PROMPT = (
     "finds the page that STATES the answer when a topic search would miss the "
     "plain specs page:\n"
     '  {"tool": "find_answer", "query": "<the spec or fact being asked for>"}\n'
-    "- Jump to a section — use its number from the TABLE OF CONTENTS:\n"
-    '  {"tool": "go_to_section", "section": <number>}\n'
     "- Jump straight to a known PHYSICAL page number:\n"
     '  {"tool": "go_to_page", "page": <number>}\n'
     "- Circle something on a page CURRENTLY ON SCREEN (their full text is given "
@@ -83,7 +80,7 @@ SYSTEM_PROMPT = (
     "- Finish — nothing more to do, or it isn't in the manual:\n"
     '  {"tool": "done", "message": "<one short line for the mechanic>"}\n\n'
     "How to choose:\n"
-    '- They say "go to" / "take me to" / name a section → go_to_section.\n'
+    '- They say "go to" / "take me to" / name a chapter or topic → search for it.\n'
     "- You already KNOW the page number — e.g. the CURRENT page is an index or "
     'contents that lists the part with a page number ("Actuators .... 855"), or '
     "history gave one → go_to_page that number. Do NOT circle the index line; "
@@ -108,7 +105,7 @@ SYSTEM_PROMPT = (
     "- Use the conversation history only to resolve what they mean (e.g. "
     '"circle the other one"); never restate earlier answers.\n\n'
     "Examples (copy the FORMAT, not the values):\n"
-    'Mechanic: "go to the cooling system" → {"tool": "go_to_section", "section": 5}\n'
+    'Mechanic: "go to the cooling system" → {"tool": "search", "query": "cooling system"}\n'
     'Mechanic: "where do I replace the fuel filter" (not on this page) → '
     '{"tool": "search", "query": "fuel filter replacement"}\n'
     'Mechanic: "the wastegate actuator" (current page is an index reading '
@@ -128,20 +125,17 @@ def system_message() -> dict:
 
 def state_message(
     request: str,
-    toc: list[dict],
     shown: list[dict],
     section: str,
 ) -> dict:
-    """The user message for the current step: what the mechanic just said, the
-    table of contents (numbered, the go_to_section index), and the whole text of
-    the page(s) currently on the viewer. The viewer shows a two-page spread, so
-    `shown` is [{page, text}] for each page on screen (one or two). Each page's
-    text is the parsed page rendered to text (figures/tables as descriptions) —
-    empty when the manual has no parse. When the agent circles, it names which of
-    these pages the target is on."""
-    toc_lines = "\n".join(
-        f"{i + 1}. {s['title']} (p.{s['page']})" for i, s in enumerate(toc)
-    ) or "(none)"
+    """The user message for the current step: what the mechanic just said and the
+    whole text of the page(s) currently on the viewer. No table of contents — the
+    agent navigates by retrieval (search / find_answer) and the current page's
+    text, not a chapter index. The viewer shows a two-page spread, so `shown` is
+    [{page, text}] for each page on screen (one or two). Each page's text is the
+    parsed page rendered to text (figures/tables as descriptions) — empty when the
+    manual has no parse. When the agent circles, it names which of these pages the
+    target is on."""
     if shown:
         where = " and ".join(f"p.{s['page']}" for s in shown) + (
             f' (section "{section}")' if section else ""
@@ -168,7 +162,6 @@ def state_message(
         "role": "user",
         "content": (
             f"{page_block}\n\n"
-            f"TABLE OF CONTENTS:\n{toc_lines}\n\n"
             f"The mechanic said: {request!r}\n"
             "Choose ONE tool and reply with ONLY its JSON object."
         ),
@@ -201,14 +194,14 @@ def search_result_message(request: str, page: int, text: str, stuck: bool) -> st
             "(it counts even when named inside a figure or diagram description), "
             'circle that spot: {"tool": "circle", "target": "<the printed words>", '
             f'"page": {page}}}.\n'
-            "- If it belongs on a different page, use go_to_section or go_to_page.\n"
+            "- If it belongs on a different page, use go_to_page.\n"
             "- Only if it is truly not in this manual, use done."
         )
     return body + (
         f"The mechanic asked for: {request!r}. If this page shows THAT — or the "
         "line/value that answers it, including when named inside a figure or "
         "diagram description — circle that spot (use the words as printed on the "
-        "page). Otherwise search again or go to a section. Do not circle a "
+        "page). Otherwise search again or go to the right page. Do not circle a "
         "different component."
     )
 
@@ -224,7 +217,7 @@ def ground_failed_message(request: str, target: str, page: int) -> str:
         f"I could not find {target!r} on p.{page} — it does not appear to be on "
         "this page, so circling here will not work. Do NOT circle that on this "
         "page again. It is almost certainly on a DIFFERENT page: search for "
-        f"{request!r}, or go to the right section or page, and only circle once "
+        f"{request!r}, or go to the right page, and only circle once "
         "you are on the page whose text actually shows it. Use done only if it is "
         "truly not in this manual."
     )
@@ -376,8 +369,8 @@ def _parse_tool(raw: str) -> dict | None:
     """Pull the JSON tool call out of the reply. Tolerant of a ```json fence or
     a stray lead-in. Returns a validated
     {tool, ...} or None when the reply isn't usable (the caller decides the
-    fallback). Range-checking go_to_section is the caller's job — it has the
-    TOC; this only validates shape."""
+    fallback). Range-checking go_to_page is the caller's job — it knows the
+    page count; this only validates shape."""
     text = raw.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else ""
@@ -411,11 +404,6 @@ def _parse_tool(raw: str) -> dict | None:
     if tool == "find_answer":
         query = str(obj.get("query") or "").strip()
         return {"tool": "find_answer", "query": query} if _real(query) else None
-    if tool == "go_to_section":
-        try:
-            return {"tool": "go_to_section", "section": int(obj.get("section"))}
-        except (TypeError, ValueError):
-            return None
     if tool == "go_to_page":
         try:
             return {"tool": "go_to_page", "page": int(obj.get("page"))}

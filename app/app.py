@@ -9,17 +9,20 @@ turns.
                         section: pure frontend state, no server call.
   Everything else       → /find, one ZeroGPU call (pipelines/agent_ask.py):
   (ZeroGPU agent turn)  MiniCPM5-1B (the text "brain") sees the conversation so
-                        far, the table of contents, and the WHOLE text of the
-                        page being viewed, and calls tools in a loop until a page
-                        is shown — circle on the current page (MiniCPM-V grounds
-                        the box), jump to a section, or search. Search is FUSED:
-                        ColEmbed (visual store) shortlists pages, the 1B reranks
-                        by their parsed text. Streamed as events; the UI shows
-                        tool chips and the resulting page/circle, never model
-                        prose. History is kept only to resolve references.
+                        far and the WHOLE text of the page being viewed, and
+                        calls tools in a loop until a page is shown — circle on
+                        the current page (MiniCPM-V grounds the box), jump to a
+                        page, or search. No table of contents is injected; the
+                        agent navigates by retrieval and the current page's text.
+                        Search is FUSED: ColEmbed (visual store) shortlists pages,
+                        the 1B reranks by their parsed text. Streamed as events;
+                        the UI shows tool chips and the resulting page/circle,
+                        never model prose. History is kept only to resolve
+                        references.
 
-The table of contents is the manual's clean PDF-bookmark chapters plus a
-per-request fuzzy shortlist of fine parse headings (core/sections.py).
+The frontend's breadcrumb / next-previous-section navigation uses the manual's
+clean PDF-bookmark chapters (served by /sections/{doc_id}); the agent turn does
+not receive them.
 
 UI architecture — this is NOT a gr.Blocks app. It runs in Gradio *Server Mode*
 (`gradio.Server`, a FastAPI server with Gradio's engine: queueing, streaming
@@ -37,7 +40,6 @@ Module layout:
   core/visual_store.py      VisualStore    — on-disk per-page token embeddings
   core/parsed_store.py      ParsedStore    — chunks, embeddings, raw parsed pages
   core/page_context.py      whole-page → text for the agent's context
-  core/sections.py          section index + fuzzy matching (TOC shortlist)
   pipelines/agent_ask.py    AgentPipeline — the agent find-and-point GPU turn
   pipelines/mock_ask.py     MockAskPipeline — local UI iteration (MOCK_MODELS=1)
   frontend/index.html       the custom UI
@@ -71,7 +73,6 @@ from core.constants import (
     VISUAL_SUBDIR,
 )
 from core.pdf import pdf_outline, render_page_png
-from core.sections import sections_from_chunks, top_sections
 
 # gradio 6.17.3 (pinned — see README frontmatter) still uses starlette's old
 # 422 constant, so every queue join emits a StarletteDeprecationWarning. Not
@@ -205,18 +206,13 @@ def _pdf_path(doc_id: str) -> str | None:
     return None
 
 
-# Two section views, both cached per doc and cleared on library re-sync:
-#   outline  — the manual's own clean bookmark chapters (pdf_outline), the
-#              frontend's breadcrumb + next/previous-section navigation, and
-#              the always-shown part of the router's section list.
-#   headings — the fine-grained, noisy parse headings (1000+ for a big
-#              manual): far too many for a prompt, but a per-request fuzzy
-#              shortlist of them gives the router precise targets like
-#              "Brake System Bleeding — p.532".
-# A visual-only manual with no PDF bookmarks has neither; section navigation
-# then no-ops and the router works from the page image alone.
+# The manual's own clean bookmark chapters (pdf_outline), cached per doc and
+# cleared on library re-sync. Drives ONLY the frontend's breadcrumb +
+# next/previous-section navigation (served by /sections/{doc_id}); the agent
+# turn no longer receives a table of contents — it works from retrieval and the
+# current page's text alone. A visual-only manual with no PDF bookmarks has no
+# outline; section navigation then no-ops.
 _OUTLINE_CACHE: dict[str, list[dict]] = {}
-_HEADINGS_CACHE: dict[str, list[dict]] = {}
 
 
 def _doc_outline(doc_id: str) -> list[dict]:
@@ -227,32 +223,6 @@ def _doc_outline(doc_id: str) -> list[dict]:
             path = _pdf_path(doc_id)
             _OUTLINE_CACHE[doc_id] = pdf_outline(path) if path else []
     return _OUTLINE_CACHE[doc_id]
-
-
-def _doc_headings(doc_id: str) -> list[dict]:
-    if doc_id not in _HEADINGS_CACHE:
-        if MOCK_MODELS:
-            _HEADINGS_CACHE[doc_id] = PARSED_STORE.sections(doc_id)
-        elif PARSED_STORE.exists(doc_id):
-            _HEADINGS_CACHE[doc_id] = sections_from_chunks(PARSED_STORE.chunks(doc_id))
-        else:
-            _HEADINGS_CACHE[doc_id] = []
-    return _HEADINGS_CACHE[doc_id]
-
-
-def _router_options(doc_id: str, request: str, max_total: int = 24) -> list[dict]:
-    """The numbered section list shown to the router as [{title, page}]: the
-    clean chapters always, plus the fine headings best matching this request,
-    deduped by page. The router replies with a 1-based index into this list."""
-    options = [
-        {"title": s["title"], "page": s["page_start"]} for s in _doc_outline(doc_id)
-    ]
-    seen = {o["page"] for o in options}
-    for s in top_sections(request, _doc_headings(doc_id), n=8):
-        if s["page"] not in seen:
-            options.append(s)
-            seen.add(s["page"])
-    return options[:max_total]
 
 
 def _thumb_data_uri(img, width: int = 280) -> str:
@@ -284,7 +254,6 @@ def api_refresh() -> list[dict]:
     picker options, so manuals indexed after boot show up without a restart."""
     sync_library()
     _OUTLINE_CACHE.clear()
-    _HEADINGS_CACHE.clear()
     return _manual_choices()
 
 
@@ -332,19 +301,18 @@ def api_find(
         [int(page)] if page else []
     )
     viewer = {"page": int(page or 0), "section": str(section or ""), "pages": shown}
-    options = _router_options(manual, request)
     # Unknown model key → default (the pipeline falls back too; validate here so
     # the log reflects what actually ran).
     if agent_model not in _AGENT_MODEL_KEYS:
         agent_model = DEFAULT_AGENT_MODEL
     log.info(
-        "find: manual=%s k=%s think=%s model=%s viewer=%s hist=%d opts=%d q=%r",
+        "find: manual=%s k=%s think=%s model=%s viewer=%s hist=%d q=%r",
         manual, k, bool(think), agent_model, viewer, len(history or []),
-        len(options), request[:200],
+        request[:200],
     )
     try:
         events = PIPELINE.run_find(
-            VISUAL_STORE, PARSED_STORE, request, [manual], int(k), options,
+            VISUAL_STORE, PARSED_STORE, request, [manual], int(k),
             viewer, history, bool(think), agent_model, bool(vram_log),
             str(session_id or ""),
         )

@@ -5,11 +5,10 @@ ends with a page shown — usually a circle drawn — never a generated answer.
 Flow (one @spaces.GPU call, streamed as events):
   Build the running conversation — system rules, the compact history of past
   turns (memory, for "circle the other one" / "go back"), and the live state:
-  the request, the manual's table of contents, and the WHOLE text of the page
-  being viewed (parsed page → text, figures/tables as their descriptions). Then
+  the request and the WHOLE text of the page being viewed (parsed page → text,
+  figures/tables as their descriptions). No table of contents is injected. Then
   loop, up to AGENT_MAX_STEPS:
     decide → ONE tool:
-      go_to_section(n)   land at that section's first page                (terminal)
       search(query)      ColEmbed top-N → 1B rerank by page text → show
                          the best page; its text is fed back so the agent
                          can then circle on it                            (continues)
@@ -31,7 +30,7 @@ section) and the history it accumulates.
 
 Events yielded (PIL images included; app.py converts them for the wire):
   {"type": "status", "text"}                                progress for the UI
-  {"type": "step", "tool": "search"|"go_to_section"|"circle", ...}
+  {"type": "step", "tool": "search"|"go_to_page"|"circle", ...}
                                                             the tool just chosen
   {"type": "tool_result", "tool": "search_docs",
    "gallery": [(img, caption)], "page_refs"}                search candidates
@@ -86,7 +85,6 @@ def agent_events(
     doc_ids: list[str],
     top_k: int,
     names: dict[str, str],
-    sections: list[dict],
     viewer: dict | None = None,
     history: list | None = None,
     ground_thinking: bool | None = None,
@@ -94,9 +92,9 @@ def agent_events(
     vram_log: bool = False,
     session_id: str | None = None,
 ):
-    """Yield the events of one agent turn (see module docstring). sections is the
-    numbered table of contents shown to the agent ([{title, page}]); the agent's
-    go_to_section index is 1-based into it. ground_thinking toggles MiniCPM-V's
+    """Yield the events of one agent turn (see module docstring). The agent gets
+    no table of contents — it works from retrieval (search / find_answer) and the
+    current page's text. ground_thinking toggles MiniCPM-V's
     reasoning for the circle grounding (None → server default); agent_model picks
     which brain drives the loop (None → default), loaded on switch inside this
     GPU window. vram_log enables the per-turn VRAM probe (UI setting)."""
@@ -140,7 +138,7 @@ def agent_events(
 
     messages = [minicpm_agent.system_message()]
     messages += _history_messages(history)
-    messages.append(minicpm_agent.state_message(request, sections, shown, section))
+    messages.append(minicpm_agent.state_message(request, shown, section))
 
     current_page = shown_pages[0]  # the active page circle defaults to
     circleable = set(shown_pages)  # pages the agent may circle on right now
@@ -237,24 +235,6 @@ def agent_events(
                 continue
             messages.append(minicpm_agent.assistant_action_message(tool))
 
-            if tool["tool"] == "go_to_section":
-                idx = tool["section"] - 1
-                if not 0 <= idx < len(sections):
-                    messages.append(
-                        minicpm_agent.tool_result_message(
-                            f"There is no section {tool['section']}. Pick a number from "
-                            "the table of contents, or use search."
-                        )
-                    )
-                    continue
-                opt = sections[idx]
-                yield {"type": "step", "tool": "go_to_section",
-                       "title": opt["title"], "page": int(opt["page"])}
-                turn_output = {"type": "done", "kind": "navigate", "nav": "section",
-                               "page": int(opt["page"]), "title": opt["title"]}
-                yield turn_output
-                return
-
             if tool["tool"] == "go_to_page":
                 page = tool["page"]
                 n = page_count(visual_store.pdf_path(doc_id))
@@ -262,7 +242,7 @@ def agent_events(
                     messages.append(
                         minicpm_agent.tool_result_message(
                             f"There is no page {page}; this manual has pages 1–{n}. "
-                            "Pick a page in range, search, or go to a section."
+                            "Pick a page in range, or search."
                         )
                     )
                     continue
@@ -401,7 +381,6 @@ class AgentPipeline:
         request: str,
         doc_ids: list[str] | None,
         top_k: int,
-        sections: list[dict],
         viewer: dict | None = None,
         history: list | None = None,
         ground_thinking: bool | None = None,
@@ -421,6 +400,6 @@ class AgentPipeline:
         names = {d["doc_id"]: d["name"] for d in docs}
         return agent_events(
             request, visual_store, parsed_store, doc_ids or list(names),
-            int(top_k), names, sections, viewer, history, ground_thinking,
+            int(top_k), names, viewer, history, ground_thinking,
             agent_model, vram_log, session_id,
         )
