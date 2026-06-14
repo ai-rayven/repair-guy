@@ -88,6 +88,10 @@ SYSTEM_PROMPT = (
     'verb they use ("find", "search", "show", "where is", "circle") — if it is on '
     "the page in front of you, you point at it; you do NOT search for a better "
     "page, and you do NOT circle a different component than the one asked for.\n"
+    "If instead they asked to SEE or SHOW a whole diagram, overview, or components "
+    "view (not one specific part) and it is already on the screen, the PAGE ITSELF "
+    "is the answer → reply done with a brief confirmation; do NOT circle one "
+    "component out of a diagram they asked to see in full.\n"
     "2. If it is NOT in the current page text, it is not on screen. Then:\n"
     "   - A chapter, system, or section named by topic, or any part / procedure / "
     'spec you cannot see ("go to the cooling system", "engine oil capacity", '
@@ -218,9 +222,14 @@ def search_result_message(request: str, page: int, text: str, stuck: bool) -> st
             "- Only if it is truly not in this manual, use done."
         )
     return body + (
-        f"The mechanic asked for: {request!r}. First, does THIS page show it — the "
-        "part, or the line/value that answers it (it counts even when named inside "
-        "a figure or diagram description)? If so, circle it now — set \"target\" to "
+        f"The mechanic asked for: {request!r}. First, is THIS the right page? Check "
+        "the title/section at the top: if the page is about a DIFFERENT system than "
+        'they asked about — a part that merely shares a word (a "gear" inside a '
+        "fuel-system actuator is NOT a transmission gear) — it is the WRONG page, "
+        "so do NOT circle; search again with a more specific query. If it IS the "
+        "right page and shows the part, or the line/value that answers it (it "
+        "counts even when named inside a figure or diagram description), circle it "
+        'now — set "target" to '
         f"a part name or the exact words printed on p.{page} (copy them from the "
         "page text above), NOT the mechanic's question: "
         '{"tool": "circle", "target": "<exact printed words for the part/value>", '
@@ -319,6 +328,25 @@ def use_model(key: str | None = None) -> str:
     device_map = spec.get("device_map")
     if device_map is not None:
         load_kwargs["device_map"] = device_map
+    # A spec can request on-the-fly bitsandbytes quantization (e.g. "4bit" to fit
+    # an 8B brain into the find-turn VRAM budget). Quantized weights are placed on
+    # the GPU at load time, so such a spec must also set device_map (skips the
+    # .to("cuda") below). bitsandbytes is imported lazily so non-quantized brains
+    # — and the production image, which omits it — never touch it.
+    quant = spec.get("quantization")
+    if quant in ("4bit", "8bit"):
+        from transformers import BitsAndBytesConfig
+
+        load_kwargs["quantization_config"] = (
+            BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_use_double_quant=True,
+            )
+            if quant == "4bit"
+            else BitsAndBytesConfig(load_in_8bit=True)
+        )
     model = AutoModelForCausalLM.from_pretrained(spec["model_id"], **load_kwargs)
     if device_map is None:
         model = model.to("cuda")
@@ -328,10 +356,18 @@ def use_model(key: str | None = None) -> str:
     return _active_key
 
 
-# Load the default brain eagerly at import — same as the other models, so the
-# ZeroGPU startup packing covers it and the common (no-switch) path pays no
-# load cost on the first turn.
-use_model(DEFAULT_AGENT_MODEL)
+# Load the default brain eagerly at import so ZeroGPU's startup tensor-packing
+# covers it and the common (no-switch) first turn pays no load cost. EXCEPTION: a
+# bitsandbytes-quantized default must NOT be built in the main process. Plain
+# .to("cuda") models are safe at import because the `spaces` library patches torch
+# and "packs" them into the forked GPU worker — but bitsandbytes initializes CUDA
+# directly (bypassing that patch), which hard-errors on ZeroGPU ("CUDA must not be
+# initialized in the main process") and crashes the Space at boot. So for a
+# quantized default, DEFER the load to first GPU use: the pipeline calls use_model()
+# inside its @spaces.GPU window (pipelines/agent_ask.py), and _generate() lazy-loads
+# as a backstop — both on the GPU, the only supported place to build a bnb model.
+if not _spec(DEFAULT_AGENT_MODEL).get("quantization"):
+    use_model(DEFAULT_AGENT_MODEL)
 
 
 def _template_kwargs() -> dict:
@@ -347,6 +383,12 @@ def _generate(
     """Greedy decode the assistant's next message. Traced as one `generation`
     (the resident brain as the model, the messages as input, the reply and the
     in/out token counts attached) when Langfuse is configured."""
+    # Backstop for a deferred (quantized) default brain: it isn't loaded at import
+    # on ZeroGPU, so build it on first use. Always reached inside a @spaces.GPU
+    # window (the pipeline's find turn / the eval's GPU fn) — the supported place to
+    # instantiate a bitsandbytes model. A no-op once a brain is resident.
+    if _MODEL is None:
+        use_model(DEFAULT_AGENT_MODEL)
     with tracing.generation(
         trace_name, model=_active_model_id(), input=messages
     ) as gen:

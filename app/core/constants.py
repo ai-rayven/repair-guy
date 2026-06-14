@@ -45,20 +45,45 @@ MINICPM_AGENT_REVISION = os.environ.get("MINICPM_AGENT_REVISION", "") or None
 
 # Selectable agent brains, offered in the UI settings panel. ONE model is meant
 # to be resident in VRAM at a time — switching evicts the previous and loads the
-# next (models/minicpm_agent.use_model). NOTE: evicting the FIRST/default brain
-# frees nothing — it's loaded at import (ZeroGPU emulation phase) and materialized
-# into the forked GPU worker, where empty_cache() can't reclaim it; only a brain
-# that was itself switched in at runtime frees on eviction. So a switched-in brain
-# must fit in the headroom ABOVE the resident set + stuck default (~15 GiB free on
-# the 48 GiB `large` slice — see core/vram.py). That's why the 8B brains were
-# dropped (they need ~16 GiB) and the largest option here is 4B.
+# next (models/minicpm_agent.use_model). NOTE: the FIRST/default brain is loaded at
+# import (ZeroGPU emulation phase) and materialized into the forked GPU worker,
+# where empty_cache() can't reclaim it — it stays stuck for the process. A brain
+# SWITCHED IN at runtime must fit the headroom ABOVE the resident set
+# (VLM+ColEmbed+embedder) + that stuck default (~15 GiB free on the 48 GiB `large`
+# slice — see core/vram.py).
+#
+# The default is MiniCPM4.1-8B at int8 (~8.5 GiB via bitsandbytes). As the LONE
+# stuck brain it REPLACES the old 1B default (it does not stack on it), so the
+# resident set + one ~8.5 GiB brain still leaves room for the grounding spike — the
+# same footprint class as MiniCPM3-4B, which was VRAM-vetted to fit. (bf16 8B at
+# ~16 GiB still does NOT fit; int8 is what makes the 8B deployable as the default.)
+# Caveat: with an ~8.5 GiB default already stuck, switching ANOTHER 4-8 GiB brain
+# in at runtime for a UI A/B is tight and may OOM at grounding — the default path
+# is fine.
 # Each loads as an AutoModelForCausalLM; `trust_remote_code` (default False) flags
-# the ones that ship custom modeling code (MiniCPM3-4B). `thinking` flags whether
-# the chat template accepts enable_thinking (Qwen3 and MiniCPM5 do — tool routing
-# passes it False; MiniCPM3 does not). The FIRST entry is the default at boot and
-# tracks the MINICPM_AGENT_MODEL_ID/REVISION env overrides, so existing config
-# still applies. Only one is resident at a time, well under the params budget.
+# the ones that ship custom modeling code (MiniCPM3 / MiniCPM4.1). `thinking` flags
+# whether the chat template accepts enable_thinking (Qwen3, MiniCPM5, MiniCPM4.1 do
+# — tool routing passes it False; MiniCPM3 does not). int8/4bit brains need
+# bitsandbytes (requirements.txt). The FIRST entry is the default at boot; the
+# minicpm5-1b entry stays selectable and still tracks the MINICPM_AGENT_MODEL_ID/
+# REVISION env overrides. Only one brain is resident at a time.
 AGENT_MODELS = [
+    {
+        "key": "minicpm4.1-8b-8bit",
+        "label": "MiniCPM4.1 8B (8-bit)",
+        "model_id": "openbmb/MiniCPM4.1-8B",
+        "revision": None,
+        # DEFAULT brain. Hybrid-reasoning 8B at int8 (~8.5 GiB) — the best
+        # deployable eval config (0.85 tool / 0.91 args; with the v3 prompt it also
+        # recovers half the coincidence fix). trust_remote_code custom modeling
+        # (sparse "InfLLM v2" attention); runs clean on current transformers,
+        # unlike MiniCPM3-4B. Quantized weights load straight onto the GPU, so
+        # device_map is set (skips the host→device .to copy).
+        "thinking": True,
+        "trust_remote_code": True,
+        "quantization": "8bit",
+        "device_map": {"": 0},
+    },
     {
         "key": "minicpm5-1b",
         "label": "MiniCPM5 1B",
@@ -81,6 +106,17 @@ AGENT_MODELS = [
         "thinking": True,
     },
     {
+        "key": "qwen3-4b",
+        "label": "Qwen3 4B",
+        "model_id": "Qwen/Qwen3-4B",
+        "revision": None,
+        # Native Qwen3 arch (no trust_remote_code → immune to the custom-modeling
+        # rot that breaks MiniCPM3-4B on current transformers). ~4B / ~8.1 GiB bf16,
+        # same footprint class as MiniCPM3-4B, which was VRAM-vetted to fit; routing
+        # passes enable_thinking=False.
+        "thinking": True,
+    },
+    {
         "key": "minicpm3-4b",
         "label": "MiniCPM3 4B",
         "model_id": "openbmb/MiniCPM3-4B",
@@ -95,6 +131,35 @@ AGENT_MODELS = [
         # and the un-evictable default brain, it loads into the ~15.6 GiB free at
         # switch time with ~5 GiB to spare after the grounding spike. The 8B (16
         # GiB) didn't fit — see core/vram.py / the find-turn VRAM logs.
+    },
+    {
+        "key": "minicpm4.1-8b",
+        "label": "MiniCPM4.1 8B",
+        "model_id": "openbmb/MiniCPM4.1-8B",
+        "revision": None,
+        # Hybrid-reasoning 8B (enable_thinking supported; routing passes it False).
+        # trust_remote_code custom modeling (sparse "InfLLM v2" attention) — same
+        # rot risk that broke MiniCPM3-4B on current transformers; pin a reviewed
+        # commit for any real use. NOTE: 8B / ~16 GiB bf16 does NOT fit the
+        # production find turn (the 8B didn't fit — VRAM logs); benchmarkable in
+        # THIS eval (brain-only load) to gauge the quality ceiling, but shipping it
+        # needs quantization (4-bit ~5-6 GiB) + a coexistence VRAM check.
+        "thinking": True,
+        "trust_remote_code": True,
+    },
+    {
+        "key": "minicpm4.1-8b-4bit",
+        "label": "MiniCPM4.1 8B (4-bit)",
+        "model_id": "openbmb/MiniCPM4.1-8B",
+        "revision": None,
+        "thinking": True,
+        "trust_remote_code": True,
+        # bitsandbytes nf4 (~5-6 GiB vs ~16 GiB bf16) to fit the 8B into the
+        # find-turn VRAM budget; quantized weights load straight onto the GPU, so
+        # device_map is set (skips the host→device .to copy). The question this
+        # answers: does 4-bit hold the bf16 8B's quality (0.87/0.86)?
+        "quantization": "4bit",
+        "device_map": {"": 0},
     },
 ]
 DEFAULT_AGENT_MODEL = AGENT_MODELS[0]["key"]

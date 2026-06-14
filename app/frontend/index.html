@@ -261,11 +261,6 @@
           p. <span x-text="viewPage"></span><span class="text-brand-400 font-medium"> / <span x-text="docPages"></span></span>
         </div>
         <div class="flex-1 min-w-0 text-[12px] text-brand-500/90 truncate text-right pr-1" x-text="sectionTitle(viewPage)"></div>
-        <button @click="spread=!spread" :aria-pressed="spread" aria-label="Two-page view" title="Two-page view"
-          class="grid place-items-center w-11 h-11 rounded-xl transition"
-          :class="spread ? 'text-brand-700 bg-brand-100' : 'text-brand-600 hover:bg-brand-100'">
-          <i data-lucide="book-open" class="w-5 h-5"></i>
-        </button>
         <button x-show="navStack.length" @click="goBack()" aria-label="Back" title="Back to previous spot"
           class="grid place-items-center w-11 h-11 rounded-xl text-brand-600 hover:bg-brand-100 transition">
           <i data-lucide="undo-2" class="w-5 h-5"></i>
@@ -273,8 +268,8 @@
       </div>
 
       <!-- the page(s): a book-style spread — the active page plus the next one
-           for context (toggle to single with the book button). Each slot is a
-           full-height flex column; the image fits the slot's HEIGHT and (in
+           for context (always two pages, except on the last page). Each slot is
+           a full-height flex column; the image fits the slot's HEIGHT and (in
            spread) at most half the width, so both facing pages stay fully
            visible without blowing up. img + svg are stacked in one grid cell
            and both carry the page's aspect-ratio + max constraints, so they

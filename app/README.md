@@ -13,7 +13,7 @@ app_file: app.py
 pinned: false
 preload_from_hub:
   - nvidia/nemotron-colembed-vl-4b-v2
-  - openbmb/MiniCPM5-1B
+  - openbmb/MiniCPM4.1-8B
   - openbmb/MiniCPM-V-4_5
   - nvidia/llama-nemotron-embed-vl-1b-v2
 license: mit
