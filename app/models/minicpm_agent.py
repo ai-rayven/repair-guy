@@ -328,25 +328,6 @@ def use_model(key: str | None = None) -> str:
     device_map = spec.get("device_map")
     if device_map is not None:
         load_kwargs["device_map"] = device_map
-    # A spec can request on-the-fly bitsandbytes quantization (e.g. "4bit" to fit
-    # an 8B brain into the find-turn VRAM budget). Quantized weights are placed on
-    # the GPU at load time, so such a spec must also set device_map (skips the
-    # .to("cuda") below). bitsandbytes is imported lazily so non-quantized brains
-    # — and the production image, which omits it — never touch it.
-    quant = spec.get("quantization")
-    if quant in ("4bit", "8bit"):
-        from transformers import BitsAndBytesConfig
-
-        load_kwargs["quantization_config"] = (
-            BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.bfloat16,
-                bnb_4bit_use_double_quant=True,
-            )
-            if quant == "4bit"
-            else BitsAndBytesConfig(load_in_8bit=True)
-        )
     model = AutoModelForCausalLM.from_pretrained(spec["model_id"], **load_kwargs)
     if device_map is None:
         model = model.to("cuda")
@@ -357,17 +338,11 @@ def use_model(key: str | None = None) -> str:
 
 
 # Load the default brain eagerly at import so ZeroGPU's startup tensor-packing
-# covers it and the common (no-switch) first turn pays no load cost. EXCEPTION: a
-# bitsandbytes-quantized default must NOT be built in the main process. Plain
-# .to("cuda") models are safe at import because the `spaces` library patches torch
-# and "packs" them into the forked GPU worker — but bitsandbytes initializes CUDA
-# directly (bypassing that patch), which hard-errors on ZeroGPU ("CUDA must not be
-# initialized in the main process") and crashes the Space at boot. So for a
-# quantized default, DEFER the load to first GPU use: the pipeline calls use_model()
-# inside its @spaces.GPU window (pipelines/agent_ask.py), and _generate() lazy-loads
-# as a backstop — both on the GPU, the only supported place to build a bnb model.
-if not _spec(DEFAULT_AGENT_MODEL).get("quantization"):
-    use_model(DEFAULT_AGENT_MODEL)
+# covers it and the common (no-switch) turn pays no per-turn load cost. A plain
+# .to("cuda") model is safe at import on ZeroGPU: the `spaces` library patches
+# torch and "packs" it into the forked GPU worker (the bf16 8B default included),
+# so it stays resident without ever being rebuilt per turn.
+use_model(DEFAULT_AGENT_MODEL)
 
 
 def _template_kwargs() -> dict:
@@ -383,10 +358,9 @@ def _generate(
     """Greedy decode the assistant's next message. Traced as one `generation`
     (the resident brain as the model, the messages as input, the reply and the
     in/out token counts attached) when Langfuse is configured."""
-    # Backstop for a deferred (quantized) default brain: it isn't loaded at import
-    # on ZeroGPU, so build it on first use. Always reached inside a @spaces.GPU
-    # window (the pipeline's find turn / the eval's GPU fn) — the supported place to
-    # instantiate a bitsandbytes model. A no-op once a brain is resident.
+    # Defensive: ensure a brain is resident. The default loads at import, so this
+    # is a no-op in normal operation; it only fires if that eager load was skipped
+    # (e.g. a future deferred default). Always reached inside a @spaces.GPU window.
     if _MODEL is None:
         use_model(DEFAULT_AGENT_MODEL)
     with tracing.generation(

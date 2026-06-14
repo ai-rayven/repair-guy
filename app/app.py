@@ -122,6 +122,10 @@ def _build_libraries():
 VISUAL_STORE, PARSED_STORE, PIPELINE = _build_libraries()
 # Valid agent-brain keys, for validating the per-request `agent_model`.
 _AGENT_MODEL_KEYS = {m["key"] for m in AGENT_MODELS}
+# Brains too large to keep the ColEmbed visual retriever resident alongside them
+# (constants.AGENT_MODELS `forbid_visual`). While one is active, a "visual"
+# retrieval_mode is forced to "parsed" so ColEmbed never loads next to it (OOM).
+_NO_VISUAL_MODEL_KEYS = {m["key"] for m in AGENT_MODELS if m.get("forbid_visual")}
 # Valid search-index keys, for validating the per-request `retrieval_mode`.
 _RETRIEVAL_MODE_KEYS = {m["key"] for m in RETRIEVAL_MODES}
 # method -> store, for the picker / pdf lookups. In mock both keys map to the
@@ -312,6 +316,10 @@ def api_find(
         agent_model = DEFAULT_AGENT_MODEL
     if retrieval_mode not in _RETRIEVAL_MODE_KEYS:
         retrieval_mode = DEFAULT_RETRIEVAL_MODE
+    # The big brains can't share VRAM with the ColEmbed visual retriever — force
+    # parsed so ColEmbed never loads alongside them (the UI also greys it out).
+    if retrieval_mode == "visual" and agent_model in _NO_VISUAL_MODEL_KEYS:
+        retrieval_mode = DEFAULT_RETRIEVAL_MODE
     log.info(
         "find: manual=%s k=%s think=%s model=%s search=%s viewer=%s hist=%d q=%r",
         manual, k, bool(think), agent_model, retrieval_mode, viewer,
@@ -369,7 +377,11 @@ def index():
         # so the settings dropdown needs no extra round-trip on load.
         .replace(
             "__AGENT_MODELS_JSON__",
-            json.dumps([{"key": m["key"], "label": m["label"]} for m in AGENT_MODELS]),
+            json.dumps([
+                {"key": m["key"], "label": m["label"],
+                 "forbidVisual": bool(m.get("forbid_visual"))}
+                for m in AGENT_MODELS
+            ]),
         )
         .replace("__AGENT_MODEL__", DEFAULT_AGENT_MODEL)
         # Search-index picker: which index the search tool ranks against

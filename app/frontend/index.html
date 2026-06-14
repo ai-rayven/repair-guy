@@ -355,19 +355,23 @@
         <p class="mt-1 text-xs text-brand-400">The model that finds pages and points. Switching loads it fresh — the first turn after a change is slower.</p>
       </div>
 
-      <!-- search index: which index the search tool ranks the query against -->
-      <div class="mt-5">
+      <!-- search index: which index the search tool ranks the query against. The
+           big brains (forbidVisual) can't keep ColEmbed resident, so Visual is
+           disabled and force-reset to Parsed while one of them is the agent. -->
+      <div class="mt-5"
+           x-effect="if((agentModels.find(x=>x.key===agentModel)||{}).forbidVisual && retrievalMode==='visual') retrievalMode='parsed'">
         <label class="block text-xs font-semibold uppercase tracking-wide text-brand-500/80 mb-1.5">Search index</label>
         <div class="relative">
           <select x-model="retrievalMode"
             class="w-full appearance-none rounded-xl border border-brand-200 bg-brand-50/50 px-3.5 py-2.5 pr-9 text-sm font-medium text-navy focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition">
             <template x-for="m in retrievalModes" :key="m.key">
-              <option :value="m.key" x-text="m.label"></option>
+              <option :value="m.key" x-text="m.label"
+                :disabled="m.key==='visual' && (agentModels.find(x=>x.key===agentModel)||{}).forbidVisual"></option>
             </template>
           </select>
           <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-400"></i>
         </div>
-        <p class="mt-1 text-xs text-brand-400">What the search tool ranks against. Parsed (text) wins on specs and tables; Visual (ColEmbed) on diagrams.</p>
+        <p class="mt-1 text-xs text-brand-400">What the search tool ranks against. Parsed (text) wins on specs and tables; Visual (ColEmbed) on diagrams.<span x-show="(agentModels.find(x=>x.key===agentModel)||{}).forbidVisual" class="text-amber-600"> Visual is unavailable with the current brain (too large to load ColEmbed alongside it).</span></p>
       </div>
 
       <!-- think: let the VLM reason before committing to a circle box -->

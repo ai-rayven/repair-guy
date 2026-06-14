@@ -2,7 +2,6 @@ spaces
 gradio
 transformers>=4.57.2,<5
 accelerate
-bitsandbytes  # int8/4bit agent-brain quantization (default brain is int8 MiniCPM4.1-8B)
 torchvision
 pymupdf
 pillow
