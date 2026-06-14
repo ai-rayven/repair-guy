@@ -171,6 +171,17 @@ AGENT_MAX_NEW_TOKENS = 128
 AGENT_MAX_STEPS = 6
 # ColEmbed shortlist size the search tool retrieves (the eval default).
 AGENT_SEARCH_CANDIDATES = 5
+# Which index the search tool ranks against. Both retrievers return the same
+# (doc, page, score) shape, so the agent loop is identical either way:
+#   visual — ColEmbed late-interaction MaxSim over page-image embeddings
+#   parsed — Nemotron dense cosine over parsed section/figure/table chunks
+# Exposed as a UI setting (settings panel); the parsed index wins on spec/table
+# lookups, so it is the default for now.
+RETRIEVAL_MODES = [
+    {"key": "parsed", "label": "Parsed (text)"},
+    {"key": "visual", "label": "Visual (ColEmbed)"},
+]
+DEFAULT_RETRIEVAL_MODE = RETRIEVAL_MODES[0]["key"]
 # Past turns of conversation fed back as memory (resolve "the other one", "go
 # back"); the live turn carries the full current page text (no table of contents).
 AGENT_HISTORY_TURNS = 6

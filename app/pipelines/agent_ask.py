@@ -9,15 +9,18 @@ Flow (one @spaces.GPU call, streamed as events):
   figures/tables as their descriptions). No table of contents is injected. Then
   loop, up to AGENT_MAX_STEPS:
     decide → ONE tool:
-      search(query)      ColEmbed (visual) top-N → show the best page; its
-                         text is fed back so the agent can then circle on it (continues)
+      search(query)      retrieve top-N → show the best page; its text is fed
+                         back so the agent can then circle on it          (continues)
       circle(target)     ground the target on the CURRENT page (VLM) and
                          circle it                                        (terminal)
       done(message)      nothing to do / not in the manual                (terminal)
 
-Retrieval is VISUAL: search uses ColEmbed page embeddings (visual store). The
-parsed store still supplies the page text the agent reads and circles on, so a
-manual must be indexed both ways.
+The search tool ranks against whichever index `retrieval_mode` picks (a UI
+setting): "visual" — ColEmbed late interaction over page-image embeddings;
+"parsed" — Nemotron dense cosine over parsed chunks. Both retrievers return the
+same (doc, page, score) shape, so the loop is identical either way. The parsed
+store ALSO supplies the page text the agent reads and circles on, so a manual
+must be indexed both ways regardless of mode.
 
 History is used only to resolve references, never to restate answers. Each turn
 is otherwise grounded in the viewer state the client sends (current page +
@@ -45,6 +48,7 @@ from core import tracing
 from core.constants import (
     AGENT_HISTORY_TURNS,
     AGENT_MAX_STEPS,
+    DEFAULT_RETRIEVAL_MODE,
     FIND_GPU_DURATION,
 )
 from core.page_context import index_pages, page_to_text
@@ -52,6 +56,7 @@ from core.pdf import page_count, render_page
 from core.vram import log_vram, reset_peak, set_enabled
 from models import minicpm, minicpm_agent
 from models.colembed import maxsim_search
+from pipelines.parsed_ask import retrieve_pages
 
 log = logging.getLogger("repairguy.agent")
 
@@ -91,15 +96,18 @@ def agent_events(
     history: list | None = None,
     ground_thinking: bool | None = None,
     agent_model: str | None = None,
+    retrieval_mode: str | None = None,
     vram_log: bool = False,
     session_id: str | None = None,
 ):
     """Yield the events of one agent turn (see module docstring). The agent gets
-    no table of contents — it works from search (visual retrieval) and the
-    current page's text. ground_thinking toggles MiniCPM-V's
-    reasoning for the circle grounding (None → server default); agent_model picks
-    which brain drives the loop (None → default), loaded on switch inside this
-    GPU window. vram_log enables the per-turn VRAM probe (UI setting)."""
+    no table of contents — it works from search and the current page's text.
+    retrieval_mode picks the search index ("visual" | "parsed", None → default).
+    ground_thinking toggles MiniCPM-V's reasoning for the circle grounding (None →
+    server default); agent_model picks which brain drives the loop (None →
+    default), loaded on switch inside this GPU window. vram_log enables the
+    per-turn VRAM probe (UI setting)."""
+    retrieval_mode = retrieval_mode if retrieval_mode in ("visual", "parsed") else DEFAULT_RETRIEVAL_MODE
     # Apply the UI's VRAM-logging toggle for this turn. Done here (inside the GPU
     # worker) rather than in the parent so a reused ZeroGPU worker always honors
     # the current request's setting. When off, every log_vram/reset_peak below is
@@ -269,14 +277,20 @@ def agent_events(
                              [(p, round(s, 3)) for _, p, s in hits])
                 else:
                     yield {"type": "status", "text": f"Searching for “{query}”…"}
-                    # k (the viewer's slider) is the shortlist size; ColEmbed's top
-                    # page is the one shown. A 1B text rerank measured WORSE than raw
-                    # ColEmbed top-1 (0.68 vs 0.84 hit@1) — visual late interaction
-                    # already ranks these (figure-heavy) pages better than re-judging
-                    # from page text.
+                    # k (the viewer's slider) is the shortlist size; the top page is
+                    # the one shown. Two indexes can answer the query (UI setting):
+                    #   visual — ColEmbed late interaction over page images. A 1B text
+                    #     rerank measured WORSE than raw ColEmbed top-1 (0.68 vs 0.84
+                    #     hit@1), so the search tool takes ColEmbed's top page as-is.
+                    #   parsed — Nemotron dense cosine over chunks → parent pages
+                    #     (wins on spec/table lookups). Same (doc, page, score) shape.
+                    retriever_name = "colembed" if retrieval_mode == "visual" else "nemotron-embed"
                     with tracing.retriever("search", input=query,
-                                           metadata={"retriever": "colembed", "k": int(top_k)}) as rsp:
-                        hits = maxsim_search(query, visual_store, doc_ids, top_k)
+                                           metadata={"retriever": retriever_name, "k": int(top_k)}) as rsp:
+                        if retrieval_mode == "visual":
+                            hits = maxsim_search(query, visual_store, doc_ids, top_k)
+                        else:
+                            hits = retrieve_pages(query, parsed_store, doc_ids, top_k)
                         if rsp is not None:
                             rsp.update(output=[{"page": p, "score": round(float(s), 4)}
                                                for _, p, s in hits])
@@ -375,12 +389,14 @@ class AgentPipeline:
         history: list | None = None,
         ground_thinking: bool | None = None,
         agent_model: str | None = None,
+        retrieval_mode: str | None = None,
         vram_log: bool = False,
         session_id: str | None = None,
     ):
         """One streamed agent turn (the event generator of agent_events).
-        vram_log forwards the UI's VRAM-logging toggle to the probe; session_id
-        groups a page session's turns together in Langfuse."""
+        retrieval_mode picks the search index ("visual" | "parsed"); vram_log
+        forwards the UI's VRAM-logging toggle to the probe; session_id groups a
+        page session's turns together in Langfuse."""
         request = (request or "").strip()
         if not request:
             raise ValueError("Tell me what to find.")
@@ -391,5 +407,5 @@ class AgentPipeline:
         return agent_events(
             request, visual_store, parsed_store, doc_ids or list(names),
             int(top_k), names, viewer, history, ground_thinking,
-            agent_model, vram_log, session_id,
+            agent_model, retrieval_mode, vram_log, session_id,
         )

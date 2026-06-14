@@ -61,6 +61,7 @@ from huggingface_hub import HfApi, snapshot_download
 from core.constants import (
     AGENT_MODELS,
     DEFAULT_AGENT_MODEL,
+    DEFAULT_RETRIEVAL_MODE,
     DEFAULT_TOP_K,
     GROUND_ENABLE_THINKING,
     LIBRARY_DATASET_ID,
@@ -70,6 +71,7 @@ from core.constants import (
     PARSED_SUBDIR,
     PREINDEXED_DIR,
     RENDER_DPI,
+    RETRIEVAL_MODES,
     VISUAL_SUBDIR,
 )
 from core.pdf import pdf_outline, render_page_png
@@ -120,6 +122,8 @@ def _build_libraries():
 VISUAL_STORE, PARSED_STORE, PIPELINE = _build_libraries()
 # Valid agent-brain keys, for validating the per-request `agent_model`.
 _AGENT_MODEL_KEYS = {m["key"] for m in AGENT_MODELS}
+# Valid search-index keys, for validating the per-request `retrieval_mode`.
+_RETRIEVAL_MODE_KEYS = {m["key"] for m in RETRIEVAL_MODES}
 # method -> store, for the picker / pdf lookups. In mock both keys map to the
 # one MockStore, so every mock manual reads as indexed under both methods.
 _METHOD_STORES = {"visual": VISUAL_STORE, "parsed": PARSED_STORE}
@@ -268,6 +272,7 @@ def api_find(
     history: list = None,
     think: bool = GROUND_ENABLE_THINKING,
     agent_model: str = DEFAULT_AGENT_MODEL,
+    retrieval_mode: str = DEFAULT_RETRIEVAL_MODE,
     vram_log: bool = False,
     session_id: str = "",
 ) -> dict:  # the per-yield type: Server.api infers outputs from this annotation
@@ -305,16 +310,18 @@ def api_find(
     # the log reflects what actually ran).
     if agent_model not in _AGENT_MODEL_KEYS:
         agent_model = DEFAULT_AGENT_MODEL
+    if retrieval_mode not in _RETRIEVAL_MODE_KEYS:
+        retrieval_mode = DEFAULT_RETRIEVAL_MODE
     log.info(
-        "find: manual=%s k=%s think=%s model=%s viewer=%s hist=%d q=%r",
-        manual, k, bool(think), agent_model, viewer, len(history or []),
-        request[:200],
+        "find: manual=%s k=%s think=%s model=%s search=%s viewer=%s hist=%d q=%r",
+        manual, k, bool(think), agent_model, retrieval_mode, viewer,
+        len(history or []), request[:200],
     )
     try:
         events = PIPELINE.run_find(
             VISUAL_STORE, PARSED_STORE, request, [manual], int(k),
-            viewer, history, bool(think), agent_model, bool(vram_log),
-            str(session_id or ""),
+            viewer, history, bool(think), agent_model, retrieval_mode,
+            bool(vram_log), str(session_id or ""),
         )
         for ev in events:
             if ev.get("type") == "tool_result" and "gallery" in ev:
@@ -365,6 +372,14 @@ def index():
             json.dumps([{"key": m["key"], "label": m["label"]} for m in AGENT_MODELS]),
         )
         .replace("__AGENT_MODEL__", DEFAULT_AGENT_MODEL)
+        # Search-index picker: which index the search tool ranks against
+        # (visual / parsed) and the default, so the settings dropdown needs no
+        # extra round-trip on load.
+        .replace(
+            "__RETRIEVAL_MODES_JSON__",
+            json.dumps([{"key": m["key"], "label": m["label"]} for m in RETRIEVAL_MODES]),
+        )
+        .replace("__RETRIEVAL_MODE__", DEFAULT_RETRIEVAL_MODE)
         # Cache-bust key for /page images: changing the render DPI changes the
         # served page size, so it must change the URL too — otherwise a browser
         # could keep an old-resolution page (cached up to a day) under the same

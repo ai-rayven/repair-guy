@@ -48,8 +48,10 @@ Space (no external endpoints).
   chapters plus a per-request fuzzy shortlist of fine parse headings
   (`app/core/sections.py`).
 
-**Retrieval is fused** — the search tool needs both indexes of a manual, so a
-manual must be indexed both ways:
+**Two indexes, one picked per turn** — the **Search index** setting chooses
+which one the search tool ranks against (default **parsed**). A manual must be
+indexed both ways regardless: the parsed index also supplies the page text the
+agent reads and circles on.
 
 - **Visual** — every page is embedded as an image with
   [Nemotron ColEmbed v2](https://huggingface.co/nvidia/nemotron-colembed-vl-4b-v2)
@@ -58,13 +60,16 @@ manual must be indexed both ways:
   disk via numpy memmap) to shortlist candidate pages — the top page is shown.
   (Late-interaction visual ranking beat a 1B text rerank of the shortlist in the
   eval, 0.84 vs 0.68 hit@1, so the search tool takes ColEmbed's top page.)
+  Strongest on diagrams.
 - **Parsed** — pages are parsed with
   [Nemotron Parse v1.2](https://huggingface.co/nvidia/NVIDIA-Nemotron-Parse-v1.2),
   figures and tables are described by MiniCPM-V, and heading-based section
   chunks are embedded with
-  [Llama Nemotron Embed VL 1B v2](https://huggingface.co/nvidia/llama-nemotron-embed-vl-1b-v2)
-  (used by the offline answer eval). On the Space the parsed pages supply the
-  **whole-page text** the agent reasons over (`app/core/page_context.py`).
+  [Llama Nemotron Embed VL 1B v2](https://huggingface.co/nvidia/llama-nemotron-embed-vl-1b-v2).
+  The search tool scores the query against those chunks by dense cosine and
+  votes their parent pages — strongest on spec/table lookups, the default. The
+  parsed pages also supply the **whole-page text** the agent reasons over
+  (`app/core/page_context.py`).
 
 ## Indexing (offline only)
 
