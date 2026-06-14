@@ -143,6 +143,14 @@ AGENT_MAX_NEW_TOKENS = 128
 AGENT_MAX_STEPS = 6
 # ColEmbed shortlist size the search tool retrieves (the eval default).
 AGENT_SEARCH_CANDIDATES = 5
+# How many of the search shortlist's top pages get their FULL TEXT fed back after
+# a search, for the brain to RERANK and recover over — it circles the target on
+# whichever candidate actually has it, not just retrieval's #1 (the recovery path
+# when the right page is rank 2/3). The rest of the shortlist still shows as
+# thumbnails. Capped low because each page's text is large; raising it (or the k
+# slider) deepens the recovery pool at the cost of context/latency. The smarter 8B
+# reranks reliably where the old 1B (rerank 0.68 < top-1 0.84) could not.
+AGENT_RERANK_CANDIDATES = 3
 # Which index the search tool ranks against. Both retrievers return the same
 # (doc, page, score) shape, so the agent loop is identical either way:
 #   visual — ColEmbed late-interaction MaxSim over page-image embeddings

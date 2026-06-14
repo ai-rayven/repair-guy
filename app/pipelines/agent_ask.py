@@ -48,6 +48,7 @@ from core import tracing
 from core.constants import (
     AGENT_HISTORY_TURNS,
     AGENT_MAX_STEPS,
+    AGENT_RERANK_CANDIDATES,
     DEFAULT_RETRIEVAL_MODE,
     FIND_GPU_DURATION,
 )
@@ -157,14 +158,23 @@ def agent_events(
     query_cache = {}  # qkey -> search hits: a repeated search this turn reuses
                       # results instead of re-running the retriever
     ground_failed = set()  # (page, normalized target) the VLM already missed
+    # The most-recent search-results observation (the running message dict) and its
+    # condensed page-numbers-only form. When a NEW search supersedes it, the old
+    # full-text dump is collapsed to the summary — only the latest search needs its
+    # candidates' text resident (a grounding retry may still circle another of
+    # them); stale dumps would otherwise stack up across searches in one turn.
+    last_search_msg = None
+    last_search_summary = ""
     yield {"type": "status", "text": "Thinking…"}
 
     def present_hits(hits, qkey):
         """Tail for the search tool: show the shortlist, land on the top page, and
-        feed its text back — FORCING a decision when the landing is a no-op (the
-        same query again, or a page already shown this turn), so a greedy 1B can't
-        loop the identical lookup forever."""
-        nonlocal current_page, circleable
+        feed back the FULL TEXT of the top candidates so the brain can RERANK — it
+        circles the target on whichever candidate actually has it, not just
+        retrieval's #1 (recovery when the right page is rank 2/3). All fed candidates
+        are circleable. FORCES a decision when the landing is a no-op (the same query
+        again, or a page already shown this turn), so the loop can't repeat forever."""
+        nonlocal current_page, circleable, last_search_msg, last_search_summary
         rendered = [
             (p, render_page(visual_store.pdf_path(doc_id), p)) for _, p, _ in hits
         ]
@@ -180,17 +190,30 @@ def agent_events(
         best_page = hits[0][1]
         yield {"type": "found", "page": best_page}
         current_page = best_page
-        circleable = {best_page}  # the lookup landed here — circle on this page
+        # The top candidates (deduped, best-first) whose text the brain reranks
+        # over. All become circleable so it can circle on any of them — the recovery
+        # path when retrieval's #1 is wrong. The rest of the shortlist stays gallery
+        # thumbnails only.
+        candidates: list[tuple[int, str]] = []
+        for _, p, _ in hits:
+            if p not in {c[0] for c in candidates}:
+                candidates.append((p, page_text(p)))
+            if len(candidates) >= AGENT_RERANK_CANDIDATES:
+                break
+        circleable = {p for p, _ in candidates}
         stuck = qkey in tried_queries or best_page in seen_pages
         tried_queries.add(qkey)
         seen_pages.add(best_page)
-        messages.append(
-            minicpm_agent.tool_result_message(
-                minicpm_agent.search_result_message(
-                    request, best_page, page_text(best_page), stuck
-                )
-            )
+        # Collapse the previous search's full-text dump to page numbers — this new
+        # search supersedes it; only the latest candidates' text stays resident.
+        if last_search_msg is not None:
+            last_search_msg["content"] = last_search_summary
+        msg = minicpm_agent.tool_result_message(
+            minicpm_agent.search_results_message(request, candidates, stuck)
         )
+        messages.append(msg)
+        last_search_msg = msg
+        last_search_summary = minicpm_agent.search_results_summary(candidates)
 
     # Open the trace for this turn (no-op when Langfuse is unconfigured). The
     # whole loop runs under try/finally so the root span is always ended and
@@ -313,6 +336,14 @@ def agent_events(
                 page = tool.get("page")
                 if page not in circleable:
                     page = current_page
+                # If the target is on a different on-screen candidate than the one
+                # currently shown (a rerank pick from the search shortlist), move the
+                # viewer there BEFORE grounding — so the user watches the RIGHT page
+                # get pinned, not the first-landed candidate. The terminal done-point
+                # navigates there anyway; this just makes the transition clean.
+                if page != current_page:
+                    current_page = page
+                    yield {"type": "found", "page": page}
                 yield {"type": "step", "tool": "circle", "target": target, "page": page}
                 yield {"type": "status", "text": "Pinning it down…"}
                 img = render_page(visual_store.pdf_path(doc_id), page)

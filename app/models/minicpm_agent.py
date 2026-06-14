@@ -240,6 +240,66 @@ def search_result_message(request: str, page: int, text: str, stuck: bool) -> st
     )
 
 
+def search_results_message(
+    request: str, candidates: list[tuple[int, str]], stuck: bool
+) -> str:
+    """The observation fed back after a search, when we let the brain RERANK the
+    shortlist instead of trusting retrieval's #1. `candidates` is [(page, text)] for
+    the top retrieved pages, best-guess first; ALL of them are circleable. The brain
+    reads them and circles the target on whichever page actually has it — the
+    recovery path when the right page is rank 2/3, not rank 1. Falls back to the
+    single-page wording (search_result_message) when only one candidate is given.
+    `stuck` is set by the pipeline when the search was a no-op (same query, or it
+    re-landed a page already shown this turn); then re-searching the same way is
+    dropped, forcing a pick among what's here."""
+    if len(candidates) <= 1:
+        page, text = candidates[0]
+        return search_result_message(request, page, text, stuck)
+    top = candidates[0][0]
+    pages_csv = ", ".join(f"p.{p}" for p, _ in candidates)
+    blocks = "\n\n".join(
+        f"CANDIDATE {i + 1} — p.{p} — full text:\n{t or '(no text available)'}"
+        for i, (p, t) in enumerate(candidates)
+    )
+    head = (
+        f"Search retrieved {len(candidates)} candidate pages for that query, "
+        f"best-guess first: {pages_csv}. p.{top} is shown.\n\n{blocks}\n\n"
+    )
+    pick = (
+        f"The mechanic asked for: {request!r}. Retrieval's first guess (p.{top}) is "
+        "OFTEN NOT the right page — do not assume it. Read the candidates and pick "
+        "the ONE whose title/section actually matches what they asked. Beware a page "
+        'that merely shares a word (a "gear" inside a fuel-system actuator is NOT a '
+        "transmission gear). On the page that IS right, circle the part — or the "
+        "line/value that answers them (it counts even when named inside a figure or "
+        'diagram description) — set "target" to the words exactly as printed on that '
+        'page, and "page" to that candidate\'s number: '
+        '{"tool": "circle", "target": "<exact printed words>", "page": '
+        f"<one of {pages_csv}>}}."
+    )
+    if stuck:
+        return head + pick + (
+            " That search did not move you, so do NOT repeat it. If NONE of these "
+            "candidates is the right page, go to a page you know with go_to_page, or "
+            "use done only if it is truly not in this manual."
+        )
+    return head + pick + (
+        " If NONE of these candidates is the right page, search again with a more "
+        "specific or different query — never repeat the query you just ran, it will "
+        "land here again."
+    )
+
+
+def search_results_summary(candidates: list[tuple[int, str]]) -> str:
+    """The condensed stand-in for a search-results observation, once it has been
+    SUPERSEDED by a later search this turn. Keeps the page numbers (so the brain
+    still knows what it already looked at and won't re-issue the same lookup) but
+    drops the full page text — only the MOST RECENT search needs its candidates'
+    text in context; older dumps would just pile up. See pipelines/agent_ask.py."""
+    pages_csv = ", ".join(f"p.{p}" for p, _ in candidates)
+    return f"(Earlier search showed candidate pages {pages_csv}; their text is omitted now.)"
+
+
 def ground_failed_message(request: str, target: str, page: int) -> str:
     """The observation fed back when the VLM could not locate `target` on p.`page`.
     A failed grounding almost always means the target is NOT on this page (the
