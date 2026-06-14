@@ -1,39 +1,15 @@
----
-title: Repair Guy
-emoji: 🔧
-colorFrom: silver
-colorTo: blue
-sdk: gradio
-# 6.17.3 is the newest gradio that allows huggingface-hub<1.0, which
-# transformers 4.57.x (required by the MiniCPM/ColEmbed remote code) pins;
-sdk_version: 6.17.3
-python_version: '3.12'
-app_file: app.py
-pinned: false
-preload_from_hub:
-  - openbmb/MiniCPM4.1-8B # 8b, performs well quantized to int8 but take perf hit. need to try finetuning 1b.
-  - openbmb/MiniCPM-V-4_5 # 1b
-  - nvidia/llama-nemotron-embed-vl-1b-v2 # 1b
-tags:
-  - backyard-ai
-  - openbmb
-  - nvidia
-  - off-the-grid
-  - off-brand
-  - sharing-is-caring
-  - field-notes
----
 # Repair Guy: Hands-Free Manual Navigator
+
 <p align="center">
-  <img src="frontend/assets/app_screenshot.png" alt="Repair Guy screenshot" width="700">
+  <img src="app/frontend/assets/app_screenshot.png" alt="Repair Guy screenshot" width="700">
 </p>
 
-**▶️ [Watch the Demo Video](LINK_HERE)**  
-**🐦 [Social Media Post](LINK_HERE)**  
-**📝 [Read the Field Notes Blog Post](LINK_HERE)**
+**▶️ [Watch the Demo Video](LINK_HERE)** &nbsp;•&nbsp; **🐦 [Social Media Post](LINK_HERE)** &nbsp;•&nbsp; **📝 [Read the Field Notes Blog Post](LINK_HERE)**
+
+> Also live as a Hugging Face Space — see [`app/README.md`](app/README.md) for the Space card.
 
 ## 💡 The Problem & Solution
-Mechanics with greasy hands can't scroll through 500-page PDFs. **Repair Guy** is a fully local, voice-activated manual navigator. 
+Mechanics with greasy hands can't scroll through 500-page PDFs. **Repair Guy** is a fully local, voice-activated manual navigator.
 It visually highlights exact diagrams and troubleshooting steps, and allows for precise page navigation, all hands-free.
 
 ## ⚙️ The Tech Stack (All <32B Parameters)
@@ -45,7 +21,7 @@ It visually highlights exact diagrams and troubleshooting steps, and allows for 
 *   **Observability:** `Langfuse/In App` - Stores agent execution traces (for future finetuning) and app displays a diagnostic tab.
 
 ## 🎛 Other Features (mostly for engineers that want to experiment)
-*   **Speak Responses:** Toggle voice readouts for true hands-free feedback 
+*   **Speak Responses:** Toggle voice readouts for true hands-free feedback
 *   **Careful Pointing:** Forces the VLM to reason before circling components, increasing accuracy on complex diagrams. (Increased latency but, if used with speak responses, you can get a ping when it's done)
 *   **Dynamic Indices:** Swap between text-parsed indexing (best for specs/tables) and visual ColEmbed indexing (best for diagrams) for fun to see the difference ;)
 *   **Model Swapping:** Swap between different models for the agent brain
@@ -60,7 +36,7 @@ It visually highlights exact diagrams and troubleshooting steps, and allows for 
 ## 🚀 How to Test It
 1. Select the **Toyota Forklift** or **Hyundai Genesis** manual.
 2. Click the microphone.
-3. Use commands like: 
+3. Use commands like:
    * *"Show me the oil change procedure"*
    * *"Troubleshoot slipping clutch"*
    * *"Go to the next page"* / *"Go back a page"*
