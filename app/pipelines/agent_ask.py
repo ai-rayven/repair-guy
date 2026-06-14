@@ -62,6 +62,15 @@ from pipelines.parsed_ask import retrieve_pages
 log = logging.getLogger("repairguy.agent")
 
 
+def _query_key(prefix: str, query: str) -> str:
+    """Stable per-turn key for a retrieval query: a tool prefix (search and
+    find_answer use different retrievers, so their keys must not collide) plus
+    the query with case and runs of whitespace normalized away — so the same
+    lookup emitted twice (e.g. '{"tool": "search"...}' then '{"tool":"search"...}')
+    collapses to one key for both the dedup `stuck` flag and the result cache."""
+    return f"{prefix}:" + " ".join(query.lower().split())
+
+
 def _history_messages(history: list | None) -> list[dict]:
     """The compact memory of past turns as plain user/assistant turns: what the
     mechanic asked and what we did. The client sends [{request, action}]; only
@@ -144,6 +153,8 @@ def agent_events(
     circleable = set(shown_pages)  # pages the agent may circle on right now
     seen_pages = set(shown_pages)  # pages already put on screen this turn
     tried_queries = set()  # normalized search queries already issued this turn
+    query_cache = {}  # qkey -> retriever hits: a repeated search/find_answer this
+                      # turn reuses results instead of re-running the retriever
     ground_failed = set()  # (page, normalized target) the VLM already missed
     yield {"type": "status", "text": "Thinking…"}
 
@@ -255,49 +266,71 @@ def agent_events(
             if tool["tool"] == "search":
                 query = tool["query"]
                 yield {"type": "step", "tool": "search", "query": query}
-                yield {"type": "status", "text": f"Searching for “{query}”…"}
-                # k (the viewer's slider) is the shortlist size; ColEmbed's top page
-                # is the one shown. A 1B text rerank measured WORSE than raw ColEmbed
-                # top-1 (0.68 vs 0.84 hit@1) — visual late interaction already ranks
-                # these (figure-heavy) pages better than re-judging from page text.
-                with tracing.retriever("search", input=query,
-                                       metadata={"retriever": "colembed", "k": int(top_k)}) as rsp:
-                    hits = maxsim_search(query, visual_store, doc_ids, top_k)
-                    if rsp is not None:
-                        rsp.update(output=[{"page": p, "score": round(float(s), 4)}
-                                           for _, p, s in hits])
-                log.info("search(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
+                qkey = _query_key("search", query)
+                # A repeated search this turn returns the same pages it did the
+                # first time (the store is static), so reuse the cached hits
+                # instead of re-streaming the whole ColEmbed store to the GPU — a
+                # ~3s recompute. present_hits still re-feeds the landing page with
+                # its `stuck` flag set, nudging the greedy 1B to act, not re-loop.
+                hits = query_cache.get(qkey)
+                if hits is not None:
+                    log.info("search(%r) → cached %s", query,
+                             [(p, round(s, 3)) for _, p, s in hits])
+                else:
+                    yield {"type": "status", "text": f"Searching for “{query}”…"}
+                    # k (the viewer's slider) is the shortlist size; ColEmbed's top
+                    # page is the one shown. A 1B text rerank measured WORSE than raw
+                    # ColEmbed top-1 (0.68 vs 0.84 hit@1) — visual late interaction
+                    # already ranks these (figure-heavy) pages better than re-judging
+                    # from page text.
+                    with tracing.retriever("search", input=query,
+                                           metadata={"retriever": "colembed", "k": int(top_k)}) as rsp:
+                        hits = maxsim_search(query, visual_store, doc_ids, top_k)
+                        if rsp is not None:
+                            rsp.update(output=[{"page": p, "score": round(float(s), 4)}
+                                               for _, p, s in hits])
+                    log.info("search(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
+                    query_cache[qkey] = hits
                 if not hits:
                     messages.append(
                         minicpm_agent.tool_result_message(f"Search for {query!r} found nothing.")
                     )
                     continue
-                yield from present_hits(hits, "search:" + " ".join(query.lower().split()))
+                yield from present_hits(hits, qkey)
                 continue
 
             if tool["tool"] == "find_answer":
                 query = tool["query"]
                 yield {"type": "step", "tool": "find_answer", "query": query}
-                yield {"type": "status", "text": f"Looking up “{query}”…"}
-                # Dense retrieval over the PARSED chunks (text/semantic) — the index
-                # the parsed store was built for. A fact lookup ("what fuel does it
-                # take") is a TEXT match: ColEmbed ranks pages by VISUAL similarity
-                # and misses the plain specs page, so fact questions route here. Same
-                # (doc_id, page, score) shape as maxsim_search; the agent then circles
-                # the answering line on the page shown.
-                with tracing.retriever("find_answer", input=query,
-                                       metadata={"retriever": "parsed-dense", "k": int(top_k)}) as rsp:
-                    hits = retrieve_pages(query, parsed_store, doc_ids, top_k)
-                    if rsp is not None:
-                        rsp.update(output=[{"page": p, "score": round(float(s), 4)}
-                                           for _, p, s in hits])
-                log.info("find_answer(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
+                qkey = _query_key("answer", query)
+                # Same per-turn memo as search: a repeated lookup reuses its hits
+                # rather than re-running dense retrieval over the parsed chunks.
+                hits = query_cache.get(qkey)
+                if hits is not None:
+                    log.info("find_answer(%r) → cached %s", query,
+                             [(p, round(s, 3)) for _, p, s in hits])
+                else:
+                    yield {"type": "status", "text": f"Looking up “{query}”…"}
+                    # Dense retrieval over the PARSED chunks (text/semantic) — the
+                    # index the parsed store was built for. A fact lookup ("what fuel
+                    # does it take") is a TEXT match: ColEmbed ranks pages by VISUAL
+                    # similarity and misses the plain specs page, so fact questions
+                    # route here. Same (doc_id, page, score) shape as maxsim_search;
+                    # the agent then circles the answering line on the page shown.
+                    with tracing.retriever("find_answer", input=query,
+                                           metadata={"retriever": "parsed-dense", "k": int(top_k)}) as rsp:
+                        hits = retrieve_pages(query, parsed_store, doc_ids, top_k)
+                        if rsp is not None:
+                            rsp.update(output=[{"page": p, "score": round(float(s), 4)}
+                                               for _, p, s in hits])
+                    log.info("find_answer(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
+                    query_cache[qkey] = hits
                 if not hits:
                     messages.append(
                         minicpm_agent.tool_result_message(f"Looking up {query!r} found nothing.")
                     )
                     continue
-                yield from present_hits(hits, "answer:" + " ".join(query.lower().split()))
+                yield from present_hits(hits, qkey)
                 continue
 
             if tool["tool"] == "circle":
