@@ -1,7 +1,7 @@
 ---
 title: Repair Guy
 emoji: 🔧
-colorFrom: silver
+colorFrom: gray
 colorTo: blue
 sdk: gradio
 # 6.17.3 is the newest gradio that allows huggingface-hub<1.0, which
