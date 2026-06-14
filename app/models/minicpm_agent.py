@@ -71,35 +71,35 @@ SYSTEM_PROMPT = (
     "torque/spec VALUE, or the table row. `target` is the EXACT words printed on "
     "that page for that thing (copy them from the page text you were given): a "
     "part name, a spec label, or the value itself. NEVER the mechanic's sentence, "
-    "their question, or a paraphrase. When two pages are shown, set page to the "
-    "one whose text has it:\n"
+    "their question, or a paraphrase. If those words are NOT in the page text you "
+    "were given, it is not on screen — do NOT circle it; search instead. When two "
+    "pages are shown, set page to the one whose text has it:\n"
     '  {"tool": "circle", "target": "<exact printed words for the part/value>", '
     '"page": <the on-screen page number it is on>}\n'
     "- Finish — nothing more to do, or it isn't in the manual:\n"
     '  {"tool": "done", "message": "<one short line for the mechanic>"}\n\n'
-    "How to choose:\n"
-    '- They say "go to" / "take me to" / name a chapter or topic → search for it.\n'
-    "- You already KNOW the page number — e.g. the CURRENT page is an index or "
-    'contents that lists the part with a page number ("Actuators .... 855"), or '
-    "history gave one → go_to_page that number. Do NOT circle the index line; "
-    "go to the page it points to.\n"
-    "- The thing they want is on a page ON SCREEN → circle it, and set page to "
-    "the one it is on. The target MUST be what the mechanic asked for — match it "
-    "to that page's wording if it appears there (a part named inside a figure or "
-    "diagram description still counts as on the page); NEVER circle a different "
-    "component.\n"
-    "- They ask a QUESTION whose answer is printed on a page on screen — a spec, "
-    'a value, or a line (e.g. "what fuel does it take" answered by "Engine fuel '
-    '- Gasoline") → circle that spot, using the printed words as the target. '
-    "Point at the answer; do NOT keep searching for a better page.\n"
-    "- They ask a QUESTION for a spec/value/fact that is NOT on screen yet "
-    '("what fuel does it take", "engine oil capacity", "drain-plug torque") → '
-    "search with the fact as the query; the page that states it is shown, which "
-    "you then circle.\n"
-    "- Otherwise → search. After a search shows a page, that page is on screen, "
-    "so circle on it or search again — but NEVER repeat a search that did not "
-    "move you; act on the page instead.\n"
-    "- Use the conversation history only to resolve what they mean (e.g. "
+    "How to choose — do this IN ORDER every step:\n"
+    "1. FIRST read the CURRENT PAGE text you were given. If the thing the mechanic "
+    "wants is there — the part itself, or the line/value that answers their "
+    'question (e.g. "what fuel does it take" answered by a printed "Engine fuel - '
+    'Gasoline") → CIRCLE it: copy the exact printed words as the target and set '
+    "page to the page it is on (a part named inside a figure or diagram "
+    "description still counts as being on the page). This holds NO MATTER which "
+    'verb they use ("find", "search", "show", "where is", "circle") — if it is on '
+    "the page in front of you, you point at it; you do NOT search for a better "
+    "page, and you do NOT circle a different component than the one asked for.\n"
+    "2. If it is NOT in the current page text, it is not on screen. Then:\n"
+    "   - A chapter, system, or section named by topic, or any part / procedure / "
+    'spec you cannot see ("go to the cooling system", "engine oil capacity", '
+    '"remove the EWGA actuator") → search with that thing as the query.\n'
+    "   - go_to_page ONLY when you have an EXPLICIT page number — an index line on "
+    'this page that lists it ("Actuators .... 855"), or one history gave you. '
+    "NEVER guess a number, and NEVER go_to_page the page you are already on.\n"
+    "   - Truly absent from the manual → done.\n"
+    "Never circle a target whose words are not in the page text in front of you. "
+    "After a search shows a page, that page is on screen — circle on it; NEVER "
+    "repeat a search that did not move you.\n"
+    "Use the conversation history only to resolve what they mean (e.g. "
     '"circle the other one"); never restate earlier answers.\n\n'
     "Examples (copy the FORMAT, not the values):\n"
     'Mechanic: "go to the cooling system" → {"tool": "search", "query": "cooling system"}\n'
@@ -109,6 +109,8 @@ SYSTEM_PROMPT = (
     '"Actuators .... 855") → {"tool": "go_to_page", "page": 855}\n'
     'Mechanic: "circle the bleeder screw" (it is on p.412, which is on screen) → '
     '{"tool": "circle", "target": "bleeder screw", "page": 412}\n'
+    'Mechanic: "search the thermostat" (p.826 on screen shows "Thermostat" in the '
+    'cooling diagram) → {"tool": "circle", "target": "Thermostat", "page": 826}\n'
     'Mechanic: "what fuel does it take" (p.5 on screen shows "Engine fuel - '
     'Gasoline") → {"tool": "circle", "target": "Engine fuel - Gasoline", "page": 5}\n'
     'Mechanic: "what\'s the clutch bolt torque" (p.630 shows a row "Clutch cover '

@@ -60,26 +60,39 @@ PROMPT = (
 # Visual grounding for "circle the <thing>": the mechanic asks to circle
 # something on the page they are viewing. MiniCPM-V grounding replies in
 # <box>x1 y1 x2 y2</box> form with coordinates normalized to 0-1000.
+# Abstention-first: the mechanic's circle target may not be a circleable thing on
+# the page they're viewing (it's only a breadcrumb/heading, or simply absent), and
+# a confident wrong box reads to them as "it pointed at the heading." So the FIRST
+# job is to decide present-vs-not and say NOT FOUND otherwise — which also lets the
+# 1B retry/relocate. Measured (no-think, eval_grounding_modal.py, n=30): vs the
+# prior prompt this took NOT-FOUND recall 0.47->1.0 and breadcrumb-trap 0/5->5/5
+# with no latency cost and without hurting same-page positives — i.e. it recovers
+# thinking-mode's abstention without thinking-mode's token budget.
 GROUND_PROMPT = (
-    "The image is one page of a repair manual. A mechanic asked to circle "
-    "{query!r} on this page. If {query!r} reads like a question or request rather "
-    "than a label, box the specific component or value it refers to. Locate it "
-    "precisely:\n"
-    "- In an exploded or assembly diagram, parts carry callout numbers/letters "
-    "on leader lines, and a legend lists what each number is. Find {query!r} in "
-    "the legend to get its number, then follow that number's leader line to the "
-    "part in the drawing and box THAT part (not the legend text).\n"
-    "- For a torque or specification, box the VALUE with its label/units (e.g. "
-    "the number and N·m), not the whole table.\n"
-    "- Otherwise it may be a row in a table, a specification value, or a "
-    "heading — box that.\n"
-    "Box ONLY that one part, as TIGHTLY as possible — just the part itself. Do "
-    "NOT box the whole figure, the whole diagram, a group of parts, or the page; "
-    "if the part is small, the box must be small. A box wider than about half "
-    "the page is almost always wrong.\n"
-    "Reply with ONLY the box, as <box>x1 y1 x2 y2</box>: four integers "
-    "normalized to 0-1000 (x left→right, y top→bottom) over the whole page, "
-    "and nothing else. If it is not on this page, reply exactly: NOT FOUND"
+    "The image is one page of a repair manual. A mechanic wants you to circle "
+    "{query!r} on THIS page.\n"
+    "FIRST decide whether {query!r} is actually on this page as a thing you can "
+    "circle: a component drawn in a figure, a part with its label, a table row, "
+    "or a specification value. The WORDS appearing is not enough — a section "
+    "heading, a breadcrumb or navigation path (like 'A > B > C'), a page title, "
+    "a caption, or a running header that merely NAMES {query!r} is not the thing "
+    "itself. If the actual component/value/row is not on this page — even when "
+    "its name shows up in a heading or breadcrumb — reply exactly: NOT FOUND.\n"
+    "If it IS here, locate it precisely:\n"
+    "- In an exploded or assembly diagram, parts carry callout numbers/letters on "
+    "leader lines and a legend says what each number is. Find {query!r} in the "
+    "legend to get its number, then follow that number's leader line to the part "
+    "in the drawing and box THAT part — never the legend text or the number.\n"
+    "- For a torque or specification, box the VALUE with its label/units (e.g. the "
+    "number and N·m), not the whole table.\n"
+    "- For a part whose name is printed as a label beside its own drawing, box the "
+    "drawn part — not a heading or list elsewhere on the page.\n"
+    "Box ONLY that one thing, as TIGHTLY as possible — just the part/value itself, "
+    "never the whole figure, a group of parts, or the page. A box wider than about "
+    "half the page is almost always wrong.\n"
+    "Reply with ONLY the box, as <box>x1 y1 x2 y2</box>: four integers normalized "
+    "0-1000 (x left→right, y top→bottom) over the whole page. If {query!r} is not "
+    "a circleable thing on this page, reply exactly: NOT FOUND"
 )
 
 # Visual page rerank: score the search shortlist by LOOKING at the page images,
@@ -165,7 +178,10 @@ def generate_answer(question: str, pages: list[tuple[str, Image.Image]]) -> str:
 
 
 def ground_box(
-    image: Image.Image, query: str, enable_thinking: bool | None = None
+    image: Image.Image,
+    query: str,
+    enable_thinking: bool | None = None,
+    prompt: str | None = None,
 ) -> tuple[tuple[float, float, float, float] | None, str]:
     """(bbox, raw reply): the bounding box of the described object on a page
     image, in that image's pixel coordinates — or None when the model can't
@@ -174,8 +190,12 @@ def ground_box(
     enable_thinking lets the model reason (legend → callout-number →
     leader-line → part) before committing to a box. None defers to the
     GROUND_ENABLE_THINKING default; the UI settings panel passes an explicit
-    bool per request."""
+    bool per request.
+
+    prompt overrides GROUND_PROMPT (a template with a {query} field) — used by
+    the grounding eval to A/B prompt variants without editing this module."""
     think = GROUND_ENABLE_THINKING if enable_thinking is None else enable_thinking
+    template = prompt or GROUND_PROMPT
     # One `generation` (the VLM "eyes" placing the box): query in, raw reply out.
     with tracing.generation(
         "ground-circle",
@@ -188,7 +208,7 @@ def ground_box(
                 msgs=[
                     {
                         "role": "user",
-                        "content": [image.convert("RGB"), GROUND_PROMPT.format(query=query)],
+                        "content": [image.convert("RGB"), template.format(query=query)],
                     }
                 ],
                 tokenizer=_TOKENIZER,
