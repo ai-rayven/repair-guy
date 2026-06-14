@@ -1,0 +1,91 @@
+{
+  "doc_id": "hyundai-genesis-2-0t-bk2",
+  "doc_name": "Hyundai Genesis 2.0T BK2",
+  "notes": "VLM GROUNDING eval — does ground_box() put the circle on the right thing, or correctly abstain (NOT FOUND)? This is the layer no other eval covers (tools.json grades the 1B's tool CHOICE; find.json grades retrieval; this grades the VLM box). Cases are hand-built from the source PDF (physical 1-based pages, verified by rendering — bboxes below were read from the PDF text layer, not eyeballed). `gold` is EITHER a region [x1,y1,x2,y2] normalized 0-1000 over the whole page that the returned box CENTER must fall inside (coarse on purpose — catches 'random spot' without needing pixel-perfect labels; some are marked gold_approx), OR the string \"NOT_FOUND\" when the right behavior is to abstain. Categories: same_page (the part's NAME is printed on this page next to it → VLM should box it), spec_value (a torque/specification VALUE is on the page → box the value; or the page has no such value → abstain), cross_page (the part is on this DIAGRAM page but its name→callout-number mapping lives on ANOTHER page, so the page itself has only the number — single-page grounding is expected to FAIL; probes callout_target/leader_target/context_page test whether the resolved number, an explicit leader-line instruction, or stitching the legend page beside the diagram recover it — measured: none do, it's a VLM leader-line-tracing ceiling), text_trap (the query word appears ONLY as a breadcrumb/heading on this page, not as a groundable component/diagram → abstain, do NOT box the breadcrumb text), absent (the thing is simply not on this page → abstain).",
+  "cases": [
+    {
+      "id": "same-01",
+      "category": "same_page",
+      "page": 671,
+      "target": "Canister",
+      "gold": [500, 30, 1000, 250],
+      "note": "Crankcase/emission component grid; cell '2. Canister' (top-right) has the name printed beside its drawing."
+    },
+    {
+      "id": "same-02",
+      "category": "same_page",
+      "page": 671,
+      "target": "PCV Valve",
+      "gold": [0, 30, 500, 250],
+      "note": "Same grid, cell '1. PCV Valve' (top-left)."
+    },
+    {
+      "id": "same-03",
+      "category": "same_page",
+      "page": 671,
+      "target": "Purge Control Solenoid Valve",
+      "gold": [0, 270, 500, 505],
+      "note": "Same 2-column grid, row-2 left cell '3. Purge Control Solenoid Valve (PCSV)' (label at norm y266) with its drawing below. Region spans row-2 label down to the row-3 label."
+    },
+    {
+      "id": "same-04",
+      "category": "same_page",
+      "page": 671,
+      "target": "Fuel Level Sender",
+      "gold": [0, 515, 500, 718],
+      "note": "Same grid, row-3 left cell '6. Fuel Level Sender (FLS)' (label at norm y512) with its drawing below."
+    },
+    {
+      "id": "spec-01",
+      "category": "spec_value",
+      "page": 47,
+      "target": "drain plug tightening torque",
+      "gold": [78, 85, 495, 122],
+      "note": "ATF drain-plug page. ONE explicitly-labeled value: 'Drain plug tightening torque: 22.6 ~ 24.5 N.m (...)' — label+value lines at norm [83,88]-[489,115]. Unambiguous (only torque on the page); the VLM should box the value, not the diagram below it."
+    },
+    {
+      "id": "spec-02",
+      "category": "spec_value",
+      "page": 671,
+      "target": "tightening torque",
+      "gold": "NOT_FOUND",
+      "note": "Emission-component grid (same page as same-01..04) has NO torque/spec value anywhere → abstain. Tests that a torque request doesn't hallucinate a box on a component diagram."
+    },
+    {
+      "id": "cross-01",
+      "category": "cross_page",
+      "page": 872,
+      "target": "knock sensor",
+      "callout_target": "callout number 10",
+      "leader_target": "the component that callout number 10 points to",
+      "context_page": 873,
+      "gold": [480, 150, 700, 370],
+      "gold_approx": true,
+      "note": "Engine sensor LOCATION diagram (raster image; the page's only extractable text is 'Page 21 of 101'). Knock Sensor (KS) = callout #10; the number->name legend is on p873. Probes test where single-page grounding breaks: NAME (no legend on page -> expected fail), callout_target ('number 10', the resolved number the 1B could read off p873), leader_target (explicit 'follow the leader line' phrasing), and context_page (873 stitched beside 872 as a two-page composite, so the VLM has BOTH the legend and the diagram — box must land on the LEFT/diagram half)."
+    },
+    {
+      "id": "trap-01",
+      "category": "text_trap",
+      "page": 930,
+      "target": "fuel system diagram",
+      "gold": "NOT_FOUND",
+      "note": "Page is a WGT-actuator oscilloscope/circuit page; 'Fuel System' appears ONLY in the gray breadcrumb bar 'Fuel System > Engine Control System > ...'. Correct behavior: abstain — do NOT box the breadcrumb text."
+    },
+    {
+      "id": "trap-02",
+      "category": "absent",
+      "page": 930,
+      "target": "knock sensor",
+      "gold": "NOT_FOUND",
+      "note": "Knock sensor is nowhere on this circuit/waveform page → abstain."
+    },
+    {
+      "id": "trap-03",
+      "category": "absent",
+      "page": 671,
+      "target": "timing chain",
+      "gold": "NOT_FOUND",
+      "note": "Emission-component page; no timing chain → abstain (timing chain diagram is p759)."
+    }
+  ]
+}

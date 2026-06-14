@@ -1,28 +1,915 @@
 {
   "doc_id": "hyundai-genesis-2-0t-bk2",
   "doc_name": "Hyundai Genesis 2.0T BK2",
-  "notes": "Tool-calling eval (Layer A) for the agent's decide() step: given a viewer state (current page + section), optional history, and a request, did it pick an ACCEPTABLE tool and emit a valid JSON tool call? `accept` is a SET of acceptable tools, not one golden answer — multiple tools are often legitimate (e.g. a chapter-name request is fine as go_to_section OR search). The tight cases (circle-here, over-search, history) measure the real decision boundaries; the generous ones avoid punishing correct behavior. Pages are grounded in the repair-question gold spans so the injected current-page text is real procedure content. This is a smoke/regression gate, not gospel — it is partly subjective. Categories: circle-here (target is on the current page → circle), go-to-section (request names a chapter), search (off-page specific part/procedure), over-search (already on the right page → must NOT search), history (reference resolved from past turns), not-found (absent thing).",
+  "notes": "Tool-calling eval (Layer A) for the agent's decide() step: given a viewer state + optional history + request, did it pick an ACCEPTABLE tool AND emit valid args? `accept` is a SET of acceptable tools, not one golden answer. The tight cases (circle-here, over-search, history) measure the real decision boundaries; the generous ones avoid punishing correct behavior. Pages are grounded in the repair-question gold spans so the injected page text is real procedure content. Smoke/regression gate, partly subjective. TWO-PAGE SPREAD: the viewer shows a spread, so each on-page scenario sets viewer.pages (the harness mirrors production — the active viewer.page leads, capped at 2). The answer is deliberately put on the LEADING page in some scenarios and the TRAILING page in others, so a 'just circle the first page' bias would fail. ARG VALIDATION (`expect`): the parts of a call we can check deterministically — a circle must land on a page actually on screen, and `expect.page` pins the exact page the target/destination is on (circle.page or go_to_page.page must equal it). search queries / done messages are free text → not arg-checked. NOTE: go_to_section was removed; chapter-name requests route to search. Categories: circle-here (target on a shown page → circle), chapter-search (request names a chapter → search), search (off-page part/procedure), over-search (already on the right page → must NOT search), history (reference resolved from past turns), navigate (explicit/relative page move → go_to_page; relative moves from a SPREAD: 'go back a page' = the page before the first shown page, 'next page' = the page after the last shown page), stuck (anti-loop regression cases built from real frustrating traces: the model parks on a page and keeps re-circling the same thing while the mechanic changes topic, rejects the page, or navigates — it MUST move (search/navigate/done), NOT circle the same page/target again), diagram-shown (the WHOLE diagram the mechanic asked to see is already on screen → the page IS the answer, reply done; must NOT circle a single sub-component out of a diagram they asked for whole), not-found (absent thing), coincidence (a search landed on a topically-WRONG page that merely shares a word with the request — e.g. 'second gear grinding' landing on the fuel-system WGT-actuator page whose parts table lists a part literally named 'Second gear' — so the model must NOT circle that coincidental match; it should search again with a better query, or done), post-search (a search landed on the RIGHT page where the target really is → circle it; the control that proves a coincidence-gate does not also suppress legitimate post-search circling). POST-SEARCH SCENARIOS (`landed`): a scenario with `landed: {page}` is graded on the decision AFTER a search lands a page — the harness skips the fresh state_message and instead feeds search_result_message for that page (the model's prior search sits in history). This is the only way to exercise the circle-vs-search choice at the post-search turn; ordinary scenarios test the fresh-viewer turn.",
   "scenarios": [
-    { "id": "cir-01", "category": "circle-here", "viewer": {"page": 554, "section": ""}, "request": "circle the caliper mounting bolts", "accept": ["circle"] },
-    { "id": "cir-02", "category": "circle-here", "viewer": {"page": 552, "section": ""}, "request": "circle the brake pads", "accept": ["circle"] },
-    { "id": "cir-03", "category": "circle-here", "viewer": {"page": 832, "section": ""}, "request": "circle the oil drain plug", "accept": ["circle"] },
-    { "id": "cir-04", "category": "circle-here", "viewer": {"page": 744, "section": ""}, "request": "circle the standard compression value", "accept": ["circle"] },
-    { "id": "cir-05", "category": "circle-here", "viewer": {"page": 651, "section": ""}, "request": "highlight the propeller shaft flange", "accept": ["circle"] },
-    { "id": "sec-01", "category": "go-to-section", "viewer": {"page": 1, "section": ""}, "request": "go to the brake system section", "accept": ["go_to_section"] },
-    { "id": "sec-02", "category": "go-to-section", "viewer": {"page": 1, "section": ""}, "request": "take me to the cooling system", "accept": ["go_to_section"] },
-    { "id": "sec-03", "category": "go-to-section", "viewer": {"page": 300, "section": ""}, "request": "open the steering section", "accept": ["go_to_section"] },
-    { "id": "sec-04", "category": "go-to-section", "viewer": {"page": 1, "section": ""}, "request": "jump to engine mechanical", "accept": ["go_to_section"] },
-    { "id": "srch-01", "category": "search", "viewer": {"page": 1, "section": ""}, "request": "where do I replace the climate control air filter", "accept": ["search", "go_to_section"] },
-    { "id": "srch-02", "category": "search", "viewer": {"page": 100, "section": ""}, "request": "find the torque for the rear driveshaft castle nut", "accept": ["search"] },
-    { "id": "srch-03", "category": "search", "viewer": {"page": 200, "section": ""}, "request": "remove and install the EWGA actuator", "accept": ["search"] },
-    { "id": "srch-04", "category": "search", "viewer": {"page": 1, "section": ""}, "request": "spark plug replacement", "accept": ["search", "go_to_section"] },
-    { "id": "ovr-01", "category": "over-search", "viewer": {"page": 832, "section": ""}, "request": "where's the drain plug", "accept": ["circle"] },
-    { "id": "ovr-02", "category": "over-search", "viewer": {"page": 553, "section": ""}, "request": "show me the pads", "accept": ["circle"] },
-    { "id": "ovr-03", "category": "over-search", "viewer": {"page": 1016, "section": ""}, "request": "circle the fill plug", "accept": ["circle"] },
-    { "id": "hist-01", "category": "history", "history": [{"request": "circle the front caliper bolt", "action": "circled “front caliper bolt” on p.554"}], "viewer": {"page": 554, "section": ""}, "request": "circle the other one", "accept": ["circle"] },
-    { "id": "hist-02", "category": "history", "history": [{"request": "replace the water pump", "action": "showed “water pump” on p.826"}], "viewer": {"page": 826, "section": ""}, "request": "now circle the mounting bolts", "accept": ["circle"] },
-    { "id": "hist-03", "category": "history", "history": [{"request": "front brake pads", "action": "showed p.553"}], "viewer": {"page": 553, "section": ""}, "request": "circle the caliper", "accept": ["circle"] },
-    { "id": "nf-01", "category": "not-found", "viewer": {"page": 1, "section": ""}, "request": "circle the flux capacitor", "accept": ["search", "done"] },
-    { "id": "nf-02", "category": "not-found", "viewer": {"page": 1, "section": ""}, "request": "where is the turbo encabulator", "accept": ["search", "done"] }
+    {
+      "id": "cir-01",
+      "category": "circle-here",
+      "viewer": {
+        "page": 553,
+        "pages": [
+          553,
+          554
+        ],
+        "section": ""
+      },
+      "request": "search the caliper mounting bolts",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 554
+      }
+    },
+    {
+      "id": "cir-02",
+      "category": "circle-here",
+      "viewer": {
+        "page": 552,
+        "pages": [
+          552,
+          553
+        ],
+        "section": ""
+      },
+      "request": "where are the brake pads",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 552
+      }
+    },
+    {
+      "id": "cir-03",
+      "category": "circle-here",
+      "viewer": {
+        "page": 831,
+        "pages": [
+          831,
+          832
+        ],
+        "section": ""
+      },
+      "request": "find the oil drain plug",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 832
+      }
+    },
+    {
+      "id": "cir-04",
+      "category": "circle-here",
+      "viewer": {
+        "page": 744,
+        "pages": [
+          744,
+          745
+        ],
+        "section": ""
+      },
+      "request": "find the standard compression value",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 745
+      }
+    },
+    {
+      "id": "cir-05",
+      "category": "circle-here",
+      "viewer": {
+        "page": 651,
+        "pages": [
+          651,
+          652
+        ],
+        "section": ""
+      },
+      "request": "highlight the propeller shaft flange",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 651
+      }
+    },
+    {
+      "id": "cir-06",
+      "category": "circle-here",
+      "viewer": {
+        "page": 627,
+        "pages": [
+          626,
+          627
+        ],
+        "section": ""
+      },
+      "request": "what is the oil capacity of the differential on this page",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 627
+      }
+    },
+    {
+      "id": "sec-01",
+      "category": "chapter-search",
+      "viewer": {
+        "page": 1,
+        "pages": [
+          1,
+          2
+        ],
+        "section": ""
+      },
+      "request": "go to the brake system section",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "sec-02",
+      "category": "chapter-search",
+      "viewer": {
+        "page": 1,
+        "pages": [
+          1,
+          2
+        ],
+        "section": ""
+      },
+      "request": "take me to the cooling system",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "sec-03",
+      "category": "chapter-search",
+      "viewer": {
+        "page": 300,
+        "pages": [
+          300,
+          301
+        ],
+        "section": ""
+      },
+      "request": "open the steering section",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "sec-04",
+      "category": "chapter-search",
+      "viewer": {
+        "page": 1,
+        "pages": [
+          1,
+          2
+        ],
+        "section": ""
+      },
+      "request": "jump to engine mechanical",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "srch-01",
+      "category": "search",
+      "viewer": {
+        "page": 1,
+        "pages": [
+          1,
+          2
+        ],
+        "section": ""
+      },
+      "request": "where do I replace the climate control air filter",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "srch-02",
+      "category": "search",
+      "viewer": {
+        "page": 100,
+        "pages": [
+          100,
+          101
+        ],
+        "section": ""
+      },
+      "request": "find the torque for the rear driveshaft castle nut",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "srch-03",
+      "category": "search",
+      "viewer": {
+        "page": 200,
+        "pages": [
+          200,
+          201
+        ],
+        "section": ""
+      },
+      "request": "remove and install the EWGA actuator",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "srch-04",
+      "category": "search",
+      "viewer": {
+        "page": 1,
+        "pages": [
+          1,
+          2
+        ],
+        "section": ""
+      },
+      "request": "spark plug replacement",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "srch-05",
+      "category": "search",
+      "viewer": {
+        "page": 200,
+        "pages": [
+          200,
+          201
+        ],
+        "section": ""
+      },
+      "request": "what is the oil capacity of the differential",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "ovr-01",
+      "category": "over-search",
+      "viewer": {
+        "page": 832,
+        "pages": [
+          832,
+          833
+        ],
+        "section": ""
+      },
+      "request": "where's the drain plug",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 832
+      }
+    },
+    {
+      "id": "ovr-02",
+      "category": "over-search",
+      "viewer": {
+        "page": 552,
+        "pages": [
+          552,
+          553
+        ],
+        "section": ""
+      },
+      "request": "show me the pads",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 553
+      }
+    },
+    {
+      "id": "ovr-03",
+      "category": "over-search",
+      "viewer": {
+        "page": 1016,
+        "pages": [
+          1016,
+          1017
+        ],
+        "section": ""
+      },
+      "request": "show me the fill plug",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 1016
+      }
+    },
+    {
+      "id": "hist-01",
+      "category": "history",
+      "history": [
+        {
+          "request": "circle the front caliper bolt",
+          "action": "circled “front caliper bolt” on p.554"
+        }
+      ],
+      "viewer": {
+        "page": 554,
+        "pages": [
+          554,
+          555
+        ],
+        "section": ""
+      },
+      "request": "circle the other one",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 554
+      }
+    },
+    {
+      "id": "hist-02",
+      "category": "history",
+      "history": [
+        {
+          "request": "replace the water pump",
+          "action": "showed “water pump” on p.826"
+        }
+      ],
+      "viewer": {
+        "page": 826,
+        "pages": [
+          825,
+          826
+        ],
+        "section": ""
+      },
+      "request": "now circle the mounting bolts",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 826
+      }
+    },
+    {
+      "id": "hist-03",
+      "category": "history",
+      "history": [
+        {
+          "request": "front brake pads",
+          "action": "showed p.553"
+        }
+      ],
+      "viewer": {
+        "page": 553,
+        "pages": [
+          553,
+          554
+        ],
+        "section": ""
+      },
+      "request": "circle the caliper",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 553
+      }
+    },
+    {
+      "id": "nav-01",
+      "category": "navigate",
+      "viewer": {
+        "page": 850,
+        "section": ""
+      },
+      "request": "go back a page",
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 849
+      }
+    },
+    {
+      "id": "nav-02",
+      "category": "navigate",
+      "viewer": {
+        "page": 850,
+        "section": ""
+      },
+      "request": "go to the next page",
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 851
+      }
+    },
+    {
+      "id": "nav-03",
+      "category": "navigate",
+      "viewer": {
+        "page": 100,
+        "pages": [
+          100,
+          101
+        ],
+        "section": ""
+      },
+      "request": "go to page 612",
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 612
+      }
+    },
+    {
+      "id": "nav-04",
+      "category": "navigate",
+      "viewer": {
+        "page": 46,
+        "pages": [
+          46,
+          47
+        ],
+        "section": "Automatic Transaxle System"
+      },
+      "request": "go back a page",
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 45
+      }
+    },
+    {
+      "id": "nav-05",
+      "category": "navigate",
+      "viewer": {
+        "page": 46,
+        "pages": [
+          46,
+          47
+        ],
+        "section": "Automatic Transaxle System"
+      },
+      "request": "next page",
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 48
+      }
+    },
+    {
+      "id": "nav-06",
+      "category": "navigate",
+      "viewer": {
+        "page": 46,
+        "pages": [
+          46,
+          47
+        ],
+        "section": "Automatic Transaxle System"
+      },
+      "request": "show me the previous page",
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 45
+      }
+    },
+    {
+      "id": "stk-01",
+      "category": "stuck",
+      "history": [
+        {
+          "request": "Show me how to diagnose bad AC",
+          "action": "circled “Front impact sensor (FIS)” on p.1051"
+        },
+        {
+          "request": "The AC is now cool enough.",
+          "action": "circled “Front impact sensor (FIS)” on p.1051"
+        }
+      ],
+      "viewer": {
+        "page": 1051,
+        "pages": [
+          1051,
+          1052
+        ],
+        "section": "Restraint"
+      },
+      "request": "I'm having trouble with the air conditioning.",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "stk-02",
+      "category": "stuck",
+      "history": [
+        {
+          "request": "How to change the oil.",
+          "action": "circled “Engine oil filter” on p.831"
+        }
+      ],
+      "viewer": {
+        "page": 831,
+        "pages": [
+          831,
+          832
+        ],
+        "section": "Engine Mechanical System"
+      },
+      "request": "Okay forget it, show me how to bleed the brakes",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "stk-03",
+      "category": "stuck",
+      "history": [
+        {
+          "request": "How to change the oil.",
+          "action": "circled “Driveshaft and axle” on p.627"
+        },
+        {
+          "request": "This doesn't tell me anything about changing the oil",
+          "action": "circled “Oil type” on p.627"
+        }
+      ],
+      "viewer": {
+        "page": 627,
+        "pages": [
+          626,
+          627
+        ],
+        "section": "Driveshaft and axle"
+      },
+      "request": "Yes, I can see the oil type, but it doesn't tell me anything about changing the oil.",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "stk-04",
+      "category": "stuck",
+      "history": [
+        {
+          "request": "Show me how to diagnose bad AC",
+          "action": "circled “Front impact sensor (FIS)” on p.1051"
+        },
+        {
+          "request": "Go to their conditioning page.",
+          "action": "circled “Front impact sensor (FIS)” on p.1051"
+        }
+      ],
+      "viewer": {
+        "page": 1051,
+        "pages": [
+          1051,
+          1052
+        ],
+        "section": "Restraint"
+      },
+      "request": "Go to the air conditioning page.",
+      "accept": [
+        "search"
+      ]
+    },
+    {
+      "id": "stk-05",
+      "category": "stuck",
+      "history": [
+        {
+          "request": "I'm having trouble with the air conditioning.",
+          "action": "showed the air conditioning troubleshooting on p.954"
+        }
+      ],
+      "viewer": {
+        "page": 954,
+        "pages": [
+          954,
+          955
+        ],
+        "section": "Heating, Ventilation And Air Conditioning"
+      },
+      "request": "The AC is now cool enough.",
+      "accept": [
+        "done"
+      ]
+    },
+    {
+      "id": "shown-01",
+      "category": "diagram-shown",
+      "viewer": {
+        "page": 53,
+        "pages": [
+          53,
+          54
+        ],
+        "section": "Automatic Transaxle System (Automatic Transaxle)"
+      },
+      "request": "Show me a diagram of the transmission components.",
+      "accept": [
+        "done"
+      ]
+    },
+    {
+      "id": "cos-01",
+      "category": "coincidence",
+      "history": [
+        {
+          "request": "My second gear is grinding.",
+          "action": "{\"tool\":\"search\",\"query\":\"second gear grinding\"}"
+        }
+      ],
+      "landed": {
+        "page": 928
+      },
+      "request": "My second gear is grinding.",
+      "accept": [
+        "search",
+        "done"
+      ]
+    },
+    {
+      "id": "cos-02",
+      "category": "coincidence",
+      "history": [
+        {
+          "request": "My first gear won't engage.",
+          "action": "{\"tool\":\"search\",\"query\":\"first gear engagement\"}"
+        }
+      ],
+      "landed": {
+        "page": 928
+      },
+      "request": "My first gear won't engage.",
+      "accept": [
+        "search",
+        "done"
+      ]
+    },
+    {
+      "id": "cos-03",
+      "category": "post-search",
+      "history": [
+        {
+          "request": "find the oil drain plug",
+          "action": "{\"tool\":\"search\",\"query\":\"oil drain plug\"}"
+        }
+      ],
+      "landed": {
+        "page": 832
+      },
+      "request": "find the oil drain plug",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 832
+      }
+    },
+    {
+      "id": "cos-04",
+      "category": "post-search",
+      "history": [
+        {
+          "request": "where are the brake pads",
+          "action": "{\"tool\":\"search\",\"query\":\"brake pads\"}"
+        }
+      ],
+      "landed": {
+        "page": 552
+      },
+      "request": "where are the brake pads",
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 552
+      }
+    },
+    {
+      "id": "nf-01",
+      "category": "not-found",
+      "viewer": {
+        "page": 1,
+        "pages": [
+          1,
+          2
+        ],
+        "section": ""
+      },
+      "request": "circle the flux capacitor",
+      "accept": [
+        "search",
+        "done"
+      ]
+    },
+    {
+      "id": "nf-02",
+      "category": "not-found",
+      "viewer": {
+        "page": 1,
+        "pages": [
+          1,
+          2
+        ],
+        "section": ""
+      },
+      "request": "where is the turbo encabulator",
+      "accept": [
+        "search",
+        "done"
+      ]
+    },
+    {
+      "id": "rrk-01",
+      "category": "rerank",
+      "request": "where are the brake pads",
+      "landed_candidates": [
+        928,
+        552
+      ],
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 552
+      },
+      "notes": "Rerank: right page (brake pads, 552) at rank 2; rank-1 (928) is the fuel-actuator \"Second gear\" coincidence page, irrelevant to brakes. Must skip #1 and circle 552."
+    },
+    {
+      "id": "rrk-02",
+      "category": "rerank",
+      "request": "find the oil drain plug",
+      "landed_candidates": [
+        552,
+        832
+      ],
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 832
+      },
+      "notes": "Rerank: right page (oil drain plug, 832) at rank 2; rank-1 (552, brake pads) is irrelevant. Circle 832, not 552."
+    },
+    {
+      "id": "rrk-03",
+      "category": "rerank",
+      "request": "find the oil drain plug",
+      "landed_candidates": [
+        928,
+        552,
+        832
+      ],
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 832
+      },
+      "notes": "Rerank to rank 3: right page (832) last; rank-1 coincidence (928), rank-2 irrelevant (552). Circle 832."
+    },
+    {
+      "id": "rrk-04",
+      "category": "rerank",
+      "request": "My second gear is grinding.",
+      "landed_candidates": [
+        928,
+        832,
+        552
+      ],
+      "accept": [
+        "search",
+        "done"
+      ],
+      "notes": "Negative: coincidence decoy (928, \"Second gear\" fuel actuator) at rank 1; real transmission page absent from candidates -> must re-search or done, NOT circle 928 or any irrelevant candidate."
+    },
+    {
+      "id": "step-01",
+      "category": "step-nav",
+      "request": "i want to see the first step",
+      "viewer": {
+        "page": 640,
+        "pages": [
+          640,
+          641
+        ],
+        "section": "Driveshaft and axle"
+      },
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 639
+      },
+      "notes": "The shown procedure starts at step 2 ('2. Remove the rear wheel and tire...'); steps 3-7 follow on 640/641. Step 1 is NOT on screen, so it is on the previous page -> 'first step' = step 1 -> go back one page (639). Observed failure: model circled step 2 ('Remove the rear wheel and tire(A)...'), i.e. the first step VISIBLE on the page, instead of navigating back."
+    },
+    {
+      "id": "step-02",
+      "category": "step-nav",
+      "request": "show me step 1",
+      "viewer": {
+        "page": 640,
+        "pages": [
+          640,
+          641
+        ],
+        "section": "Driveshaft and axle"
+      },
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 639
+      },
+      "notes": "Same inference as step-01, terser phrasing. Page starts at step 2 -> step 1 is on the previous page -> go_to_page 639. Must not circle step 2."
+    },
+    {
+      "id": "step-03",
+      "category": "step-nav",
+      "request": "i want to see the first step",
+      "viewer": {
+        "page": 642,
+        "pages": [
+          642,
+          643
+        ],
+        "section": "Driveshaft and axle"
+      },
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 641
+      },
+      "notes": "DEEP rung of the back-track ladder: page shows removal steps 8-9 (p.642) and 10-13 (p.643); step 1 ('Loosen the wheel nuts') is on p.639, several pages back. Correct move is go back ONE page (641) and re-check. Decoy: p.643 has an Inspection sub-list '1. Check the hub...' — that is NOT the removal step 1; must not circle it."
+    },
+    {
+      "id": "step-04",
+      "category": "step-nav",
+      "request": "i want to see the first step",
+      "viewer": {
+        "page": 641,
+        "pages": [
+          641,
+          642
+        ],
+        "section": "Driveshaft and axle"
+      },
+      "accept": [
+        "go_to_page"
+      ],
+      "expect": {
+        "page": 640
+      },
+      "notes": "Middle rung: page shows removal steps 4-9 (lowest shown is 4). Step 1 not on screen -> go back one page (640). Clean (no decoy 1. on screen)."
+    },
+    {
+      "id": "step-05",
+      "category": "step-nav",
+      "request": "i want to see the first step",
+      "viewer": {
+        "page": 639,
+        "pages": [
+          639,
+          640
+        ],
+        "section": "Driveshaft and axle"
+      },
+      "accept": [
+        "circle"
+      ],
+      "expect": {
+        "page": 639
+      },
+      "notes": "TERMINAL rung: step 1 ('1. Loosen the wheel nuts slightly. Raise the vehicle...') IS on p.639 now -> STOP going back and circle it. Guards against infinite back-paging past the start of the procedure."
+    }
   ]
 }
