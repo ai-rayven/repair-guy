@@ -62,11 +62,15 @@ PROMPT = (
 # <box>x1 y1 x2 y2</box> form with coordinates normalized to 0-1000.
 GROUND_PROMPT = (
     "The image is one page of a repair manual. A mechanic asked to circle "
-    "{query!r} on this page. Locate it precisely:\n"
+    "{query!r} on this page. If {query!r} reads like a question or request rather "
+    "than a label, box the specific component or value it refers to. Locate it "
+    "precisely:\n"
     "- In an exploded or assembly diagram, parts carry callout numbers/letters "
     "on leader lines, and a legend lists what each number is. Find {query!r} in "
     "the legend to get its number, then follow that number's leader line to the "
     "part in the drawing and box THAT part (not the legend text).\n"
+    "- For a torque or specification, box the VALUE with its label/units (e.g. "
+    "the number and N·m), not the whole table.\n"
     "- Otherwise it may be a row in a table, a specification value, or a "
     "heading — box that.\n"
     "Box ONLY that one part, as TIGHTLY as possible — just the part itself. Do "

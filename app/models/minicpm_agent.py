@@ -72,10 +72,14 @@ SYSTEM_PROMPT = (
     '  {"tool": "find_answer", "query": "<the spec or fact being asked for>"}\n'
     "- Jump straight to a known PHYSICAL page number:\n"
     '  {"tool": "go_to_page", "page": <number>}\n'
-    "- Circle something on a page CURRENTLY ON SCREEN (their full text is given "
-    "to you) — a part, OR the line/value that answers their question. When two "
-    "pages are shown, set page to the one whose text has it:\n"
-    '  {"tool": "circle", "target": "<short name or printed words to circle>", '
+    "- Circle the ONE thing on a page CURRENTLY ON SCREEN (their full text is "
+    "given to you) that answers the mechanic — the specific component, the "
+    "torque/spec VALUE, or the table row. `target` is the EXACT words printed on "
+    "that page for that thing (copy them from the page text you were given): a "
+    "part name, a spec label, or the value itself. NEVER the mechanic's sentence, "
+    "their question, or a paraphrase. When two pages are shown, set page to the "
+    "one whose text has it:\n"
+    '  {"tool": "circle", "target": "<exact printed words for the part/value>", '
     '"page": <the on-screen page number it is on>}\n'
     "- Finish — nothing more to do, or it isn't in the manual:\n"
     '  {"tool": "done", "message": "<one short line for the mechanic>"}\n\n'
@@ -114,6 +118,8 @@ SYSTEM_PROMPT = (
     '{"tool": "circle", "target": "bleeder screw", "page": 412}\n'
     'Mechanic: "what fuel does it take" (p.5 on screen shows "Engine fuel - '
     'Gasoline") → {"tool": "circle", "target": "Engine fuel - Gasoline", "page": 5}\n'
+    'Mechanic: "what\'s the clutch bolt torque" (p.630 shows a row "Clutch cover '
+    'bolt .... 27.5") → {"tool": "circle", "target": "Clutch cover bolt torque spec", "page": 630}\n'
     'Mechanic: "what\'s the engine oil capacity" (not on this page) → '
     '{"tool": "find_answer", "query": "engine oil capacity"}'
 )
@@ -192,17 +198,24 @@ def search_result_message(request: str, page: int, text: str, stuck: bool) -> st
             "repeating it will NOT help. Decide now — do not search again:\n"
             f"- If this page shows {request!r} OR the line/value that answers it "
             "(it counts even when named inside a figure or diagram description), "
-            'circle that spot: {"tool": "circle", "target": "<the printed words>", '
-            f'"page": {page}}}.\n'
+            'circle it — set "target" to the words exactly as printed on '
+            f"p.{page} (copy them from the page text above), NEVER the mechanic's "
+            'question: {"tool": "circle", "target": "<exact printed words for the '
+            f'part/value>", "page": {page}}}.\n'
             "- If it belongs on a different page, use go_to_page.\n"
             "- Only if it is truly not in this manual, use done."
         )
     return body + (
-        f"The mechanic asked for: {request!r}. If this page shows THAT — or the "
-        "line/value that answers it, including when named inside a figure or "
-        "diagram description — circle that spot (use the words as printed on the "
-        "page). Otherwise search again or go to the right page. Do not circle a "
-        "different component."
+        f"The mechanic asked for: {request!r}. First, does THIS page show it — the "
+        "part, or the line/value that answers it (it counts even when named inside "
+        "a figure or diagram description)? If so, circle it now — set \"target\" to "
+        f"a part name or the exact words printed on p.{page} (copy them from the "
+        "page text above), NOT the mechanic's question: "
+        '{"tool": "circle", "target": "<exact printed words for the part/value>", '
+        f'"page": {page}}}. Do not circle a different component. Only if it is NOT '
+        "on this page, move: go_to_page if you know where, or search with a "
+        "DIFFERENT query — never repeat the search you just ran, it will land here "
+        "again."
     )
 
 
