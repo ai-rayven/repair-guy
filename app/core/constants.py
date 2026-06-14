@@ -120,8 +120,8 @@ MAX_TOP_K = 5
 
 # ---------------------------------------------------------------------------
 # Find-and-point (pipelines/agent_ask.py) — every non-obvious request is one
-# GPU turn: the 1B agent loops over tools (search / find_answer / go_to_page /
-# circle) against the current page's text — no table of contents is injected.
+# GPU turn: the 1B agent loops over tools (search / go_to_page / circle) against
+# the current page's text — no table of contents is injected.
 # The frontend's breadcrumb section nav is client-side and never reaches the GPU.
 # ---------------------------------------------------------------------------
 

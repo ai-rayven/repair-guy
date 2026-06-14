@@ -127,8 +127,7 @@ mechanic's request, output = the terminal action), with a child per step:
 
 - `agent-decide` (`generation`) — the 1B brain picking a tool, with the resident
   model id and input/output token counts.
-- `search` / `find_answer` (`retriever`) — the ColEmbed / dense lookups and their
-  page hits.
+- `search` (`retriever`) — the ColEmbed visual lookup and its page hits.
 - `ground-circle` (`generation`) — MiniCPM-V placing the circle box.
 
 The frontend sends a per-page-load `session_id`, so a visit's turns group into

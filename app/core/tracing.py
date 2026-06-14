@@ -7,7 +7,7 @@ the root is an `agent` observation whose children are the brain's decisions
 
     agent-find (agent)            input=the request, output=the terminal action
     ├─ agent-decide (generation)  the 1B "brain" picks a tool      [models/minicpm_agent]
-    ├─ search / find_answer (retriever)  ColEmbed / dense lookup    [pipelines/agent_ask]
+    ├─ search (retriever)         ColEmbed visual lookup           [pipelines/agent_ask]
     └─ ground-circle (generation) MiniCPM-V places the box          [models/minicpm]
 
 Two constraints shape the design, and are why this does NOT use the SDK's

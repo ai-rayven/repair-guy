@@ -6,11 +6,8 @@ that decides what to do. Each step it sees the conversation so far and the WHOLE
 text of the page being viewed (no table of contents — it navigates by retrieval,
 not a chapter index), and picks ONE tool:
 
-    search(query)            semantic-search the manual; the best page is shown
-                             and its text added to the conversation
-    find_answer(query)       dense TEXT search of the parsed chunks for a
-                             spec/value/fact; the page that states it is shown,
-                             its text added so the agent can circle the answer
+    search(query)            visual-search the manual (ColEmbed); the best page
+                             is shown and its text added to the conversation
     circle(target)           circle something on the CURRENT page (its text is
                              in context); the VLM grounds the box
     done(message)            nothing more to do, or it can't be found
@@ -53,7 +50,7 @@ log = logging.getLogger("repairguy.agent")
 
 # The tools the agent may emit, and the JSON shape of each. Kept here so the
 # prompt and the parser can't drift apart.
-TOOLS = ("search", "find_answer", "go_to_page", "circle", "done")
+TOOLS = ("search", "go_to_page", "circle", "done")
 
 SYSTEM_PROMPT = (
     "You are the assistant for a hands-busy mechanic reading a repair manual on "
@@ -63,13 +60,10 @@ SYSTEM_PROMPT = (
     "prose, no markdown, nothing else. Replace every <...> placeholder with the "
     "real value — NEVER output the angle brackets.\n\n"
     "Tools:\n"
-    '- Search the manual for a part/topic/procedure:\n'
+    '- Search the manual for a part/topic/procedure, OR for the page that states '
+    "a spec/value/fact (a torque, a fuel type, an oil/coolant capacity) — search "
+    "with the thing being asked for as the query:\n"
     '  {"tool": "search", "query": "<focused search phrase>"}\n'
-    "- Look up the ANSWER to a question — a spec, value, or fact (fuel type, a "
-    "torque, an oil/coolant capacity). This searches the manual TEXT, so it "
-    "finds the page that STATES the answer when a topic search would miss the "
-    "plain specs page:\n"
-    '  {"tool": "find_answer", "query": "<the spec or fact being asked for>"}\n'
     "- Jump straight to a known PHYSICAL page number:\n"
     '  {"tool": "go_to_page", "page": <number>}\n'
     "- Circle the ONE thing on a page CURRENTLY ON SCREEN (their full text is "
@@ -100,9 +94,8 @@ SYSTEM_PROMPT = (
     "Point at the answer; do NOT keep searching for a better page.\n"
     "- They ask a QUESTION for a spec/value/fact that is NOT on screen yet "
     '("what fuel does it take", "engine oil capacity", "drain-plug torque") → '
-    "find_answer with the fact as the query; it searches the manual text and "
-    "shows the page that states it, which you then circle. Use find_answer for "
-    "fact questions; use search to find a part, diagram, or procedure.\n"
+    "search with the fact as the query; the page that states it is shown, which "
+    "you then circle.\n"
     "- Otherwise → search. After a search shows a page, that page is on screen, "
     "so circle on it or search again — but NEVER repeat a search that did not "
     "move you; act on the page instead.\n"
@@ -121,7 +114,7 @@ SYSTEM_PROMPT = (
     'Mechanic: "what\'s the clutch bolt torque" (p.630 shows a row "Clutch cover '
     'bolt .... 27.5") → {"tool": "circle", "target": "Clutch cover bolt torque spec", "page": 630}\n'
     'Mechanic: "what\'s the engine oil capacity" (not on this page) → '
-    '{"tool": "find_answer", "query": "engine oil capacity"}'
+    '{"tool": "search", "query": "engine oil capacity"}'
 )
 
 
@@ -136,7 +129,7 @@ def state_message(
 ) -> dict:
     """The user message for the current step: what the mechanic just said and the
     whole text of the page(s) currently on the viewer. No table of contents — the
-    agent navigates by retrieval (search / find_answer) and the current page's
+    agent navigates by search (visual retrieval) and the current page's
     text, not a chapter index. The viewer shows a two-page spread, so `shown` is
     [{page, text}] for each page on screen (one or two). Each page's text is the
     parsed page rendered to text (figures/tables as descriptions) — empty when the
@@ -414,9 +407,6 @@ def _parse_tool(raw: str) -> dict | None:
     if tool == "search":
         query = str(obj.get("query") or "").strip()
         return {"tool": "search", "query": query} if _real(query) else None
-    if tool == "find_answer":
-        query = str(obj.get("query") or "").strip()
-        return {"tool": "find_answer", "query": query} if _real(query) else None
     if tool == "go_to_page":
         try:
             return {"tool": "go_to_page", "page": int(obj.get("page"))}

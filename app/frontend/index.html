@@ -649,7 +649,6 @@ function repairGuy() {
         case 'step':{  // the chosen tool, with its args
           let label='';
           if(ev.tool==='search') label=`search · “${ev.query}”`;
-          else if(ev.tool==='find_answer') label=`find_answer · “${ev.query}”`;
           else if(ev.tool==='circle') label=`circle · “${ev.target}”`;
           else if(ev.tool==='go_to_section') label=`go_to_section · ${ev.title} (p.${ev.page})`;
           else if(ev.tool==='go_to_page') label=`go_to_page · p.${ev.page}`;
@@ -774,7 +773,6 @@ function repairGuy() {
           else if(ev.tool==='go_to_page'){ find.icon='file-text'; find.label=`Going to page ${ev.page}`; find.detail=''; this.status=`Opening page ${ev.page}…`; }
           else if(ev.tool==='circle'){ find.icon='target'; find.label=`Circling “${ev.target}”`; find.detail=''; this.status=`Looking for “${ev.target}”…`; }
           else if(ev.tool==='search'){ find.icon='search'; find.label=`Searching: “${ev.query}”`; find.detail=''; this.status=`Searching the manual for “${ev.query}”…`; }
-          else if(ev.tool==='find_answer'){ find.icon='help-circle'; find.label=`Looking up: “${ev.query}”`; find.detail=''; this.status=`Looking up “${ev.query}” in the manual…`; }
           break;
 
         case 'tool_result':  // search candidates (no longer shown — keep status only)

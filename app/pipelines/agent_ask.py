@@ -9,20 +9,15 @@ Flow (one @spaces.GPU call, streamed as events):
   figures/tables as their descriptions). No table of contents is injected. Then
   loop, up to AGENT_MAX_STEPS:
     decide → ONE tool:
-      search(query)      ColEmbed top-N → 1B rerank by page text → show
-                         the best page; its text is fed back so the agent
-                         can then circle on it                            (continues)
-      find_answer(query) dense TEXT retrieval over the parsed chunks → show
-                         the page that STATES the answer (where a visual
-                         search would miss the plain specs page); its text
-                         is fed back so the agent can circle it           (continues)
+      search(query)      ColEmbed (visual) top-N → show the best page; its
+                         text is fed back so the agent can then circle on it (continues)
       circle(target)     ground the target on the CURRENT page (VLM) and
                          circle it                                        (terminal)
       done(message)      nothing to do / not in the manual                (terminal)
 
-Retrieval is FUSED: ColEmbed (visual store) supplies the shortlist, the parsed
-store supplies the page text the 1B reranks with and the agent reasons over — so
-a manual must be indexed both ways.
+Retrieval is VISUAL: search uses ColEmbed page embeddings (visual store). The
+parsed store still supplies the page text the agent reads and circles on, so a
+manual must be indexed both ways.
 
 History is used only to resolve references, never to restate answers. Each turn
 is otherwise grounded in the viewer state the client sends (current page +
@@ -57,15 +52,13 @@ from core.pdf import page_count, render_page
 from core.vram import log_vram, reset_peak, set_enabled
 from models import minicpm, minicpm_agent
 from models.colembed import maxsim_search
-from pipelines.parsed_ask import retrieve_pages
 
 log = logging.getLogger("repairguy.agent")
 
 
 def _query_key(prefix: str, query: str) -> str:
-    """Stable per-turn key for a retrieval query: a tool prefix (search and
-    find_answer use different retrievers, so their keys must not collide) plus
-    the query with case and runs of whitespace normalized away — so the same
+    """Stable per-turn key for a search query: a tool prefix plus the query with
+    case and runs of whitespace normalized away — so the same
     lookup emitted twice (e.g. '{"tool": "search"...}' then '{"tool":"search"...}')
     collapses to one key for both the dedup `stuck` flag and the result cache."""
     return f"{prefix}:" + " ".join(query.lower().split())
@@ -102,7 +95,7 @@ def agent_events(
     session_id: str | None = None,
 ):
     """Yield the events of one agent turn (see module docstring). The agent gets
-    no table of contents — it works from retrieval (search / find_answer) and the
+    no table of contents — it works from search (visual retrieval) and the
     current page's text. ground_thinking toggles MiniCPM-V's
     reasoning for the circle grounding (None → server default); agent_model picks
     which brain drives the loop (None → default), loaded on switch inside this
@@ -153,18 +146,16 @@ def agent_events(
     circleable = set(shown_pages)  # pages the agent may circle on right now
     seen_pages = set(shown_pages)  # pages already put on screen this turn
     tried_queries = set()  # normalized search queries already issued this turn
-    query_cache = {}  # qkey -> retriever hits: a repeated search/find_answer this
-                      # turn reuses results instead of re-running the retriever
+    query_cache = {}  # qkey -> search hits: a repeated search this turn reuses
+                      # results instead of re-running the retriever
     ground_failed = set()  # (page, normalized target) the VLM already missed
     yield {"type": "status", "text": "Thinking…"}
 
     def present_hits(hits, qkey):
-        """Shared tail for the two retrieval tools (search / find_answer): show
-        the shortlist, land on the top page, and feed its text back — FORCING a
-        decision when the landing is a no-op (the same query again, or a page
-        already shown this turn), so a greedy 1B can't loop the identical lookup
-        forever. The only thing that differs between the tools is the retriever
-        that produced `hits`; everything downstream is identical."""
+        """Tail for the search tool: show the shortlist, land on the top page, and
+        feed its text back — FORCING a decision when the landing is a no-op (the
+        same query again, or a page already shown this turn), so a greedy 1B can't
+        loop the identical lookup forever."""
         nonlocal current_page, circleable
         rendered = [
             (p, render_page(visual_store.pdf_path(doc_id), p)) for _, p, _ in hits
@@ -294,40 +285,6 @@ def agent_events(
                 if not hits:
                     messages.append(
                         minicpm_agent.tool_result_message(f"Search for {query!r} found nothing.")
-                    )
-                    continue
-                yield from present_hits(hits, qkey)
-                continue
-
-            if tool["tool"] == "find_answer":
-                query = tool["query"]
-                yield {"type": "step", "tool": "find_answer", "query": query}
-                qkey = _query_key("answer", query)
-                # Same per-turn memo as search: a repeated lookup reuses its hits
-                # rather than re-running dense retrieval over the parsed chunks.
-                hits = query_cache.get(qkey)
-                if hits is not None:
-                    log.info("find_answer(%r) → cached %s", query,
-                             [(p, round(s, 3)) for _, p, s in hits])
-                else:
-                    yield {"type": "status", "text": f"Looking up “{query}”…"}
-                    # Dense retrieval over the PARSED chunks (text/semantic) — the
-                    # index the parsed store was built for. A fact lookup ("what fuel
-                    # does it take") is a TEXT match: ColEmbed ranks pages by VISUAL
-                    # similarity and misses the plain specs page, so fact questions
-                    # route here. Same (doc_id, page, score) shape as maxsim_search;
-                    # the agent then circles the answering line on the page shown.
-                    with tracing.retriever("find_answer", input=query,
-                                           metadata={"retriever": "parsed-dense", "k": int(top_k)}) as rsp:
-                        hits = retrieve_pages(query, parsed_store, doc_ids, top_k)
-                        if rsp is not None:
-                            rsp.update(output=[{"page": p, "score": round(float(s), 4)}
-                                               for _, p, s in hits])
-                    log.info("find_answer(%r) → %s", query, [(p, round(s, 3)) for _, p, s in hits])
-                    query_cache[qkey] = hits
-                if not hits:
-                    messages.append(
-                        minicpm_agent.tool_result_message(f"Looking up {query!r} found nothing.")
                     )
                     continue
                 yield from present_hits(hits, qkey)
