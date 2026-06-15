@@ -22,6 +22,14 @@ tags:
   - off-brand
   - sharing-is-caring
   - field-notes
+  - track:backyard
+  - sponsor:openbmb
+  - sponsor:nvidia
+  - sponsor:modal
+  - achievement:offgrid
+  - achievement:offbrand
+  - achievement:sharing
+  - achievement:fieldnotes
 ---
 # Repair Guy: Hands-Free Manual Navigator
 <p align="center">
