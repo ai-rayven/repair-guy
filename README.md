@@ -4,9 +4,9 @@
   <img src="app/frontend/assets/app_screenshot.png" alt="Repair Guy screenshot" width="700">
 </p>
 
-**▶️ [Watch the Demo Video](https://www.youtube.com/watch?v=PFUOHoVQUsI)** 
-**🐦 [Social Media Post](https://www.linkedin.com/posts/ray-martinez1_i-spent-the-past-week-working-on-the-build-ugcPost-7472117118377918464-X7Bb/?utm_source=share&utm_medium=member_desktop&rcm=ACoAAB255oEBSd0o7PIGG3mbO4BhG43UTxgV0u0)**  
-**📝 [Read the Field Notes Blog Post](https://raymartinez.dev/blog/repair-guy-field-notes/)**
+* ▶️ [Watch the Demo Video](https://www.youtube.com/watch?v=PFUOHoVQUsI)
+*🐦 [Social Media Post](https://www.linkedin.com/posts/ray-martinez1_i-spent-the-past-week-working-on-the-build-ugcPost-7472117118377918464-X7Bb/?utm_source=share&utm_medium=member_desktop&rcm=ACoAAB255oEBSd0o7PIGG3mbO4BhG43UTxgV0u0)
+*📝 [Read the Field Notes Blog Post](https://raymartinez.dev/blog/repair-guy-field-notes/)
 
 > Also live as a Hugging Face Space — see [`app/README.md`](app/README.md) for the Space card.
 
